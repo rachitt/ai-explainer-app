@@ -1,5 +1,6 @@
 from pedagogica_schemas.audio import AudioClip
 from pedagogica_schemas.base import BaseMessage
+from pedagogica_schemas.critique import ScriptCritique
 from pedagogica_schemas.curriculum import CurriculumPlan
 from pedagogica_schemas.intake import IntakeResult
 from pedagogica_schemas.job import JobState
@@ -20,6 +21,7 @@ SCHEMA_REGISTRY: dict[str, type[BaseMessage]] = {
     "ManimCode": ManimCode,
     "SceneSpec": SceneSpec,
     "Script": Script,
+    "ScriptCritique": ScriptCritique,
     "Storyboard": Storyboard,
     "SyncPlan": SyncPlan,
 }
