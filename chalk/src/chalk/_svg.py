@@ -21,26 +21,69 @@ def parse_svg_to_vmobjects(
     ns = _svg_ns(root.tag)
 
     viewbox = _parse_viewbox(root.get("viewBox", ""))
-    # Collect all path elements (handle both with and without namespace)
-    path_elements = root.findall(f".//{ns}path") if ns else root.findall(".//path")
+
+    def make_mob(curve_pts: np.ndarray) -> "VMobject":
+        m = VMobject(
+            stroke_color=stroke_color,
+            stroke_width=stroke_width,
+            fill_color=fill_color,
+            fill_opacity=fill_opacity,
+            stroke_opacity=1.0,
+        )
+        m.points = curve_pts
+        return m
+
+    # Build id → path-d map from <defs> (dvisvgm output pattern)
+    id_to_d: dict[str, str] = {}
+    defs_tag = f"{ns}defs" if ns else "defs"
+    path_tag = f"{ns}path" if ns else "path"
+    for defs in root.iter(defs_tag):
+        for elem in defs.iter(path_tag):
+            pid = elem.get("id", "")
+            d = elem.get("d", "")
+            if pid and d:
+                id_to_d[pid] = d
 
     result: list[VMobject] = []
-    for elem in path_elements:
-        d = elem.get("d", "")
+
+    # Process <use> elements (positions defs-referenced glyphs)
+    use_tag = f"{ns}use" if ns else "use"
+    for use in root.iter(use_tag):
+        href = (
+            use.get("{http://www.w3.org/1999/xlink}href")
+            or use.get("xlink:href")
+            or use.get("href")
+            or ""
+        )
+        ref_id = href.lstrip("#")
+        d = id_to_d.get(ref_id, "")
         if not d:
             continue
+        x = float(use.get("x", 0))
+        y = float(use.get("y", 0))
+        offset = np.array([x, y])
         for curve_pts in _d_to_cubic_chains(d, viewbox):
             if len(curve_pts) < 4:
                 continue
-            m = VMobject(
-                stroke_color=stroke_color,
-                stroke_width=stroke_width,
-                fill_color=fill_color,
-                fill_opacity=fill_opacity,
-                stroke_opacity=1.0,
-            )
-            m.points = curve_pts
-            result.append(m)
+            # Apply <use> translation in SVG space before normalizing
+            # Re-normalize with offset: shift raw points then normalize
+            raw = _unnormalize(curve_pts, viewbox) + offset
+            normalized = _normalize(raw, viewbox)
+            result.append(make_mob(normalized))
+
+    # Fallback: direct <path> elements not inside <defs>
+    if not result:
+        for elem in root.findall(f".//{path_tag}"):
+            if elem.get("id", "").startswith("g"):
+                continue  # skip defs paths
+            d = elem.get("d", "")
+            if not d:
+                continue
+            for curve_pts in _d_to_cubic_chains(d, viewbox):
+                if len(curve_pts) < 4:
+                    continue
+                result.append(make_mob(curve_pts))
+
     return result
 
 
@@ -63,15 +106,30 @@ def _d_to_cubic_chains(
     viewbox: tuple[float, float, float, float] | None,
 ) -> Generator[np.ndarray, None, None]:
     """Parse SVG path d attribute into chains of cubic Bezier control points."""
-    tokens = _tokenize_d(d)
+    token_list = list(_tokenize_d(d))
     curves: list[np.ndarray] = []
     pos = np.zeros(2)
     start = np.zeros(2)
     cmd = ""
+    i = 0
 
-    for tok in tokens:
+    def consume(n: int) -> list[float]:
+        nonlocal i
+        vals = []
+        while len(vals) < n and i < len(token_list):
+            tok = token_list[i]
+            if isinstance(tok, float):
+                vals.append(tok)
+                i += 1
+            else:
+                break
+        return vals
+
+    while i < len(token_list):
+        tok = token_list[i]
         if isinstance(tok, str):
             cmd = tok
+            i += 1
             if cmd in ("Z", "z"):
                 if not np.allclose(pos, start):
                     curves.append(_line_to_cubic(pos, start))
@@ -82,7 +140,16 @@ def _d_to_cubic_chains(
                     curves = []
             continue
 
-        coords: list[float] = list(tok)
+        # Implicit command repetition: tok is a float, re-use current cmd
+        # (after M/m, subsequent coords are treated as L/l)
+        argc = _CMD_ARGC.get(cmd, 0)
+        if argc == 0:
+            i += 1
+            continue
+
+        coords = consume(argc)
+        if len(coords) < argc:
+            break  # incomplete, skip
 
         if cmd in ("M", "m"):
             if curves:
@@ -97,9 +164,18 @@ def _d_to_cubic_chains(
             cmd = "l" if cmd == "m" else "L"
 
         elif cmd in ("L", "l"):
-            p1 = pos.copy()
             p2 = pos + np.array([coords[0], coords[1]]) if cmd == "l" else np.array(coords[:2])
-            curves.append(_line_to_cubic(p1, p2))
+            curves.append(_line_to_cubic(pos, p2))
+            pos = p2
+
+        elif cmd in ("H", "h"):
+            p2 = np.array([pos[0] + coords[0], pos[1]]) if cmd == "h" else np.array([coords[0], pos[1]])
+            curves.append(_line_to_cubic(pos, p2))
+            pos = p2
+
+        elif cmd in ("V", "v"):
+            p2 = np.array([pos[0], pos[1] + coords[0]]) if cmd == "v" else np.array([pos[0], coords[0]])
+            curves.append(_line_to_cubic(pos, p2))
             pos = p2
 
         elif cmd in ("C", "c"):
@@ -133,20 +209,46 @@ def _normalize(
     if viewbox is None:
         return pts
     vx, vy, vw, vh = viewbox
-    # Center
-    cx = (pts[:, 0] - vx - vw / 2) / vw * 14.0   # map to [-7, 7]
-    cy = -(pts[:, 1] - vy - vh / 2) / vh * 8.0    # flip y, map to [-4, 4]
+    cx = (pts[:, 0] - vx - vw / 2) / vw * 14.0
+    cy = -(pts[:, 1] - vy - vh / 2) / vh * 8.0
     return np.stack([cx, cy], axis=1)
 
 
+def _unnormalize(
+    pts: np.ndarray,
+    viewbox: tuple[float, float, float, float] | None,
+) -> np.ndarray:
+    """Inverse of _normalize: chalk world coords → SVG coords."""
+    if viewbox is None:
+        return pts
+    vx, vy, vw, vh = viewbox
+    sx = pts[:, 0] / 14.0 * vw + vx + vw / 2
+    sy = -pts[:, 1] / 8.0 * vh + vy + vh / 2
+    return np.stack([sx, sy], axis=1)
+
+
 _NUM_RE = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
-_CMD_RE = re.compile(r"[MmLlCcZz]")
+_CMD_RE = re.compile(r"[MmLlHhVvCcZz]")
+
+# Number of coordinate values consumed per command invocation
+_CMD_ARGC = {
+    "M": 2, "m": 2,
+    "L": 2, "l": 2,
+    "H": 1, "h": 1,
+    "V": 1, "v": 1,
+    "C": 6, "c": 6,
+    "Z": 0, "z": 0,
+}
 
 
-def _tokenize_d(d: str) -> Generator[str | tuple[float, ...], None, None]:
-    """Yield command strings or tuples of floats."""
+def _tokenize_d(d: str) -> Generator[str | float, None, None]:
+    """Yield command chars and individual floats."""
     i = 0
     while i < len(d):
+        while i < len(d) and d[i] in " ,\t\n\r":
+            i += 1
+        if i >= len(d):
+            break
         m = _CMD_RE.match(d, i)
         if m:
             yield m.group()
@@ -154,22 +256,7 @@ def _tokenize_d(d: str) -> Generator[str | tuple[float, ...], None, None]:
             continue
         m = _NUM_RE.match(d, i)
         if m:
-            # Collect all numbers belonging to this command invocation
-            nums: list[float] = []
-            while True:
-                nm = _NUM_RE.match(d, i)
-                if nm:
-                    nums.append(float(nm.group()))
-                    i = nm.end()
-                    # skip separators
-                    while i < len(d) and d[i] in " ,\t\n\r":
-                        i += 1
-                else:
-                    break
-            yield tuple(nums)  # type: ignore[misc]
+            yield float(m.group())
+            i = m.end()
             continue
-        # Skip whitespace/commas
-        if d[i] in " ,\t\n\r":
-            i += 1
-        else:
-            i += 1
+        i += 1  # skip unknown char
