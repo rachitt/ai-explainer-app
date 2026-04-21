@@ -46,7 +46,7 @@ def test_cli_render_to_mp4(demo_file: Path, tmp_path: Path):
     from chalk.cli import app
     out = tmp_path / "out.mp4"
     runner = CliRunner()
-    result = runner.invoke(app, ["render", str(demo_file), "--scene", "Demo", "-o", str(out), "--fps", "10"])
+    result = runner.invoke(app, [str(demo_file), "--scene", "Demo", "-o", str(out), "--fps", "10"])
     assert result.exit_code == 0, result.output
     assert out.exists()
     assert out.stat().st_size > 0
