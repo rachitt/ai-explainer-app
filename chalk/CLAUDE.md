@@ -1,0 +1,144 @@
+# chalk authoring rules
+
+Read this every session before writing a scene. These rules govern how scenes
+look and feel. Violations show up as amateur-looking output.
+
+## Import rule
+
+Never write raw hex colors, magic-number scales, or hardcoded zone y-coordinates
+inside a scene file. Import them:
+
+```python
+from chalk import (
+    Scene, Circle, Line, MathTex,
+    ShiftAnim, FadeIn, FadeOut,
+    PRIMARY, YELLOW, BLUE, GREEN, RED_FILL, GREY, TRACK,
+    SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL, SCALE_ANNOT,
+    ZONE_TOP, ZONE_CENTER, ZONE_BOTTOM,
+    next_to, place_in_zone,
+)
+```
+
+If a scene needs a color or a size that isn't in `style.py`, update `style.py`
+first — don't inline new values. One palette, one type scale, enforced.
+
+## Palette semantics
+
+| Constant   | Use for                                                          |
+|------------|------------------------------------------------------------------|
+| `PRIMARY`  | main text, primary math, the thing the viewer is looking at      |
+| `YELLOW`   | result, punchline, key quantity being computed toward            |
+| `BLUE`     | variable, moving thing, free input                               |
+| `GREEN`    | correct / target / "yes, this" confirmation                      |
+| `RED_FILL` | contrast / "not this" — **FILL OR STROKE ONLY**, never on text   |
+| `GREY`     | annotations, axis labels, secondary captions                     |
+| `TRACK`    | subtle reference lines (ground tracks, gridlines)                |
+
+Hard rules:
+- `RED_FILL` fails WCAG AA-large as text. Never pass it as `MathTex(color=RED_FILL)`.
+  For a red object's label, use `PRIMARY` — proximity communicates the pairing.
+- Green = correct, red = wrong. Never invert. These map to cultural expectations.
+- One semantic role per element per scene. If narrative needs to reclassify an
+  element, fade it out and reintroduce a new one.
+- At most **4 semantic slots active** in any scene. Above that, the color key
+  becomes the cognitive load.
+
+## Type scale
+
+Use the named tiers; don't invent sizes.
+
+| Tier             | Use for                                                      |
+|------------------|--------------------------------------------------------------|
+| `SCALE_DISPLAY`  | the main equation of a beat (at most one per rest frame)     |
+| `SCALE_BODY`     | secondary equations, substitutions                           |
+| `SCALE_LABEL`    | labels on objects (mass, axis, point labels)                 |
+| `SCALE_ANNOT`    | small annotations, captions, derived restatements            |
+
+`SCALE_MIN = 0.40` is the floor. If a layout seems to need smaller text, the
+layout is wrong — drop an element, not the scale.
+
+## Zones and safe area
+
+Frame is 14.2 × 8.0. Safe area: `SAFE_X ⊂ [-6.6, 6.6]`, `SAFE_Y ⊂ [-3.5, 3.5]`.
+
+Three bands:
+- `ZONE_TOP = (2.0, 3.5)` — beat title, law statement
+- `ZONE_CENTER = (-2.0, 2.0)` — main visual (balls, graphs, diagrams)
+- `ZONE_BOTTOM = (-3.5, -2.0)` — running step, result caption, payoff
+
+Use **at most 3 zones active** at any rest frame. Empty zones aren't waste —
+they are breathing room. Reading order is top → center → bottom.
+
+## Placement
+
+Prefer `next_to(mob, anchor, direction="UP"|"DOWN"|"LEFT"|"RIGHT", buff=0.3)`
+over raw `move_to(x, y)` math. This keeps relative spacing consistent across
+scenes and prevents the "label stuck while ball moves" failure mode.
+
+```python
+ball = Circle(radius=0.3, ...)
+ball.shift(-5.0, 1.0)
+label = MathTex(r"m = 1\,\mathrm{kg}", color=BLUE, scale=SCALE_LABEL)
+next_to(label, ball, direction="UP", buff=0.3)
+```
+
+## Reveal pattern (never pop in)
+
+Elements must fade in, not appear abruptly. After `self.add(...)`, immediately
+`self.play(FadeIn(...))`:
+
+```python
+self.add(law)
+self.play(FadeIn(law, run_time=0.7))
+self.wait(0.9)
+```
+
+Raw `self.add(mob)` without a following FadeIn is an anti-pattern — the viewer
+gets no visual cue that a new element arrived.
+
+## Motion pattern (labels ride with objects)
+
+If an object has a label (mass label, point label), the label moves WITH the
+object. Use parallel `ShiftAnim`:
+
+```python
+self.play(
+    ShiftAnim(ball,     dx=9.0, dy=0.0, run_time=3.0),
+    ShiftAnim(ball_lbl, dx=9.0, dy=0.0, run_time=3.0),
+    run_time=3.0,
+)
+```
+
+A label left behind while its object moved is a classic readability failure.
+
+## Pacing
+
+- FadeIn for a title: 0.6–0.8 s
+- FadeIn for a supporting element: 0.4–0.6 s
+- Hold after a reveal: ≥ 0.8 s before the next change
+- Motion run_time: 2.0–3.5 s for a comparison; 1.0–1.5 s for a simple slide
+- Final hold: ≥ 2.0 s so the payoff reads
+
+Don't cram acts together. Give the viewer time to read.
+
+## Canonical example
+
+See `chalk/examples/newton.py` — Newton's Second Law demonstrates every rule
+above: imported palette, named scales, zones, `next_to` (when we add one to
+newton later), fade-in reveals, `ShiftAnim` with parallel label motion.
+
+## Anti-patterns
+
+- Raw hex in scene code — use constants from `chalk.style`
+- `scale=0.37` or any non-tier scale — pick the right tier or update `style.py`
+- Label positioned with `move_to(x, y)` where y is a magic number — use `next_to`
+- `self.add(mob)` with no following `FadeIn` reveal
+- Label shifted separately from its parent object — use parallel `ShiftAnim`
+- `MathTex(color=RED_FILL)` — red fails text contrast; use `PRIMARY`
+- Four or more active semantic color slots per scene — trim
+
+## When a rule doesn't fit
+
+If a scene genuinely needs something the rules don't allow, update `style.py`,
+`layout.py`, or this CLAUDE.md **first**, in the same commit. The rules are the
+single source of truth; scenes are consumers.
