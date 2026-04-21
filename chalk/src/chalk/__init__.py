@@ -11,7 +11,7 @@ from chalk.style import (
     FRAME_WIDTH, FRAME_HEIGHT, SAFE_X, SAFE_Y,
     ZONE_TOP, ZONE_CENTER, ZONE_BOTTOM,
 )
-from chalk.layout import next_to, place_in_zone
+from chalk.layout import next_to, place_in_zone, labeled_box
 
 __all__ = [
     # Mobjects
@@ -29,5 +29,5 @@ __all__ = [
     "FRAME_WIDTH", "FRAME_HEIGHT", "SAFE_X", "SAFE_Y",
     "ZONE_TOP", "ZONE_CENTER", "ZONE_BOTTOM",
     # Layout helpers
-    "next_to", "place_in_zone",
+    "next_to", "place_in_zone", "labeled_box",
 ]

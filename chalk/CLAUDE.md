@@ -115,6 +115,28 @@ except those in `keep`.  Use `keep` when one element anchors multiple beats
 five beats without ever calling `self.clear()`.  By the end, the title is
 still visible underneath the payoff caption.  Don't do this.
 
+## Boxed labels (never hand-size a Rectangle around text)
+
+If you need a labeled box (resistor, tool, file, component), **use
+`labeled_box()`**.  Hand-sizing a Rectangle with hardcoded width/height and
+dropping a MathTex on top is the reason labels end up spilling out the sides.
+
+```python
+box, lbl = labeled_box(r"\mathrm{README}", color=GREY, scale=SCALE_LABEL)
+# Both are centered at origin; shift them as a pair.
+box.shift(3.5, 0.4)
+lbl.move_to(3.5, 0.4)
+self.add(box, lbl)
+```
+
+`labeled_box` measures the label's bbox and sizes the rectangle with padding
+so the text always fits. Optional args: `pad_x`, `pad_y`, `min_width`,
+`min_height`, `fill_color`, `fill_opacity`, `label_color`.
+
+**Anti-pattern:** `Rectangle(width=2.0, height=0.9)` + a separate
+`MathTex(r"\mathrm{README}")` placed at the same center.  One word change to
+the label and the text now extends past the box on either side.
+
 ## Reveal pattern (never pop in)
 
 Elements must fade in, not appear abruptly. After `self.add(...)`, immediately

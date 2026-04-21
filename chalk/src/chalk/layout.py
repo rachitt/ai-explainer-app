@@ -99,6 +99,47 @@ def next_to(
     return mob
 
 
+def labeled_box(
+    label_latex: str,
+    color: str,
+    scale: float = 0.55,
+    pad_x: float = 0.5,
+    pad_y: float = 0.35,
+    min_width:  float = 0.0,
+    min_height: float = 0.0,
+    fill_color:   str | None = None,
+    fill_opacity: float = 0.0,
+    stroke_width: float = 2.5,
+    label_color:  str | None = None,
+) -> tuple["VMobject", "VGroup"]:
+    """Build a Rectangle sized to fit the MathTex label plus padding.
+
+    Both the rectangle and the label are centered at origin; the caller is
+    responsible for shifting them together (or wrap them in a VGroup).
+
+    Returns (box, label).  Use `label_color=None` to inherit the box color.
+    """
+    from chalk.shapes import Rectangle
+    from chalk.tex import MathTex
+
+    lbl = MathTex(label_latex,
+                  color=(label_color if label_color is not None else color),
+                  scale=scale)
+    xmin, ymin, xmax, ymax = lbl.bbox()
+    w = max(xmax - xmin + 2 * pad_x, min_width)
+    h = max(ymax - ymin + 2 * pad_y, min_height)
+
+    box = Rectangle(
+        width=w, height=h, color=color,
+        fill_color=(fill_color if fill_color is not None else "#000000"),
+        fill_opacity=fill_opacity,
+        stroke_width=stroke_width,
+    )
+    # MathTex is created centered at origin; rectangle is centered at origin.
+    # So they overlay correctly. Caller shifts both to the target position.
+    return box, lbl
+
+
 def place_in_zone(
     mob: Target,
     zone: tuple[float, float],

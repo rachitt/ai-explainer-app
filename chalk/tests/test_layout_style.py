@@ -3,7 +3,7 @@ import numpy as np
 
 from chalk import (
     Circle, Square, VGroup,
-    next_to, place_in_zone,
+    next_to, place_in_zone, labeled_box,
     PRIMARY, YELLOW, BLUE, RED_FILL,
     SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL, SCALE_ANNOT, SCALE_MIN,
     ZONE_TOP, ZONE_CENTER, ZONE_BOTTOM,
@@ -59,6 +59,30 @@ def test_next_to_works_with_vgroup():
     # group top = 0.3; label bottom should be 0.3 + 0.4 = 0.7
     # (circle Bezier bbox extends slightly past radius due to handle length)
     assert abs(label.points[:, 1].min() - 0.7) < 0.01
+
+
+def test_labeled_box_wraps_label_with_padding():
+    box, lbl = labeled_box(r"\mathrm{README}", color=PRIMARY,
+                            scale=SCALE_LABEL, pad_x=0.4, pad_y=0.25)
+    # Label bbox must lie entirely inside box bbox
+    lxmin, lymin, lxmax, lymax = lbl.bbox()
+    bpts = box.points
+    bxmin, bxmax = bpts[:, 0].min(), bpts[:, 0].max()
+    bymin, bymax = bpts[:, 1].min(), bpts[:, 1].max()
+    assert lxmin >= bxmin - 1e-6
+    assert lxmax <= bxmax + 1e-6
+    assert lymin >= bymin - 1e-6
+    assert lymax <= bymax + 1e-6
+    # And the padding was applied (box is wider/taller than label)
+    assert (bxmax - bxmin) >= (lxmax - lxmin) + 2 * 0.4 - 1e-6
+    assert (bymax - bymin) >= (lymax - lymin) + 2 * 0.25 - 1e-6
+
+
+def test_labeled_box_respects_min_width():
+    box, lbl = labeled_box(r"X", color=PRIMARY, scale=SCALE_LABEL,
+                            min_width=3.0)
+    bpts = box.points
+    assert (bpts[:, 0].max() - bpts[:, 0].min()) >= 3.0 - 1e-6
 
 
 def test_place_in_zone_centers_vertically_in_zone():

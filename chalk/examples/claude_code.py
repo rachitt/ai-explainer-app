@@ -13,6 +13,7 @@ from chalk import (
     FadeIn,
     PRIMARY, YELLOW, BLUE, GREEN, GREY, TRACK,
     SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL, SCALE_ANNOT,
+    labeled_box,
 )
 
 
@@ -43,11 +44,11 @@ class ClaudeCode(Scene):
         self.clear()
 
         # ── Scene 2 — Prompt → agent ─────────────────────────────
-        prompt_box  = Rectangle(width=5.0, height=1.0,
-                                color=BLUE, stroke_width=2.5)
+        prompt_box, prompt_text = labeled_box(
+            r"\mathrm{fix\ the\ login\ bug}",
+            color=BLUE, scale=SCALE_LABEL, pad_x=0.5, pad_y=0.3,
+        )
         prompt_box.shift(-3.6, 0.0)
-        prompt_text = MathTex(r"\mathrm{fix\ the\ login\ bug}",
-                              color=BLUE, scale=SCALE_LABEL)
         prompt_text.move_to(-3.6, 0.0)
 
         agent2, agent2_lbl = _agent_with_label(x=3.0, y=0.0)
@@ -76,11 +77,12 @@ class ClaudeCode(Scene):
         agent3, agent3_lbl = _agent_with_label(x=-3.5, y=0.0)
 
         def make_tool(label: str, x: float, y: float) -> tuple:
-            box = Rectangle(width=1.9, height=0.85,
-                            color=PRIMARY, stroke_width=2.5)
+            box, lbl = labeled_box(
+                fr"\mathrm{{{label}}}",
+                color=PRIMARY, scale=SCALE_LABEL,
+                pad_x=0.45, pad_y=0.28, min_width=1.9,
+            )
             box.shift(x, y)
-            lbl = MathTex(fr"\mathrm{{{label}}}",
-                          color=PRIMARY, scale=SCALE_LABEL)
             lbl.move_to(x, y)
             return box, lbl
 
@@ -129,11 +131,13 @@ class ClaudeCode(Scene):
         row_y = 0.4
 
         def make_file(label: str, x: float, color: str = GREY) -> tuple:
-            box = Rectangle(width=2.4, height=0.9,
-                            color=color, stroke_width=2.2)
+            box, lbl = labeled_box(
+                fr"\mathrm{{{label}}}",
+                color=color, scale=SCALE_LABEL,
+                pad_x=0.4, pad_y=0.28, min_width=2.1,
+                stroke_width=2.2,
+            )
             box.shift(x, row_y)
-            lbl = MathTex(fr"\mathrm{{{label}}}",
-                          color=color, scale=SCALE_LABEL)
             lbl.move_to(x, row_y)
             return box, lbl
 
@@ -149,12 +153,12 @@ class ClaudeCode(Scene):
         self.wait(1.2)
 
         # auth.py goes green
-        auth_box_fixed = Rectangle(width=2.4, height=0.9,
-                                   color=GREEN, fill_color=GREEN,
-                                   fill_opacity=0.15, stroke_width=2.5)
+        auth_box_fixed, auth_lbl_fixed = labeled_box(
+            r"\mathrm{auth.py}", color=GREEN, scale=SCALE_LABEL,
+            pad_x=0.4, pad_y=0.28, min_width=2.1,
+            fill_color=GREEN, fill_opacity=0.15, stroke_width=2.5,
+        )
         auth_box_fixed.shift(-3.5, row_y)
-        auth_lbl_fixed = MathTex(r"\mathrm{auth.py}",
-                                 color=GREEN, scale=SCALE_LABEL)
         auth_lbl_fixed.move_to(-3.5, row_y)
 
         self.remove(auth_box, auth_lbl)
@@ -165,12 +169,12 @@ class ClaudeCode(Scene):
         self.wait(1.2)
 
         # tests go green with a "pass" caption beneath
-        test_box_pass = Rectangle(width=2.4, height=0.9,
-                                  color=GREEN, fill_color=GREEN,
-                                  fill_opacity=0.15, stroke_width=2.5)
+        test_box_pass, test_lbl_pass = labeled_box(
+            r"\mathrm{tests}", color=GREEN, scale=SCALE_LABEL,
+            pad_x=0.4, pad_y=0.28, min_width=2.1,
+            fill_color=GREEN, fill_opacity=0.15, stroke_width=2.5,
+        )
         test_box_pass.shift(0.0, row_y)
-        test_lbl_pass = MathTex(r"\mathrm{tests}",
-                                color=GREEN, scale=SCALE_LABEL)
         test_lbl_pass.move_to(0.0, row_y)
         pass_lbl = MathTex(r"\mathrm{pass}", color=GREEN, scale=SCALE_ANNOT)
         pass_lbl.move_to(0.0, row_y - 0.95)
