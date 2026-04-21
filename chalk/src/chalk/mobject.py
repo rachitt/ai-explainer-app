@@ -56,6 +56,23 @@ class VMobject(Mobject):
         self.stroke_color = _lerp_hex(self.stroke_color, other.stroke_color, alpha)
         self.fill_color = _lerp_hex(self.fill_color, other.fill_color, alpha)
 
+    def shift(self, dx: float, dy: float) -> "VMobject":
+        self.points = self.points + np.array([dx, dy])
+        return self
+
+    def scale(self, factor: float) -> "VMobject":
+        self.points = self.points * factor
+        return self
+
+    def set_color(self, color: str) -> "VMobject":
+        self.stroke_color = color
+        return self
+
+    def set_fill(self, color: str, opacity: float = 1.0) -> "VMobject":
+        self.fill_color = color
+        self.fill_opacity = opacity
+        return self
+
     def align_points(self, other: "VMobject") -> None:
         """Ensure equal curve count via de Casteljau subdivision at t=0.5."""
         n1 = len(self.points) // self.POINTS_PER_CURVE
