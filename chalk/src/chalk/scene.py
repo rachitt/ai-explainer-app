@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from chalk.camera import Camera2D
 from chalk.mobject import VMobject
 from chalk.renderer import CairoRenderer
+from chalk.vgroup import VGroup
 
 if TYPE_CHECKING:
     from chalk.animation import Animation
@@ -29,14 +30,22 @@ class Scene:
             self.fps = fps
         self._renderer.begin_scene(self.camera)
 
-    def add(self, *mobjects: VMobject) -> None:
+    def add(self, *mobjects: VMobject | VGroup) -> None:
         for m in mobjects:
-            if m not in self._mobjects:
+            if isinstance(m, VGroup):
+                for sub in m:
+                    if sub not in self._mobjects:
+                        self._mobjects.append(sub)
+            elif m not in self._mobjects:
                 self._mobjects.append(m)
 
-    def remove(self, *mobjects: VMobject) -> None:
+    def remove(self, *mobjects: VMobject | VGroup) -> None:
         for m in mobjects:
-            if m in self._mobjects:
+            if isinstance(m, VGroup):
+                for sub in m:
+                    if sub in self._mobjects:
+                        self._mobjects.remove(sub)
+            elif m in self._mobjects:
                 self._mobjects.remove(m)
 
     def play(self, *animations: "Animation", run_time: float | None = None) -> None:
