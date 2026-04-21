@@ -13,7 +13,7 @@ class Camera2D:
         frame_height: float = 8.0,
         pixel_width: int = 1920,
         pixel_height: int = 1080,
-        background_color: str = "#1a1a2e",
+        background_color: str = "#0E1116",
     ) -> None:
         self.frame_width = frame_width
         self.frame_height = frame_height
