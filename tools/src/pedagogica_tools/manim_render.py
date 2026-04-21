@@ -57,7 +57,9 @@ _CLASSIFIERS: tuple[tuple[re.Pattern[str], ErrorClassification], ...] = (
         re.compile(
             r"LaTeX Error|Emergency stop|latex\s*(compilation\s*)?failed|"
             r"pdflatex\b.*(fail|error)|Missing \\begin\{document\}|"
-            r"! Undefined control sequence",
+            r"! Undefined control sequence|"
+            r"No such file or directory.*'(latex|xelatex|pdflatex)'|"
+            r"FileNotFoundError.*'(latex|xelatex|pdflatex)'",
             re.IGNORECASE,
         ),
         "latex_error",

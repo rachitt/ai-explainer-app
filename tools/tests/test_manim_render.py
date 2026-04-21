@@ -64,6 +64,7 @@ def test_minimal_scene_renders(tmp_path: Path) -> None:
             class Minimal(Scene):
                 def construct(self):
                     self.add(Square())
+                    self.wait(1)
             """
         ).strip()
     )
