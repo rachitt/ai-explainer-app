@@ -2,6 +2,7 @@
 
 from pedagogica_schemas.audio import AudioClip, WordTiming
 from pedagogica_schemas.base import BaseMessage
+from pedagogica_schemas.critique import CritiqueIssue, ScriptCritique
 from pedagogica_schemas.curriculum import CurriculumPlan, LearningObjective, Misconception
 from pedagogica_schemas.intake import IntakeResult
 from pedagogica_schemas.job import JobState, StageStatus
@@ -19,6 +20,7 @@ __all__ = [
     "AudioClip",
     "BaseMessage",
     "CompileResult",
+    "CritiqueIssue",
     "CurriculumPlan",
     "ElementPlacement",
     "IntakeResult",
@@ -32,6 +34,7 @@ __all__ = [
     "SceneElement",
     "SceneSpec",
     "Script",
+    "ScriptCritique",
     "ScriptMarker",
     "StageStatus",
     "Storyboard",
