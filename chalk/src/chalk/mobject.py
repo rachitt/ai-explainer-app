@@ -57,12 +57,44 @@ class VMobject(Mobject):
         self.fill_color = _lerp_hex(self.fill_color, other.fill_color, alpha)
 
     def align_points(self, other: "VMobject") -> None:
-        """Ensure same point count. Day-1 stub: asserts equal; subdivision is week-2."""
-        if len(self.points) != len(other.points):
-            raise ValueError(
-                f"point count mismatch: {len(self.points)} vs {len(other.points)}; "
-                "align_points subdivision is week-2"
-            )
+        """Ensure equal curve count via de Casteljau subdivision at t=0.5."""
+        n1 = len(self.points) // self.POINTS_PER_CURVE
+        n2 = len(other.points) // self.POINTS_PER_CURVE
+        if n1 == n2:
+            return
+        if n1 < n2:
+            self.points = _subdivide_to(self.points, n2)
+        else:
+            other.points = _subdivide_to(other.points, n1)
+
+
+def _split_cubic(p: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Split cubic Bezier at t=0.5 via de Casteljau. p shape: (4, 2)."""
+    m01 = (p[0] + p[1]) / 2
+    m12 = (p[1] + p[2]) / 2
+    m23 = (p[2] + p[3]) / 2
+    m012 = (m01 + m12) / 2
+    m123 = (m12 + m23) / 2
+    center = (m012 + m123) / 2
+    return (
+        np.array([p[0], m01, m012, center]),
+        np.array([center, m123, m23, p[3]]),
+    )
+
+
+def _subdivide_to(points: np.ndarray, target_n: int) -> np.ndarray:
+    """Subdivide cubic Bezier chain to reach target_n curves."""
+    ppc = 4
+    curves = [points[i * ppc : (i + 1) * ppc] for i in range(len(points) // ppc)]
+    while len(curves) < target_n:
+        # Split the longest curve (by bounding box diagonal)
+        lengths = [
+            float(np.linalg.norm(c[-1] - c[0])) for c in curves
+        ]
+        idx = int(np.argmax(lengths))
+        left, right = _split_cubic(curves[idx])
+        curves = curves[:idx] + [left, right] + curves[idx + 1 :]
+    return np.concatenate(curves, axis=0)
 
 
 def _hex_to_rgb(hex_color: str) -> np.ndarray:

@@ -40,11 +40,19 @@ def test_interpolate_midpoint():
     np.testing.assert_allclose(a.points, mid)
 
 
-def test_align_points_mismatch_raises():
+def test_align_points_subdivides():
+    a = _make_vmobj(4)   # 1 curve
+    b = _make_vmobj(8)   # 2 curves
+    a.align_points(b)
+    assert len(a.points) == len(b.points)
+
+
+def test_align_points_equal_noop():
     a = _make_vmobj(8)
-    b = _make_vmobj(12)
-    with pytest.raises(ValueError, match="point count mismatch"):
-        a.align_points(b)
+    b = _make_vmobj(8)
+    orig_a = a.points.copy()
+    a.align_points(b)
+    np.testing.assert_allclose(a.points, orig_a)
 
 
 def test_lerp_hex_endpoints():

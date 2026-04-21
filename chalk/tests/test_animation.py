@@ -57,6 +57,18 @@ def test_transform_finish_leaves_target():
     np.testing.assert_allclose(c.points, target_pts, atol=1e-9)
 
 
+def test_transform_different_point_counts():
+    """Transform should work when shapes have different initial curve counts."""
+    from chalk.mobject import VMobject
+    a = VMobject(stroke_color="#ff0000")
+    a.points = np.zeros((4, 2))   # 1 curve
+    b = VMobject(stroke_color="#0000ff")
+    b.points = np.zeros((8, 2))   # 2 curves
+    t = Transform(a, b)
+    t.begin()
+    t.interpolate(0.5)  # must not raise
+
+
 def test_transform_color_lerp():
     from chalk.rate_funcs import linear
     c = Circle(color="#000000")
