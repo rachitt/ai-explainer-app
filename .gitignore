@@ -34,7 +34,9 @@ Thumbs.db
 cache/
 .cache/
 
-# Manim render scratch — final MP4s are copied into skill examples/ dirs
-# for review; the intermediate media/ tree is disposable.
+# Manim render scratch
 media/
 Tex/
+
+# Rendered skill examples — large binaries, not needed in repo
+pedagogica/skills/**/examples/*.mp4
