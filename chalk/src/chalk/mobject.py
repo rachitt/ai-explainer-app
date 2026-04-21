@@ -34,6 +34,11 @@ class VMobject(Mobject):
         self.fill_color = fill_color
         self.fill_opacity = fill_opacity
         self.stroke_opacity = stroke_opacity
+        # Multi-subpath glyphs (e.g. letters with counters like D, 4).
+        # When non-empty, renderer draws each subpath separately with evenodd fill rule.
+        # self.points holds the concatenation for bbox/compat.
+        self.subpaths: list[np.ndarray] = []
+        self.fill_rule: str = "winding"  # "winding" or "evenodd"
 
     def copy(self) -> Self:
         new = object.__new__(type(self))
@@ -43,6 +48,8 @@ class VMobject(Mobject):
         new.fill_color = self.fill_color
         new.fill_opacity = self.fill_opacity
         new.stroke_opacity = self.stroke_opacity
+        new.subpaths = [s.copy() for s in self.subpaths]
+        new.fill_rule = self.fill_rule
         return new  # type: ignore[return-value]
 
     def interpolate(self, other: "Mobject", alpha: float) -> None:
@@ -57,11 +64,14 @@ class VMobject(Mobject):
         self.fill_color = _lerp_hex(self.fill_color, other.fill_color, alpha)
 
     def shift(self, dx: float, dy: float) -> "VMobject":
-        self.points = self.points + np.array([dx, dy])
+        d = np.array([dx, dy])
+        self.points = self.points + d
+        self.subpaths = [s + d for s in self.subpaths]
         return self
 
     def scale(self, factor: float) -> "VMobject":
         self.points = self.points * factor
+        self.subpaths = [s * factor for s in self.subpaths]
         return self
 
     def set_color(self, color: str) -> "VMobject":

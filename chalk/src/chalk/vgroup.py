@@ -34,12 +34,35 @@ class VGroup:
 
     def scale(self, factor: float) -> "VGroup":
         for m in self.submobjects:
-            m.points = m.points * factor
+            m.scale(factor)
         return self
 
     def shift(self, delta_x: float, delta_y: float) -> "VGroup":
-        import numpy as np
-        d = np.array([delta_x, delta_y])
         for m in self.submobjects:
-            m.points = m.points + d
+            m.shift(delta_x, delta_y)
         return self
+
+    def bbox(self) -> "tuple[float, float, float, float]":
+        """Return (xmin, ymin, xmax, ymax) bounding box of all submobjects."""
+        import numpy as np
+        if not self.submobjects:
+            return (0.0, 0.0, 0.0, 0.0)
+        all_pts = np.vstack([m.points for m in self.submobjects if len(m.points) > 0])
+        return (float(all_pts[:, 0].min()), float(all_pts[:, 1].min()),
+                float(all_pts[:, 0].max()), float(all_pts[:, 1].max()))
+
+    @property
+    def height(self) -> float:
+        xmin, ymin, xmax, ymax = self.bbox()
+        return ymax - ymin
+
+    @property
+    def width(self) -> float:
+        xmin, ymin, xmax, ymax = self.bbox()
+        return xmax - xmin
+
+    def move_to(self, x: float, y: float) -> "VGroup":
+        """Shift so bounding box center lands at (x, y)."""
+        xmin, ymin, xmax, ymax = self.bbox()
+        cx, cy = (xmin + xmax) / 2, (ymin + ymax) / 2
+        return self.shift(x - cx, y - cy)

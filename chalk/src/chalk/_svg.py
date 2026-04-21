@@ -104,23 +104,30 @@ def parse_svg_to_vmobjects(
     cx = (all_pts[:, 0].min() + all_pts[:, 0].max()) / 2
     cy = (all_pts[:, 1].min() + all_pts[:, 1].max()) / 2
 
+    def _to_world(pts: np.ndarray) -> np.ndarray:
+        centered = pts - np.array([cx, cy])
+        return np.stack([
+            centered[:, 0] * PT_TO_WORLD,
+            -centered[:, 1] * PT_TO_WORLD,
+        ], axis=1)
+
     result: list[VMobject] = []
     for group in all_groups:
-        for pts in group:
-            centered = pts - np.array([cx, cy])
-            world = np.stack([
-                centered[:, 0] * PT_TO_WORLD,
-                -centered[:, 1] * PT_TO_WORLD,  # flip y: SVG y-down → world y-up
-            ], axis=1)
-            m = VMobject(
-                stroke_color=stroke_color,
-                stroke_width=stroke_width,
-                fill_color=fill_color,
-                fill_opacity=fill_opacity,
-                stroke_opacity=1.0,
-            )
-            m.points = world
-            result.append(m)
+        if not group:
+            continue
+        world_subpaths = [_to_world(pts) for pts in group]
+        m = VMobject(
+            stroke_color=stroke_color,
+            stroke_width=stroke_width,
+            fill_color=fill_color,
+            fill_opacity=fill_opacity,
+            stroke_opacity=1.0,
+        )
+        # Concatenate for bbox / point-count compat; subpaths drives rendering.
+        m.points = np.concatenate(world_subpaths, axis=0)
+        m.subpaths = world_subpaths
+        m.fill_rule = "evenodd"
+        result.append(m)
     return result
 
 

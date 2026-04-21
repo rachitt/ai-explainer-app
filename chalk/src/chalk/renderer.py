@@ -58,22 +58,31 @@ class CairoRenderer:
     def _draw_vmobject(self, ctx: object, camera: Camera2D, mob: VMobject) -> None:
         import cairo
 
-        pts_px = camera.world_to_pixel(mob.points)
-        n = len(pts_px)
+        subpaths = mob.subpaths if mob.subpaths else [mob.points]
 
         ctx.new_path()
-        ctx.move_to(float(pts_px[0, 0]), float(pts_px[0, 1]))
+        for subpath in subpaths:
+            pts_px = camera.world_to_pixel(subpath)
+            n = len(pts_px)
+            if n < 4:
+                continue
+            ctx.move_to(float(pts_px[0, 0]), float(pts_px[0, 1]))
+            i = 0
+            while i + 3 < n:
+                ctx.curve_to(
+                    float(pts_px[i + 1, 0]), float(pts_px[i + 1, 1]),
+                    float(pts_px[i + 2, 0]), float(pts_px[i + 2, 1]),
+                    float(pts_px[i + 3, 0]), float(pts_px[i + 3, 1]),
+                )
+                i += 4
+            ctx.close_path()
 
-        i = 0
-        while i + 3 < n:
-            ctx.curve_to(
-                float(pts_px[i + 1, 0]), float(pts_px[i + 1, 1]),
-                float(pts_px[i + 2, 0]), float(pts_px[i + 2, 1]),
-                float(pts_px[i + 3, 0]), float(pts_px[i + 3, 1]),
-            )
-            i += 4
-
-        ctx.close_path()
+        fill_rule = (
+            cairo.FILL_RULE_EVEN_ODD
+            if mob.fill_rule == "evenodd"
+            else cairo.FILL_RULE_WINDING
+        )
+        ctx.set_fill_rule(fill_rule)
 
         if mob.fill_opacity > 0:
             r, g, b, a = camera.hex_to_rgba(mob.fill_color, mob.fill_opacity)
@@ -84,3 +93,4 @@ class CairoRenderer:
         ctx.set_source_rgba(r, g, b, a)
         ctx.set_line_width(mob.stroke_width)
         ctx.stroke()
+        ctx.set_fill_rule(cairo.FILL_RULE_WINDING)
