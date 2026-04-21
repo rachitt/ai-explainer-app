@@ -118,10 +118,56 @@ def manim_render(
 
 
 @app.command("elevenlabs-tts")
-def elevenlabs_tts(text_path: str, voice_id: str, output: str) -> None:
-    """Call ElevenLabs Speech-Synthesis-with-Timestamps; save mp3 + timings."""
-    typer.echo(f"[stub] elevenlabs-tts {text_path} voice={voice_id} -> {output}")
-    raise typer.Exit(code=2)
+def elevenlabs_tts(
+    text_path: str = typer.Argument(..., help="Plain-text file containing narration."),
+    voice_id: str = typer.Argument(..., help="ElevenLabs voice ID."),
+    output: str = typer.Argument(..., help="Output .mp3 path."),
+    scene_id: str = typer.Option(..., "--scene-id", help="Scene id for AudioClip."),
+    result_json: str | None = typer.Option(
+        None, "--result-json", help="Where to write AudioClip JSON."
+    ),
+    model_id: str = typer.Option(
+        "eleven_multilingual_v2", "--model-id", help="ElevenLabs model ID."
+    ),
+    char_quota: int = typer.Option(
+        10_000, "--char-quota", help="Max chars before refusing (cost guard)."
+    ),
+    stability: float = typer.Option(0.5, "--stability"),
+    similarity_boost: float = typer.Option(0.75, "--similarity-boost"),
+) -> None:
+    """Call ElevenLabs Speech-Synthesis-with-Timestamps; save mp3 + AudioClip JSON.
+
+    Exit codes: 0 = ok, 1 = API / IO error, 2 = usage error.
+    """
+    from pedagogica_tools.elevenlabs_tts import TtsOptions, synthesize
+
+    text = Path(text_path).read_text(encoding="utf-8").strip()
+    if not text:
+        typer.echo(f"empty text file: {text_path}", err=True)
+        raise typer.Exit(code=2)
+
+    try:
+        clip = synthesize(
+            text=text,
+            voice_id=voice_id,
+            output_mp3_path=output,
+            scene_id=scene_id,
+            options=TtsOptions(
+                model_id=model_id,
+                char_quota=char_quota,
+                stability=stability,
+                similarity_boost=similarity_boost,
+            ),
+            result_json_path=result_json,
+        )
+    except (EnvironmentError, ValueError) as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
+    except Exception as e:  # noqa: BLE001
+        typer.echo(f"TTS failed: {e}", err=True)
+        raise typer.Exit(code=1) from e
+
+    typer.echo(clip.model_dump_json(indent=2))
 
 
 @app.command("ffmpeg-mux")
