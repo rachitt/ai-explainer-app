@@ -1,0 +1,142 @@
+# Manim error catalog — machine-readable view of SKILL.md §2.
+# Consumed by the orchestrator to classify stderr, and by manim-repair to
+# look up fixes. Keep entries synchronized with the prose catalog in
+# SKILL.md on every version bump.
+
+version: 0.1.0
+entries:
+  - id: latex-missing-package
+    classification: latex_error
+    fingerprint: "LaTeX Error: File '[\\w\\-]+\\.sty' not found"
+    symptom: >
+      Manim raises RuntimeError during LaTeX-to-DVI conversion; the underlying
+      .log file names a missing .sty or .cls file.
+    cause: >
+      basictex install does not include every package Manim's template pulls in
+      (xcolor, relsize, doublestroke, standalone, etc.).
+    fix: >
+      Install the missing TeX package with tlmgr. Do not remove the MathTex
+      call — that masks the environment problem.
+    fix_command: "sudo tlmgr install <missing_package>"
+    needs_environment_fix: true
+    repair_without_environment: false
+
+  - id: axes-get-graph-renamed
+    classification: api_version_error
+    fingerprint: "get_graph|getter\\(\\) got an unexpected keyword argument"
+    symptom: >
+      TypeError from an internal `getter` (0.19.x, where `.get_graph` is
+      intercepted by attribute-dispatch and returned as a 0-arg getter) or
+      AttributeError on 'get_graph' (older / newer versions). Same upstream
+      cause either way.
+    cause: >
+      ManimCE renamed Axes.get_graph to Axes.plot in 0.18. Pre-0.18 examples
+      and ManimGL code still use the old name.
+    fix: "Rename .get_graph( → .plot( at the call site. Signatures are compatible."
+    patch_before: "curve = ax.get_graph(lambda x: x**2, color=BLUE)"
+    patch_after: "curve = ax.plot(lambda x: x**2, color=BLUE)"
+
+  - id: transform-missing-shape
+    classification: type_error
+    fingerprint: "VMobject has no points|Transform.*shape.*mismatch|ReplacementTransform.*empty"
+    symptom: "ValueError: VMobject has no points from inside Transform."
+    cause: >
+      The source of a Transform was never added to the scene (no Create, Write,
+      or explicit add), so it has no rendered geometry when the interpolation
+      begins.
+    fix: >
+      Either self.add(source) or animate it in with Create/Write before the
+      Transform call.
+    patch_before: |
+      circle = Circle(); square = Square()
+      self.play(Transform(circle, square))   # circle has no points
+    patch_after: |
+      circle = Circle(); square = Square()
+      self.play(Create(circle))
+      self.play(Transform(circle, square))
+
+  - id: c2p-on-raw-coordinates
+    classification: geometry_error
+    fingerprint: "# no stderr; detected by layout post-check"
+    symptom: >
+      Code compiles and renders but the rendered frame shows a dot or label
+      off-axes, clipped, or floating in the wrong place.
+    cause: >
+      Raw scene coordinates were used for a mobject that should be anchored
+      to the Axes' data coordinate system.
+    fix: "Route every Axes-anchored placement through ax.c2p(data_x, data_y)."
+    patch_before: "dot = Dot([2, 4, 0])"
+    patch_after: "dot = Dot(ax.c2p(2, 4))"
+
+  - id: updater-leaks-past-scene
+    classification: scene_structure_error
+    fingerprint: "# no stderr; detected by final-frame diff"
+    symptom: >
+      Final frame of rendered mp4 shows subtle jitter — a tangent line flickers,
+      a counter wobbles, a dot shimmers. Only visible on the last frame.
+    cause: >
+      Mobjects with .add_updater or always_redraw remain live during the final
+      self.wait; small numerical noise in a driving ValueTracker produces
+      visible frame-to-frame drift.
+    fix: >
+      Call .clear_updaters() on every updater-bound mobject before the scene's
+      final self.wait.
+    patch_before: |
+      self.play(x.animate.set_value(3), run_time=3)
+      self.wait(0.5)
+    patch_after: |
+      self.play(x.animate.set_value(3), run_time=3)
+      dot.clear_updaters()
+      tangent.clear_updaters()
+      readout.clear_updaters()
+      self.wait(0.5)
+
+  - id: mathtex-raw-string-missing
+    classification: latex_error
+    fingerprint: "SyntaxError: \\(unicode error\\)|KeyError.*\\\\[a-z]"
+    symptom: >
+      Python SyntaxError or KeyError before LaTeX runs; or LaTeX runs but the
+      rendered text has stray characters (form-feed where \\f was intended).
+    cause: >
+      LaTeX source passed as a regular Python string. Python interprets \\f as
+      form feed, \\n as newline, etc.
+    fix: "Prefix every LaTeX-containing string with r."
+    patch_before: 'eq = MathTex("\\frac{d}{dx}")'
+    patch_after: 'eq = MathTex(r"\\frac{d}{dx}")'
+
+  - id: transform-matching-tex-identical
+    classification: type_error
+    fingerprint: "TransformMatchingTex.*no matching"
+    symptom: >
+      TransformMatchingTex produces no visible animation and logs a warning
+      about no matching substrings.
+    cause: >
+      Source and target compile to identical LaTeX; the matcher finds nothing
+      changed, so nothing animates.
+    fix: >
+      Use ReplacementTransform if the intent is a re-draw (colour change only);
+      check that target is actually different if a change was intended.
+    patch_before: |
+      a = MathTex(r"x^2"); b = MathTex(r"x^2")
+      self.play(TransformMatchingTex(a, b))   # no-op
+    patch_after: |
+      a = MathTex(r"x^2"); b = MathTex(r"x^2")
+      self.play(ReplacementTransform(a, b))
+
+  - id: plot-discontinuity-crash
+    classification: geometry_error
+    fingerprint: "RuntimeWarning: divide by zero|ZeroDivisionError.*plot"
+    symptom: >
+      ax.plot on 1/x or similar over a range crossing the singularity crashes
+      or draws a spurious near-vertical line across the discontinuity.
+    cause: >
+      Manim samples evenly across x_range; samples at or near the singularity
+      produce NaN / huge values that either crash or render as line segments.
+    fix: >
+      Split the plot into two pieces that do not include the singularity, or
+      pass discontinuities=[...] + use_smoothing=False.
+    patch_before: "curve = ax.plot(lambda x: 1/x, x_range=[-2, 2])"
+    patch_after: |
+      left = ax.plot(lambda x: 1/x, x_range=[-2, -0.1])
+      right = ax.plot(lambda x: 1/x, x_range=[0.1, 2])
+      curve = VGroup(left, right)
