@@ -33,3 +33,8 @@ Thumbs.db
 # local caches
 cache/
 .cache/
+
+# Manim render scratch — final MP4s are copied into skill examples/ dirs
+# for review; the intermediate media/ tree is disposable.
+media/
+Tex/
