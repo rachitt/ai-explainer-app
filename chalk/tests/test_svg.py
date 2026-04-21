@@ -1,5 +1,6 @@
 import numpy as np
-from chalk._svg import parse_svg_to_vmobjects, _d_to_cubic_chains, _line_to_cubic
+import pytest
+from chalk._svg import parse_svg_to_vmobjects, _d_to_raw_cubic, _line_to_cubic
 
 
 SIMPLE_SVG = """\
@@ -19,7 +20,6 @@ CUBIC_SVG = """\
 def test_parse_simple_square():
     mobs = parse_svg_to_vmobjects(SIMPLE_SVG)
     assert len(mobs) >= 1
-    # 4 line segments → 4 cubic curves → 16 points
     assert mobs[0].points.shape[1] == 2
     assert len(mobs[0].points) % 4 == 0
 
@@ -31,6 +31,30 @@ def test_parse_cubic():
     assert mobs[0].points.shape == (8, 2)
 
 
+def test_centered_at_origin():
+    """parse_svg_to_vmobjects centers the result at origin."""
+    mobs = parse_svg_to_vmobjects(SIMPLE_SVG)
+    all_pts = np.vstack([m.points for m in mobs])
+    cx = (all_pts[:, 0].min() + all_pts[:, 0].max()) / 2
+    cy = (all_pts[:, 1].min() + all_pts[:, 1].max()) / 2
+    assert abs(cx) < 0.01
+    assert abs(cy) < 0.01
+
+
+def test_raw_cubic_square_path():
+    d = "M 10 10 L 90 10 L 90 90 L 10 90 Z"
+    chains = list(_d_to_raw_cubic(d))
+    assert len(chains) == 1
+    assert len(chains[0]) % 4 == 0
+
+
+def test_raw_cubic_open_path():
+    d = "M 0 0 C 1 2 3 4 5 0"
+    chains = list(_d_to_raw_cubic(d))
+    assert len(chains) == 1
+    assert chains[0].shape == (4, 2)
+
+
 def test_line_to_cubic_collinear():
     p0 = np.array([0.0, 0.0])
     p1 = np.array([3.0, 0.0])
@@ -38,7 +62,6 @@ def test_line_to_cubic_collinear():
     assert c.shape == (4, 2)
     np.testing.assert_allclose(c[0], p0)
     np.testing.assert_allclose(c[3], p1)
-    # handles should be collinear
     np.testing.assert_allclose(c[1, 1], 0.0, atol=1e-10)
     np.testing.assert_allclose(c[2, 1], 0.0, atol=1e-10)
 
