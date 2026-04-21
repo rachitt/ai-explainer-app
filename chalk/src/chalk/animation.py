@@ -1,11 +1,18 @@
 """Animation protocol and Transform implementation."""
 from __future__ import annotations
 
-from typing import Callable, Protocol, Sequence
+from typing import Callable, Protocol, Sequence, Union
 import numpy as np
 
 from chalk.mobject import VMobject
 from chalk.rate_funcs import smooth
+from chalk.vgroup import VGroup
+
+
+def _iter_vmobjects(target: Union[VMobject, VGroup]) -> list[VMobject]:
+    if isinstance(target, VGroup):
+        return list(target.submobjects)
+    return [target]
 
 
 class Animation(Protocol):
@@ -71,3 +78,120 @@ class Transform:
         self.source.stroke_width = self.target.stroke_width
         self.source.fill_opacity = self.target.fill_opacity
         self.source.stroke_opacity = self.target.stroke_opacity
+
+
+class ShiftAnim:
+    """Translate VMobject or VGroup by (dx, dy) over run_time."""
+
+    def __init__(
+        self,
+        target: Union[VMobject, VGroup],
+        dx: float,
+        dy: float,
+        run_time: float = 1.0,
+        rate_func: Callable[[float], float] = smooth,
+    ) -> None:
+        self.target = target
+        self.dx = dx
+        self.dy = dy
+        self.run_time = run_time
+        self.rate_func = rate_func
+        self._mobs: list[VMobject] = []
+        self._snap_points: list[np.ndarray] = []
+        self._snap_subpaths: list[list[np.ndarray]] = []
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return self._mobs
+
+    def begin(self) -> None:
+        self._mobs = _iter_vmobjects(self.target)
+        self._snap_points = [m.points.copy() for m in self._mobs]
+        self._snap_subpaths = [[s.copy() for s in m.subpaths] for m in self._mobs]
+
+    def interpolate(self, alpha: float) -> None:
+        eased = self.rate_func(alpha)
+        d = np.array([self.dx * eased, self.dy * eased])
+        for m, pts, subs in zip(self._mobs, self._snap_points, self._snap_subpaths):
+            m.points = pts + d
+            m.subpaths = [s + d for s in subs]
+
+    def finish(self) -> None:
+        self.interpolate(1.0)
+
+
+class FadeIn:
+    """Fade a VMobject or VGroup from 0 opacity to its current opacity over run_time."""
+
+    def __init__(
+        self,
+        target: Union[VMobject, VGroup],
+        run_time: float = 0.5,
+        rate_func: Callable[[float], float] = smooth,
+    ) -> None:
+        self.target = target
+        self.run_time = run_time
+        self.rate_func = rate_func
+        self._mobs: list[VMobject] = []
+        self._target_fill: list[float] = []
+        self._target_stroke: list[float] = []
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return self._mobs
+
+    def begin(self) -> None:
+        self._mobs = _iter_vmobjects(self.target)
+        self._target_fill = [m.fill_opacity for m in self._mobs]
+        self._target_stroke = [m.stroke_opacity for m in self._mobs]
+        for m in self._mobs:
+            m.fill_opacity = 0.0
+            m.stroke_opacity = 0.0
+
+    def interpolate(self, alpha: float) -> None:
+        eased = self.rate_func(alpha)
+        for m, fo, so in zip(self._mobs, self._target_fill, self._target_stroke):
+            m.fill_opacity = eased * fo
+            m.stroke_opacity = eased * so
+
+    def finish(self) -> None:
+        for m, fo, so in zip(self._mobs, self._target_fill, self._target_stroke):
+            m.fill_opacity = fo
+            m.stroke_opacity = so
+
+
+class FadeOut:
+    """Fade a VMobject or VGroup from current opacity to 0 over run_time."""
+
+    def __init__(
+        self,
+        target: Union[VMobject, VGroup],
+        run_time: float = 0.5,
+        rate_func: Callable[[float], float] = smooth,
+    ) -> None:
+        self.target = target
+        self.run_time = run_time
+        self.rate_func = rate_func
+        self._mobs: list[VMobject] = []
+        self._start_fill: list[float] = []
+        self._start_stroke: list[float] = []
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return self._mobs
+
+    def begin(self) -> None:
+        self._mobs = _iter_vmobjects(self.target)
+        self._start_fill = [m.fill_opacity for m in self._mobs]
+        self._start_stroke = [m.stroke_opacity for m in self._mobs]
+
+    def interpolate(self, alpha: float) -> None:
+        eased = self.rate_func(alpha)
+        for m, fo, so in zip(self._mobs, self._start_fill, self._start_stroke):
+            m.fill_opacity = (1.0 - eased) * fo
+            m.stroke_opacity = (1.0 - eased) * so
+
+    def finish(self) -> None:
+        for m in self._mobs:
+            m.fill_opacity = 0.0
+            m.stroke_opacity = 0.0

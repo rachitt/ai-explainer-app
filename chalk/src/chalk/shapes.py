@@ -75,6 +75,30 @@ class Circle(VMobject):
         self.points = _circle_points(radius)
 
 
+class Line(VMobject):
+    """Straight line segment from (x0, y0) to (x1, y1)."""
+
+    def __init__(
+        self,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        color: str = "#9AA0A6",
+        stroke_width: float = 2.0,
+        stroke_opacity: float = 1.0,
+    ) -> None:
+        super().__init__(
+            stroke_color=color,
+            stroke_width=stroke_width,
+            fill_color="#000000",
+            fill_opacity=0.0,
+            stroke_opacity=stroke_opacity,
+        )
+        p0 = np.array(start, dtype=float)
+        p1 = np.array(end, dtype=float)
+        d = p1 - p0
+        self.points = np.array([p0, p0 + d / 3, p0 + 2 * d / 3, p1])
+
+
 class Square(VMobject):
     def __init__(
         self,
