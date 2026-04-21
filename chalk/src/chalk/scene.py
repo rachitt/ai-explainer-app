@@ -74,6 +74,32 @@ class Scene:
             frame = self._renderer.render_frame(self._mobjects)
             self._sink.write(frame)
 
+    def clear(self, run_time: float = 0.5, keep: list | None = None) -> None:
+        """Fade out every currently-added mobject (except those in `keep`) and
+        remove them from the scene.  Use this between beats so elements don't
+        pile up across acts.
+
+        `keep` may contain VMobjects and/or VGroups.  For a VGroup, all of its
+        submobjects are preserved — matching the Scene.add()/remove() semantics
+        that expand VGroups into their constituent VMobjects on insertion.
+        """
+        from chalk.animation import FadeOut
+        keep_ids: set[int] = set()
+        for k in (keep or []):
+            if isinstance(k, VGroup):
+                for sub in k.submobjects:
+                    keep_ids.add(id(sub))
+            else:
+                keep_ids.add(id(k))
+        to_fade = [m for m in self._mobjects if id(m) not in keep_ids]
+        if not to_fade:
+            return
+        self.play(*[FadeOut(m, run_time=run_time) for m in to_fade],
+                  run_time=run_time)
+        for m in to_fade:
+            if m in self._mobjects:
+                self._mobjects.remove(m)
+
     def construct(self) -> None:
         """Override in subclasses to define the animation."""
         pass

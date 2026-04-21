@@ -82,6 +82,39 @@ label = MathTex(r"m = 1\,\mathrm{kg}", color=BLUE, scale=SCALE_LABEL)
 next_to(label, ball, direction="UP", buff=0.3)
 ```
 
+## Scene-transition pattern (clear between beats)
+
+**This is the most important rule.** A video is a sequence of beats, not one
+infinite canvas. When a beat ends and the next begins, the screen must reset.
+Otherwise every element from every beat piles up on screen.
+
+Use `self.clear()` at the end of every beat (except the last):
+
+```python
+# ── Beat 1: title ────────────────────────────
+self.add(title)
+self.play(FadeIn(title, run_time=0.8))
+self.wait(2.0)
+self.clear()
+
+# ── Beat 2: the demo ─────────────────────────
+self.add(circle, label)
+self.play(FadeIn(circle, run_time=0.6), FadeIn(label, run_time=0.6))
+# ... beat plays ...
+self.clear()
+
+# ── Beat 3: the result ───────────────────────
+...
+```
+
+`self.clear(run_time=0.5, keep=[persistent_mob])` fades out every added mobject
+except those in `keep`.  Use `keep` when one element anchors multiple beats
+(e.g. an agent circle that stays while tools fan out around it).
+
+**Anti-pattern:** keep calling `self.add()` and `self.play(FadeIn(...))` across
+five beats without ever calling `self.clear()`.  By the end, the title is
+still visible underneath the payoff caption.  Don't do this.
+
 ## Reveal pattern (never pop in)
 
 Elements must fade in, not appear abruptly. After `self.add(...)`, immediately
