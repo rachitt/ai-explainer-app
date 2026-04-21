@@ -76,7 +76,7 @@ def _storyboard() -> Storyboard:
     return Storyboard(
         **_base(),
         topic="chain rule",
-        total_duration_seconds=180.0,
+        total_duration_seconds=15.0,
         scenes=[
             SceneBeat(
                 scene_id="scene_01",

@@ -7,12 +7,14 @@ from pedagogica_schemas.intake import IntakeResult
 from pedagogica_schemas.job import JobState, StageStatus
 from pedagogica_schemas.layout import ElementPlacement, LayoutResult
 from pedagogica_schemas.manim_code import CompileResult, ManimCode
+from pedagogica_schemas.registry import SCHEMA_REGISTRY
 from pedagogica_schemas.scene_spec import SceneAnimation, SceneElement, SceneSpec
 from pedagogica_schemas.script import Script, ScriptMarker
 from pedagogica_schemas.storyboard import SceneBeat, Storyboard
 from pedagogica_schemas.sync import AnimationTiming, SyncPlan
 
 __all__ = [
+    "SCHEMA_REGISTRY",
     "AnimationTiming",
     "AudioClip",
     "BaseMessage",
