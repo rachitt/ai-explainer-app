@@ -1,0 +1,21 @@
+[project]
+name = "chalk"
+version = "0.0.1"
+description = "Manim-inspired 2D/3D educational animation library"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0,<3",
+    "pycairo>=1.26,<2",
+    "pyglet>=2.0,<3",
+    "typer>=0.12",
+]
+
+[project.scripts]
+chalk = "chalk.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chalk"]

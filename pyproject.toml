@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["schemas", "tools"]
+members = ["schemas", "tools", "chalk"]
 
 [dependency-groups]
 dev = [
