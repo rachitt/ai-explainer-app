@@ -1,0 +1,56 @@
+{
+  "description": "SyncPlan output for scene_02 given example_01_marked_script.json and an ElevenLabs timing.json with per-word start/end seconds. Demonstrates (a) wait_after_seconds = 0 where an authored pause follows the anchored word, (b) 0.15 s visual beats elsewhere, (c) 0.3 s at the last animation, and (d) drift absorbed by extending wait_after_seconds rather than leaving a non-zero drift_seconds in the plan.",
+  "scene_id": "scene_02",
+  "timings": [
+    {
+      "animation_id": "anim.create.axes",
+      "start_seconds": 0.00,
+      "run_time_seconds": 0.60,
+      "wait_after_seconds": 0.15,
+      "anchored_word_indices": []
+    },
+    {
+      "animation_id": "anim.create.parab",
+      "start_seconds": 0.75,
+      "run_time_seconds": 1.20,
+      "wait_after_seconds": 0.15,
+      "anchored_word_indices": [0]
+    },
+    {
+      "animation_id": "anim.write.secant",
+      "start_seconds": 2.10,
+      "run_time_seconds": 0.90,
+      "wait_after_seconds": 0.00,
+      "anchored_word_indices": [5]
+    },
+    {
+      "animation_id": "anim.transform.sec2tan",
+      "start_seconds": 3.00,
+      "run_time_seconds": 1.60,
+      "wait_after_seconds": 0.40,
+      "anchored_word_indices": [9]
+    },
+    {
+      "animation_id": "anim.highlight.slope",
+      "start_seconds": 5.00,
+      "run_time_seconds": 0.60,
+      "wait_after_seconds": 0.00,
+      "anchored_word_indices": [27]
+    },
+    {
+      "animation_id": "anim.write.derivative_label",
+      "start_seconds": 24.80,
+      "run_time_seconds": 1.40,
+      "wait_after_seconds": 0.80,
+      "anchored_word_indices": [52]
+    }
+  ],
+  "total_scene_duration": 27.00,
+  "audio_offset_seconds": 0.10,
+  "drift_seconds": 0.08,
+  "notes": [
+    "wait_after_seconds = 0.40 on anim.transform.sec2tan matches the authored micro-pause at word 9 (0.4 s). The authored pause supersedes ElevenLabs' natural period pause.",
+    "wait_after_seconds = 0.80 on the final animation matches the landing pause at word 51; the 1.5 s scene-gap is added outside this plan at the editor stage.",
+    "drift_seconds = 0.08 is within the 0.15 s per-marker budget; left uncompensated."
+  ]
+}

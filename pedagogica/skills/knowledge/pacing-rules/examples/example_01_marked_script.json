@@ -1,0 +1,33 @@
+{
+  "description": "Good pause marking for the 28 s 'slide two points together' beat (same narration as spoken-narration-style/example_01). The sync agent consumes this to set wait_after_seconds; the TTS helper consumes it to split the request and insert silence.",
+  "scene_id": "scene_02",
+  "text": "Watch what happens as we slide the two points together. The slope between them is easy. It's rise over run. As the points get close, the slope approaches a single number. At x equals one, that number is two. That number — the slope at a single instant — is the derivative.",
+  "words": [
+    "Watch", "what", "happens", "as", "we", "slide", "the", "two", "points", "together.",
+    "The", "slope", "between", "them", "is", "easy.", "It's", "rise", "over", "run.",
+    "As", "the", "points", "get", "close,", "the", "slope", "approaches", "a", "single", "number.",
+    "At", "x", "equals", "one,", "that", "number", "is", "two.",
+    "That", "number", "—", "the", "slope", "at", "a", "single", "instant", "—",
+    "is", "the", "derivative."
+  ],
+  "markers": [
+    {"word_index": 9,  "marker_type": "pause",     "ref": "micro"},
+    {"word_index": 19, "marker_type": "pause",     "ref": "micro"},
+    {"word_index": 38, "marker_type": "pause",     "ref": "landing"},
+    {"word_index": 51, "marker_type": "pause",     "ref": "landing"},
+    {"word_index": 5,  "marker_type": "show",      "ref": "arrow.secant"},
+    {"word_index": 27, "marker_type": "highlight", "ref": "label.slope"},
+    {"word_index": 52, "marker_type": "show",      "ref": "label.derivative"}
+  ],
+  "estimated_duration_seconds": 28.0,
+  "budget_check": {
+    "word_count": 52,
+    "landing_pause_count": 2,
+    "micro_pause_count": 2,
+    "scene_gap_pause_count": 0,
+    "total_authored_silence_seconds": 2.4,
+    "effective_speaking_time_seconds": 25.6,
+    "implied_rate_words_per_second": 2.03,
+    "within_budget": true
+  }
+}

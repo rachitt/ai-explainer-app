@@ -1,0 +1,19 @@
+{
+  "description": "Single-focus framing for a derivative beat. Vertical reading order: TOP label, CENTER graph+axes group, BOTTOM running step. Three active zones, four elements, one semantic group (graph + axes). Rest-frame density: 3 salient pieces.",
+  "scene_id": "scene_02",
+  "framing": "single_focus",
+  "reading_order": "vertical",
+  "placements": [
+    {"id": "label.title",  "position": [0.0, 2.8],  "scale": 1.0, "z_order": 2, "font_size": 48.0},
+    {"id": "axes.main",    "position": [0.0, 0.0],  "scale": 1.0, "z_order": 0, "font_size": null},
+    {"id": "graph.parab",  "position": [0.0, 0.0],  "scale": 1.0, "z_order": 1, "font_size": null},
+    {"id": "label.step",   "position": [0.0, -2.8], "scale": 1.0, "z_order": 2, "font_size": 36.0}
+  ],
+  "groups": [
+    {"name": "anchor", "member_ids": ["axes.main", "graph.parab"]}
+  ],
+  "overlap_warnings": [],
+  "frame_bounds_ok": true,
+  "zones_used": ["TOP", "CENTER", "BOTTOM"],
+  "rest_frame_salient_count": 3
+}
