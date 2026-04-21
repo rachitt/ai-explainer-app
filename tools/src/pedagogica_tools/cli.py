@@ -5,6 +5,9 @@ import typer
 from pedagogica_schemas.registry import SCHEMA_REGISTRY
 from pydantic import ValidationError
 
+from pedagogica_tools._trace import append_event
+from pedagogica_tools._view import render_timeline
+
 app = typer.Typer(
     help="Pedagogica pipeline helpers — validate, render, TTS, mux, trace, view.",
     no_args_is_help=True,
@@ -63,8 +66,11 @@ def list_schemas() -> None:
 @app.command()
 def view(job_id: str) -> None:
     """Print a job's timeline, costs, and skill versions from trace.jsonl."""
-    typer.echo(f"[stub] view {job_id}")
-    raise typer.Exit(code=2)
+    try:
+        typer.echo(render_timeline(job_id), nl=False)
+    except FileNotFoundError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
 
 
 @app.command("manim-render")
@@ -105,8 +111,14 @@ def measure_drift(scene_dir: str) -> None:
 @app.command()
 def trace(job_id: str, event_json: str) -> None:
     """Append a single event line to a job's trace.jsonl."""
-    typer.echo(f"[stub] trace {job_id} {event_json}")
-    raise typer.Exit(code=2)
+    try:
+        append_event(job_id, event_json)
+    except FileNotFoundError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
 
 
 if __name__ == "__main__":
