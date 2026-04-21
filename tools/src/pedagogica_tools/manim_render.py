@@ -238,6 +238,10 @@ def render(
 
     env = os.environ.copy()
     env["TMPDIR"] = str(tmp_dir)
+    # Ensure TeX binaries are on PATH (basictex installs to /Library/TeX/texbin).
+    tex_bin = "/Library/TeX/texbin"
+    if tex_bin not in env.get("PATH", ""):
+        env["PATH"] = tex_bin + ":" + env.get("PATH", "")
 
     start = time.monotonic()
     timed_out = False
