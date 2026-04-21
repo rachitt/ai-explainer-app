@@ -1,16 +1,63 @@
+import json
+from pathlib import Path
+
 import typer
+from pedagogica_schemas.registry import SCHEMA_REGISTRY
+from pydantic import ValidationError
 
 app = typer.Typer(
-    help="Pedagogica pipeline helpers — Manim render, TTS, mux, trace, view.",
+    help="Pedagogica pipeline helpers — validate, render, TTS, mux, trace, view.",
     no_args_is_help=True,
 )
 
 
 @app.command()
-def validate(schema: str, path: str) -> None:
-    """Validate a JSON file against a Pedagogica schema."""
-    typer.echo(f"[stub] validate {schema} {path}")
-    raise typer.Exit(code=2)
+def validate(
+    schema: str = typer.Argument(
+        ...,
+        help="Schema name from the registry (see `list-schemas`).",
+    ),
+    path: str = typer.Argument(..., help="Path to the JSON file to validate."),
+) -> None:
+    """Validate a JSON file against a Pedagogica schema.
+
+    Exit codes: 0 = ok, 1 = validation failed, 2 = usage/IO error.
+    """
+    if schema == "--list" or schema == "list":
+        for name in sorted(SCHEMA_REGISTRY):
+            typer.echo(name)
+        raise typer.Exit(code=0)
+
+    if schema not in SCHEMA_REGISTRY:
+        known = ", ".join(sorted(SCHEMA_REGISTRY))
+        typer.echo(f"unknown schema {schema!r}; known: {known}", err=True)
+        raise typer.Exit(code=2)
+
+    p = Path(path)
+    if not p.is_file():
+        typer.echo(f"not a file: {path}", err=True)
+        raise typer.Exit(code=2)
+
+    model_cls = SCHEMA_REGISTRY[schema]
+    raw = p.read_text()
+    try:
+        model_cls.model_validate_json(raw)
+    except json.JSONDecodeError as e:
+        typer.echo(f"invalid JSON in {path}: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    except ValidationError as e:
+        typer.echo(f"{schema} validation failed for {path}:", err=True)
+        typer.echo(e.json(indent=2), err=True)
+        raise typer.Exit(code=1) from e
+
+    typer.echo(f"ok: {schema} {path}")
+
+
+@app.command("list-schemas")
+def list_schemas() -> None:
+    """List every schema name the validator knows about."""
+    for name in sorted(SCHEMA_REGISTRY):
+        typer.echo(name)
 
 
 @app.command()
