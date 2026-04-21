@@ -1,15 +1,20 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class BaseMessage(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=False, str_strip_whitespace=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=False,
+        str_strip_whitespace=True,
+        protected_namespaces=(),
+    )
 
     trace_id: UUID
     span_id: UUID
