@@ -23,6 +23,7 @@ from chalk.style import (
 )
 from chalk.layout import next_to, place_in_zone, labeled_box, arrow_between, brace_label
 from chalk.brace import Brace
+from chalk.tex_morph import TransformMatchingTex
 
 __all__ = [
     # Mobjects
@@ -47,6 +48,8 @@ __all__ = [
     "ZONE_TOP", "ZONE_CENTER", "ZONE_BOTTOM",
     # Shapes extra
     "Brace",
+    # Tex morph
+    "TransformMatchingTex",
     # Layout helpers
     "next_to", "place_in_zone", "labeled_box", "arrow_between", "brace_label",
 ]

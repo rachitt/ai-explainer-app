@@ -1,21 +1,27 @@
-"""Morph demo — exercises Transform subpath propagation.
-
-Requires LaTeX (basictex + tlmgr packages listed in workflows/lessons.md).
-"""
-from chalk import Scene, MathTex, Transform, FadeIn, PRIMARY, SCALE_DISPLAY
+"""morph_demo: TransformMatchingTex — F=ma → a=F/m."""
+from chalk import (
+    Scene, MathTex, FadeIn,
+    TransformMatchingTex,
+    PRIMARY, YELLOW, SCALE_DISPLAY, SCALE_BODY,
+    ZONE_TOP, ZONE_CENTER, place_in_zone,
+)
 
 
 class MorphDemo(Scene):
     def construct(self) -> None:
-        a = MathTex(r"x^2", color=PRIMARY, scale=SCALE_DISPLAY)
-        b = MathTex(r"x^3", color=PRIMARY, scale=SCALE_DISPLAY)
-        self.add(a)
-        self.play(FadeIn(a, run_time=0.6))
-        self.wait(0.8)
+        title = MathTex(r"\text{Newton's Second Law}", color=PRIMARY, scale=SCALE_BODY)
+        place_in_zone(title, ZONE_TOP)
+        self.add(title)
+        self.play(FadeIn(title, run_time=0.6))
 
-        anims = [
-            Transform(src, tgt, run_time=1.2)
-            for src, tgt in zip(a.submobjects, b.submobjects)
-        ]
-        self.play(*anims, run_time=1.2)
-        self.wait(1.5)
+        eq1 = MathTex(r"F=ma", color=PRIMARY, scale=SCALE_DISPLAY)
+        place_in_zone(eq1, ZONE_CENTER)
+        self.add(eq1)
+        self.play(FadeIn(eq1, run_time=0.8))
+        self.wait(1.0)
+
+        eq2 = MathTex(r"a=F/m", color=YELLOW, scale=SCALE_DISPLAY)
+        place_in_zone(eq2, ZONE_CENTER)
+
+        self.play(TransformMatchingTex(eq1, eq2, run_time=1.5))
+        self.wait(2.0)
