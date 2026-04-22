@@ -21,7 +21,8 @@ from chalk.style import (
     FRAME_WIDTH, FRAME_HEIGHT, SAFE_X, SAFE_Y,
     ZONE_TOP, ZONE_CENTER, ZONE_BOTTOM,
 )
-from chalk.layout import next_to, place_in_zone, labeled_box, arrow_between
+from chalk.layout import next_to, place_in_zone, labeled_box, arrow_between, brace_label
+from chalk.brace import Brace
 
 __all__ = [
     # Mobjects
@@ -44,6 +45,8 @@ __all__ = [
     "SCALE_DISPLAY", "SCALE_BODY", "SCALE_LABEL", "SCALE_ANNOT", "SCALE_MIN",
     "FRAME_WIDTH", "FRAME_HEIGHT", "SAFE_X", "SAFE_Y",
     "ZONE_TOP", "ZONE_CENTER", "ZONE_BOTTOM",
+    # Shapes extra
+    "Brace",
     # Layout helpers
-    "next_to", "place_in_zone", "labeled_box", "arrow_between",
+    "next_to", "place_in_zone", "labeled_box", "arrow_between", "brace_label",
 ]

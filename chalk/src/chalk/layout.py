@@ -13,6 +13,7 @@ from typing import Literal, Union
 import numpy as np
 
 from chalk.mobject import VMobject
+from chalk.style import SCALE_ANNOT
 from chalk.vgroup import VGroup
 
 Direction = Literal["UP", "DOWN", "LEFT", "RIGHT"]
@@ -197,6 +198,42 @@ def labeled_box(
     # MathTex is created centered at origin; rectangle is centered at origin.
     # So they overlay correctly. Caller shifts both to the target position.
     return box, lbl
+
+
+def brace_label(
+    target: Target,
+    tex: str,
+    direction: str = "DOWN",
+    buff: float = 0.2,
+    color: str = "#E8EAED",
+    scale: float = SCALE_ANNOT,
+) -> "tuple[object, VGroup]":
+    """Build a Brace + MathTex label positioned at the brace's tip.
+
+    Returns (brace, label).  Both are ready to add to a Scene.
+    """
+    from chalk.brace import Brace
+    from chalk.tex import MathTex
+
+    brace = Brace(target, direction=direction, buff=buff, color=color)
+    tip = brace.get_tip()
+
+    lbl = MathTex(tex, color=color, scale=scale)
+    lbl_bb = lbl.bbox()
+    lbl_cx = (lbl_bb[0] + lbl_bb[2]) / 2
+    lbl_cy = (lbl_bb[1] + lbl_bb[3]) / 2
+
+    extra_buff = 0.15
+    if direction == "DOWN":
+        lbl.shift(tip[0] - lbl_cx, tip[1] - extra_buff - (lbl_bb[3] - lbl_bb[1]) / 2 - lbl_cy)
+    elif direction == "UP":
+        lbl.shift(tip[0] - lbl_cx, tip[1] + extra_buff + (lbl_bb[3] - lbl_bb[1]) / 2 - lbl_cy)
+    elif direction == "LEFT":
+        lbl.shift(tip[0] - extra_buff - (lbl_bb[2] - lbl_bb[0]) / 2 - lbl_cx, tip[1] - lbl_cy)
+    elif direction == "RIGHT":
+        lbl.shift(tip[0] + extra_buff + (lbl_bb[2] - lbl_bb[0]) / 2 - lbl_cx, tip[1] - lbl_cy)
+
+    return brace, lbl
 
 
 def place_in_zone(
