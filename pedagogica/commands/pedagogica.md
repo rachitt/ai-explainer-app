@@ -27,17 +27,18 @@ Fresh pipeline run for a learning objective.
    - `job_id = <the UUID>`, `created_at = <now>`, `user_prompt = "<prompt joined>"`.
    - `skills_pinned = {}`, `models_default = {}`, `final_artifact_paths = {}`, `terminal = false`.
    - `current_stage = "intake"`.
-   - `stages`: exactly these three `StageStatus` entries for the Phase-1 planning tier, all `status = "pending"`:
+   - `stages`: exactly these four `StageStatus` entries for the Phase-1 planning + script tier, all `status = "pending"`:
      - `{"name": "intake", "status": "pending"}`
      - `{"name": "curriculum", "status": "pending"}`
      - `{"name": "storyboard", "status": "pending"}`
+     - `{"name": "script", "status": "pending"}`
 4. Validate the initial job state:
    ```
    uv run pedagogica-tools validate JobState artifacts/<job_id>/job_state.json
    ```
    Non-zero exit = abort without touching anything else.
-5. Load the `orchestrator` skill (`pedagogica/skills/agents/orchestrator/SKILL.md`) in mode `start` with `job_id`. The orchestrator walks `intake → curriculum → storyboard`, invoking each agent skill and validating every emitted artifact.
-6. On success, report: job id, path to `03_storyboard.json`, scene count, total duration. Note that script/visual/audio/assembly tiers are not wired yet (subsequent worktrees).
+5. Load the `orchestrator` skill (`pedagogica/skills/agents/orchestrator/SKILL.md`) in mode `start` with `job_id`. The orchestrator walks `intake → curriculum → storyboard → script`, invoking each agent skill and validating every emitted artifact. `script` is per-scene fan-out — one `scenes/<scene_id>/script.json` per storyboard scene.
+6. On success, report: job id, path to `03_storyboard.json`, per-scene `scenes/<scene_id>/script.json` paths, scene count, and total duration. Note that chalk-code / chalk-repair / sync / editor tiers are not wired yet (subsequent worktrees).
 
 ### `resume <job_id>`
 

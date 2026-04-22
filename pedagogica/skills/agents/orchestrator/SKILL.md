@@ -33,13 +33,14 @@ Never allocate a `job_id` yourself — the `/pedagogica` command does that befor
 
 ## Stage table (Phase 1)
 
-| Stage | Agent skill | Output artifact | Output schema |
-|---|---|---|---|
-| intake | `agents/intake/SKILL.md` | `01_intake.json` | `IntakeResult` |
-| curriculum | `agents/curriculum/SKILL.md` | `02_curriculum.json` | `CurriculumPlan` |
-| storyboard | `agents/storyboard/SKILL.md` | `03_storyboard.json` | `Storyboard` |
+| Stage | Agent skill | Output artifact | Output schema | Fan-out |
+|---|---|---|---|---|
+| intake | `agents/intake/SKILL.md` | `01_intake.json` | `IntakeResult` | once per job |
+| curriculum | `agents/curriculum/SKILL.md` | `02_curriculum.json` | `CurriculumPlan` | once per job |
+| storyboard | `agents/storyboard/SKILL.md` | `03_storyboard.json` | `Storyboard` | once per job |
+| script | `agents/script/SKILL.md` | `scenes/<scene_id>/script.json` | `Script` | once per scene in `storyboard.scenes` |
 
-Stages beyond `storyboard` (script, visual-planner, layout, manim-code, compile, tts, sync, editor, subtitle, critics) are **not** delivered in this worktree. If `job_state.stages` lists them, leave them `pending` and exit cleanly after `storyboard`.
+Stages beyond `script` (chalk-code, chalk-repair, sync, editor, subtitle, critics) are **not** delivered in this worktree. If `job_state.stages` lists them, leave them `pending` and exit cleanly after `script`.
 
 ## Per-stage protocol
 
@@ -57,24 +58,35 @@ For each stage `S` with `status != complete`:
 5. **Mark complete** — `stages[S].status = "complete"`, `completed_at`, `artifact_path = "<NN_stage>.json"`, advance `current_stage` to the next non-complete stage (or `null` at end of tier). Rewrite and re-validate `job_state.json`.
 6. **Trace** — `uv run pedagogica-tools trace <job_id> '<event-json>'` with a `stage_exit` event. (Trace CLI is stubbed in this worktree; the call is still made so the shape is fixed.)
 
+### Per-scene stages (fan-out)
+
+`script` is a fan-out stage: one run emits N artifacts, one per scene. Treat the whole stage as a single `StageStatus` entry (status transitions apply to the stage as a unit, not per scene), but iterate the per-stage protocol internally for each `scene_id` in `03_storyboard.json.scenes`:
+
+- Pre-flight: validate `03_storyboard.json` once before the loop.
+- For each `scene_id` in storyboard order:
+  - `mkdir -p artifacts/<job_id>/scenes/<scene_id>/`.
+  - Invoke the `script` agent for that `scene_id`. The agent writes only `scenes/<scene_id>/script.json`.
+  - Validate: `uv run pedagogica-tools validate Script artifacts/<job_id>/scenes/<scene_id>/script.json`. Same retry/fail rules as scalar stages — one retry per scene, second failure halts the whole stage.
+- Mark the stage `complete` only after every scene's script is validated. `artifact_path` for a fan-out stage is the **directory**: `"scenes/"`.
+
 ## Failure handling
 
 - **Validation failure (after 1 retry):** mark the stage `failed`, set `current_stage = null`, persist `job_state.json`, halt. Do not advance. Do not delete the bad artifact — leave it so the user can inspect.
 - **Unexpected error:** same as above. `job_state.json` must always remain parseable by `JobState`.
-- **Sandbox violation / cost-cap hit:** not reachable in the planning tier (no Manim / TTS here). If you somehow encounter one, halt immediately.
+- **Sandbox violation / cost-cap hit:** not reachable in the planning + script tier (no chalk / TTS here). If you somehow encounter one, halt immediately.
 
 ## End-of-tier handoff
 
-When `storyboard` completes:
+When `script` completes:
 
-- `current_stage` is set to `null` (Phase 1 planning tier end).
-- `terminal` stays `false` — later tiers will flip it.
-- Print the path to `03_storyboard.json` and summarize scene count + total duration.
+- `current_stage` is set to `null` (Phase 1 planning+script tier end).
+- `terminal` stays `false` — later tiers (chalk-code, chalk-repair, sync, editor) will flip it.
+- Print the path to `03_storyboard.json`, the per-scene `scenes/<scene_id>/script.json` paths, scene count, and total duration.
 
 ## Hard rules
 
 - Non-LLM work is always `uv run pedagogica-tools <sub>`; never reimplement.
 - Never hand-edit `artifacts/` outside the protocol above.
 - Never parse JSON for validation purposes — always shell to `pedagogica-tools validate`.
-- Never skip a stage. Phase-1 tiers beyond `storyboard` are inactive, not skippable.
+- Never skip a stage. Phase-1 tiers beyond `script` are inactive, not skippable.
 - Never invent a `job_id`; it comes from `/pedagogica`.

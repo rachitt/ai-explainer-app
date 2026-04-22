@@ -33,9 +33,9 @@ Write `artifacts/<job_id>/01_intake.json`. Required fields:
 - `parent_span_id`: `null` (root of the agent DAG).
 - `timestamp`: current UTC ISO8601.
 - `producer`: `"intake"`.
-- `schema_version`: `"0.0.1"`.
+- `schema_version`: `"0.1.0"` (matches `IntakeResult` default; stays in sync with the schema).
 - `topic`: normalized topic phrase. Examples: `"chain rule"`, `"riemann sums"`, `"derivative of a function"`.
-- `domain`: one of `calculus | linalg | prob | mechanics | em | quantum | chem | bio | algo | ml | econ`. **Phase 1: must be `calculus`.** Emit best guess if the prompt implies a non-calculus topic; the orchestrator will halt before Manim for any non-calculus domain.
+- `domain`: one of `calculus | linalg | prob | stats | discrete | algebra | physics | circuits | chemistry | coding`. **Phase 1: must be `calculus`.** Emit best guess if the prompt implies a non-calculus topic; the orchestrator will halt before chalk for any non-calculus domain.
 - `audience_level`: one of `elementary | highschool | undergrad | graduate`. Infer from signals ("for a calc 1 student" → `undergrad`; "AP calc" → `highschool`; "PhD" → `graduate`). Default `undergrad` if no signal.
 - `target_length_seconds`: integer in `[60, 600]`. Phase 1 sweet spot is `[120, 240]`. Infer if the prompt says "2 min" (= 120), "about 3 minutes" (= 180). Default `180` if unstated.
 - `style_hints`: list of short strings. Examples: `["3blue1brown"]`, `["dark-bg"]`, `["khan-academy"]`. Empty list if none present.

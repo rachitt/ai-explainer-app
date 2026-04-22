@@ -30,9 +30,9 @@ Read `01_intake.json` + `02_curriculum.json` and emit `03_storyboard.json` (`Sto
 
 Write `artifacts/<job_id>/03_storyboard.json`. Fields:
 
-- Trace metadata: `trace_id` copied, fresh `span_id`, `parent_span_id = curriculum.span_id`, `timestamp`, `producer = "storyboard"`, `schema_version = "0.0.1"`.
+- Trace metadata: `trace_id` copied, fresh `span_id`, `parent_span_id = curriculum.span_id`, `timestamp`, `producer = "storyboard"`, `schema_version = "0.1.0"` (matches `Storyboard` default).
 - `topic`: copy from intake.
-- `total_duration_seconds`: equal to `intake.target_length_seconds` (float). The sum of scene durations must be within ±10% of this.
+- `total_duration_seconds`: equal to `intake.target_length_seconds` (float). The sum of scene durations must be within ±0.5s of this (schema-enforced — see `Storyboard._scenes_consistent`).
 - `scenes`: **4–10** `SceneBeat`s. Each:
   - `scene_id`: zero-padded, consecutive starting at `"scene_01"`.
   - `beat_type`: one of `hook | define | motivate | example | generalize | recap`. At most one `hook` (first scene if present); at most one `recap` (last scene if present).
@@ -58,7 +58,7 @@ Write `artifacts/<job_id>/03_storyboard.json`. Fields:
 | generalize | 20–40s |
 | recap | 15–25s |
 
-These are guidelines; the only hard constraint is that the scene total is within ±10% of `total_duration_seconds`.
+These are guidelines; the only hard constraint is that the scene total is within ±0.5s of `total_duration_seconds`.
 
 ## Sequencing rules
 
@@ -74,7 +74,7 @@ The validator rejects:
 - duplicate or non-consecutive `scene_id`s.
 - more than one `hook` or `recap`.
 - `hook` not at `scene_01`, or `recap` not at the final scene.
-- scene durations that deviate more than 10% from `total_duration_seconds`.
+- scene durations whose sum is more than 0.5s off `total_duration_seconds`.
 - missing `visual_intent` / `narration_intent`.
 - unknown fields (`extra="forbid"`).
 
