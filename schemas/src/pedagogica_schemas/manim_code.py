@@ -7,9 +7,12 @@ from pedagogica_schemas.base import BaseMessage
 ErrorClassification = Literal[
     "import_error",
     "latex_error",
+    "api_error",
     "geometry_error",
+    "syntax_error",
     "timing_error",
     "memory_error",
+    "sandbox_violation",
     "timeout",
     "other",
 ]
