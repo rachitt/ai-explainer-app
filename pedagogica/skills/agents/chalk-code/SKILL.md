@@ -71,6 +71,16 @@ Write two sibling files:
 - **One `Scene` subclass per file.** Convention: `Scene<NN>` in PascalCase, e.g. `Scene04`.
 - **Do not set pixel width/height/fps in the code.** The render helper passes `--width 1280 --height 720 --fps 30`.
 
+## Motion and beat budget
+
+Each scene (delimited by `self.clear()`) in generated chalk code MUST:
+
+1. Contain **at least one motion animation** chosen from: `ChangeValue`, `MoveAlongPath`, `Rotate`, `Transform`, `CameraShift`, `CameraZoom`, `ShiftAnim`, `Succession`, `LaggedStart`. FadeIn/FadeOut alone is not motion — scenes that use only fades fail `chalk-lint` rule R3 and must be fixed.
+   - Exception: the final scene of a Scene class may be pure fades (rest frame).
+2. Contain **at most 3 `self.play(...)` calls** (beats). Pack tightly — one beat should do several things in parallel via `AnimationGroup` or `Succession`, not spread across many plays. Exceeding 3 fails rule R4.
+
+If a storyboard beat naturally needs more motion than fits in 3 plays, split across `self.clear()` into a new scene.
+
 ## File template
 
 ```python
