@@ -1,6 +1,6 @@
 # Baseline exemptions captured when chalk-lint was introduced.
 # Format: path:line:rule
-chalk/src/chalk/redraw.py:46:R1-raw-hex
+chalk/src/chalk/redraw.py:67:R1-raw-hex
 chalk/src/chalk/shapes.py:68:R1-raw-hex
 chalk/src/chalk/shapes.py:69:R1-raw-hex
 chalk/src/chalk/shapes.py:90:R1-raw-hex

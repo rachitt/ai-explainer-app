@@ -245,22 +245,35 @@ self.play(ChangeValue(x, 3.0, run_time=4.0, rate_func=smooth))
 
 `always_redraw` rebuilds from a factory every frame. `ChangeValue` drives the tracker. `DecimalNumber` accepts either a `ValueTracker` or a float-valued `ValueTracker`.
 
-**Positioning inside the factory is mandatory.** `always_redraw` discards the previous mob and builds a fresh one each frame, so any `.move_to(x, y)` or `.shift(dx, dy)` applied to an earlier instance is lost. Set position inside the lambda:
+**Positioning inside the factory is mandatory.** `always_redraw` discards the previous mob and builds a fresh one each frame, so any `.move_to(x, y)` or `.shift(dx, dy)` applied to an earlier instance is lost. Three correct patterns:
+
+```python
+# (1) Preferred for constant anchor — pass move_to= kwarg
+readout = always_redraw(
+    lambda: MathTex(rf"{x.get_value():.1f}", color=YELLOW, scale=SCALE_LABEL),
+    move_to=(3.0, -2.0),
+)
+
+# (2) For relative anchor (next_to another mob) — position inside a named factory
+def _readout_factory():
+    m = MathTex(rf"{x.get_value():.1f}", color=YELLOW, scale=SCALE_LABEL)
+    next_to(m, tag_mob, direction="RIGHT", buff=0.25)
+    return m
+readout = always_redraw(_readout_factory)
+
+# (3) Also valid — chain .move_to() inside the lambda expression
+readout = always_redraw(
+    lambda: MathTex(rf"{x.get_value():.1f}", color=YELLOW, scale=SCALE_LABEL).move_to(3.0, -2.0),
+)
+```
 
 ```python
 # WRONG — MathTex lands at origin every frame
 readout = always_redraw(lambda: MathTex(rf"{x.get_value():.1f}", ...))
 readout.move_to(3.0, -2.0)  # applied once, thrown away on first rebuild
-
-# RIGHT — position re-applied on every rebuild
-def _readout_factory():
-    m = MathTex(rf"{x.get_value():.1f}", color=YELLOW, scale=SCALE_LABEL)
-    m.move_to(3.0, -2.0)
-    return m
-readout = always_redraw(_readout_factory)
 ```
 
-The `Dot(point=...)` and `DecimalNumber(tracker)` cases work because they accept the anchor as a constructor arg. `MathTex`, `Text`, and any VGroup built from scratch inside a factory must call `.move_to()` or `.shift()` themselves.
+The `Dot(point=...)` and `DecimalNumber(tracker)` cases work because they accept the anchor as a constructor arg. `MathTex`, `Text`, and any bare VGroup built from scratch inside a factory must use pattern (1), (2), or (3). Pattern (WRONG) fails chalk-lint rule R7.
 
 ## Skill-loading decisions
 

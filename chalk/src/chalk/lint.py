@@ -19,6 +19,16 @@ _HEX_RE = re.compile(r"^#[0-9A-Fa-f]{3,8}$")
 _ALLOWLIST_PATH = Path(__file__).with_name("_lint_allowlist.txt")
 _MAX_BEAT_SECONDS = 10.0
 _DEFAULT_PLAY_SECONDS = 1.0
+_POSITION_LESS_CONSTRUCTORS = {
+    "MathTex",
+    "Text",
+    "VGroup",
+    "Polygon",
+    "Rectangle",
+    "Line",
+    "Arrow",
+    "Circle",
+}
 _MOTION_ANIMATIONS = {
     "ChangeValue",
     "MoveAlongPath",
@@ -152,6 +162,19 @@ class _Visitor(ast.NodeVisitor):
                     )
                 )
         for scene in scenes:
+            for lineno, mob_name in _find_unpositioned_always_redraw(scene.statements):
+                self.errors.append(
+                    LintError(
+                        self.path,
+                        lineno,
+                        0,
+                        "R7-always-redraw-unpositioned",
+                        f"always_redraw(lambda: {mob_name}(...)) with no position; "
+                        "pass move_to=/shift= kwarg or call .move_to inside the factory "
+                        "— the bare constructor lands at origin every frame",
+                    )
+                )
+        for scene in scenes:
             est = _estimated_scene_seconds(scene.statements)
             if est > _MAX_BEAT_SECONDS:
                 self.errors.append(
@@ -214,6 +237,52 @@ def _contains_motion_animation(statements: list[ast.stmt]) -> bool:
         for stmt in statements
         for node in ast.walk(stmt)
     )
+
+
+def _lambda_body_positions_mob(body: ast.AST) -> bool:
+    """True if the lambda's body positions the returned mob (move_to chain or point=/center= kwarg)."""
+    if not isinstance(body, ast.Call):
+        return False
+    for inner in ast.walk(body):
+        if not isinstance(inner, ast.Call):
+            continue
+        if isinstance(inner.func, ast.Attribute) and inner.func.attr in ("move_to", "shift"):
+            return True
+        for kw in inner.keywords:
+            if kw.arg in ("point", "center"):
+                return True
+    return False
+
+
+def _find_unpositioned_always_redraw(
+    statements: list[ast.stmt],
+) -> list[tuple[int, str]]:
+    """Return (lineno, mob_name) for each always_redraw(lambda: <PositionLess>(...)) with no position."""
+    hits: list[tuple[int, str]] = []
+    for stmt in statements:
+        for node in ast.walk(stmt):
+            if not isinstance(node, ast.Call):
+                continue
+            if _name_of(node.func) != "always_redraw":
+                continue
+            has_position_kwarg = any(kw.arg in ("move_to", "shift") for kw in node.keywords)
+            if has_position_kwarg:
+                continue
+            if not node.args:
+                continue
+            factory = node.args[0]
+            if not isinstance(factory, ast.Lambda):
+                continue
+            body = factory.body
+            if not isinstance(body, ast.Call):
+                continue
+            callee = _name_of(body.func)
+            if callee not in _POSITION_LESS_CONSTRUCTORS:
+                continue
+            if _lambda_body_positions_mob(body):
+                continue
+            hits.append((node.lineno, callee))
+    return hits
 
 
 def _max_run_time_in_call(node: ast.Call) -> float:

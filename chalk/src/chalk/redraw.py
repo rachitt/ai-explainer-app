@@ -26,9 +26,30 @@ class AlwaysRedraw(VGroup):
             self.submobjects = [result]
 
 
-def always_redraw(factory: Callable[[], Union[VMobject, VGroup]]) -> AlwaysRedraw:
-    """Return an AlwaysRedraw VGroup backed by factory()."""
-    return AlwaysRedraw(factory)
+def always_redraw(
+    factory: Callable[[], Union[VMobject, VGroup]],
+    move_to: tuple[float, float] | None = None,
+    shift: tuple[float, float] | None = None,
+) -> AlwaysRedraw:
+    """Return an AlwaysRedraw VGroup backed by factory().
+
+    Pass `move_to=(x, y)` or `shift=(dx, dy)` to apply positioning on every
+    rebuild — calling `.move_to()` on the returned VGroup is a no-op because
+    each frame discards the prior mob. Use these kwargs instead, or position
+    the mob inside the factory itself.
+    """
+    if move_to is None and shift is None:
+        return AlwaysRedraw(factory)
+
+    def _positioned_factory() -> Union[VMobject, VGroup]:
+        mob = factory()
+        if move_to is not None:
+            mob.move_to(move_to[0], move_to[1])
+        if shift is not None:
+            mob.shift(shift[0], shift[1])
+        return mob
+
+    return AlwaysRedraw(_positioned_factory)
 
 
 class DecimalNumber(AlwaysRedraw):

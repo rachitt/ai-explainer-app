@@ -92,3 +92,49 @@ def test_scene_redrawable_driven_by_change_value():
     # DecimalNumber should reflect this after next refresh
     dn.refresh()
     assert dn._last_string == "10.00"
+
+
+def test_always_redraw_move_to_kwarg_applies_per_frame():
+    from chalk.tex import MathTex
+    from chalk.style import PRIMARY, SCALE_LABEL
+
+    t = ValueTracker(0.0)
+    readout = always_redraw(
+        lambda: MathTex(rf"{t.get_value():.1f}", color=PRIMARY, scale=SCALE_LABEL),
+        move_to=(3.0, -2.0),
+    )
+
+    cx, cy = _bbox_center(readout)
+    assert abs(cx - 3.0) < 0.2 and abs(cy - (-2.0)) < 0.3
+
+    t.set_value(9.9)
+    readout.refresh()
+    cx2, cy2 = _bbox_center(readout)
+    assert abs(cx2 - 3.0) < 0.2 and abs(cy2 - (-2.0)) < 0.3
+
+
+def test_always_redraw_shift_kwarg_applies_per_frame():
+    from chalk.tex import MathTex
+    from chalk.style import PRIMARY, SCALE_LABEL
+
+    base = always_redraw(lambda: MathTex(r"3", color=PRIMARY, scale=SCALE_LABEL))
+    shifted = always_redraw(
+        lambda: MathTex(r"3", color=PRIMARY, scale=SCALE_LABEL),
+        shift=(1.5, 0.0),
+    )
+    bx, by = _bbox_center(base)
+    sx, sy = _bbox_center(shifted)
+    assert abs(sx - (bx + 1.5)) < 0.1
+    assert abs(sy - by) < 0.1
+
+
+def _bbox_center(group) -> tuple[float, float]:
+    xs: list[float] = []
+    ys: list[float] = []
+    for m in _iter_vmobjects(group):
+        pts = m.points
+        if len(pts) == 0:
+            continue
+        xs.extend([float(pts[:, 0].min()), float(pts[:, 0].max())])
+        ys.extend([float(pts[:, 1].min()), float(pts[:, 1].max())])
+    return ((min(xs) + max(xs)) / 2.0, (min(ys) + max(ys)) / 2.0)

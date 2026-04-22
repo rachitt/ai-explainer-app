@@ -220,6 +220,83 @@ class Demo(Scene):
     assert [e.rule for e in lint_file(scene) if e.rule == "R6-long-beat"] == []
 
 
+def test_always_redraw_bare_mathtex_reports_r7(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import FadeIn, MathTex, Scene, ValueTracker, always_redraw, PRIMARY, SCALE_LABEL
+
+class Demo(Scene):
+    def construct(self):
+        x = ValueTracker(0.0)
+        readout = always_redraw(lambda: MathTex(rf"{x.get_value():.1f}", color=PRIMARY, scale=SCALE_LABEL))
+        self.add(readout)
+        self.play(FadeIn(readout, run_time=0.5))
+""",
+    )
+
+    errors = [e for e in lint_file(scene) if e.rule == "R7-always-redraw-unpositioned"]
+
+    assert len(errors) == 1
+
+
+def test_always_redraw_with_move_to_kwarg_passes_r7(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import FadeIn, MathTex, Scene, ValueTracker, always_redraw, PRIMARY, SCALE_LABEL
+
+class Demo(Scene):
+    def construct(self):
+        x = ValueTracker(0.0)
+        readout = always_redraw(
+            lambda: MathTex(rf"{x.get_value():.1f}", color=PRIMARY, scale=SCALE_LABEL),
+            move_to=(3.0, -2.0),
+        )
+        self.add(readout)
+        self.play(FadeIn(readout, run_time=0.5))
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R7-always-redraw-unpositioned"] == []
+
+
+def test_always_redraw_with_move_to_inside_factory_passes_r7(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import FadeIn, MathTex, Scene, ValueTracker, always_redraw, PRIMARY, SCALE_LABEL
+
+class Demo(Scene):
+    def construct(self):
+        x = ValueTracker(0.0)
+        readout = always_redraw(lambda: MathTex(rf"{x.get_value():.1f}", color=PRIMARY, scale=SCALE_LABEL).move_to(3.0, -2.0))
+        self.add(readout)
+        self.play(FadeIn(readout, run_time=0.5))
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R7-always-redraw-unpositioned"] == []
+
+
+def test_always_redraw_with_dot_point_kwarg_passes_r7(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import FadeIn, Dot, Scene, ValueTracker, always_redraw, YELLOW
+
+class Demo(Scene):
+    def construct(self):
+        x = ValueTracker(0.0)
+        readout = always_redraw(lambda: Dot(point=(x.get_value(), 0.0), color=YELLOW))
+        self.add(readout)
+        self.play(FadeIn(readout, run_time=0.5))
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R7-always-redraw-unpositioned"] == []
+
+
 def test_rectangle_and_mathtex_at_different_coords_passes_r5(tmp_path: Path):
     scene = _write_scene(
         tmp_path / "scene.py",
