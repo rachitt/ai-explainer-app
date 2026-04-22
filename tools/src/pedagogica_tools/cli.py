@@ -229,10 +229,51 @@ def ffmpeg_mux(
 
 
 @app.command("subtitle-gen")
-def subtitle_gen(job_dir: str) -> None:
+def subtitle_gen(
+    job_dir: str = typer.Argument(..., help="Artifact job directory to subtitle."),
+    max_chars_per_line: int = typer.Option(42, "--max-chars-per-line"),
+    max_lines: int = typer.Option(2, "--max-lines"),
+    min_cue_seconds: float = typer.Option(1.0, "--min-cue-seconds"),
+    max_cue_seconds: float = typer.Option(6.0, "--max-cue-seconds"),
+    force: bool = typer.Option(False, "--force", help="Rebuild even when outputs are fresh."),
+    no_final: bool = typer.Option(False, "--no-final", help="Skip job-level final.vtt/final.srt."),
+) -> None:
     """Generate VTT and SRT files from per-scene word timings."""
-    typer.echo(f"[stub] subtitle-gen {job_dir}")
-    raise typer.Exit(code=2)
+    from pedagogica_tools.subtitle_gen import SubtitleOptions, generate
+
+    result = generate(
+        job_dir,
+        SubtitleOptions(
+            max_chars_per_line=max_chars_per_line,
+            max_lines_per_cue=max_lines,
+            min_cue_seconds=min_cue_seconds,
+            max_cue_seconds=max_cue_seconds,
+            force=force,
+            emit_job_final=not no_final,
+        ),
+    )
+
+    if result.ok:
+        typer.echo(
+            f"ok: {len(result.scene_vtt_paths)} scene VTT, "
+            f"{len(result.scene_srt_paths)} scene SRT"
+        )
+        if result.final_vtt_path:
+            typer.echo(f"final vtt: {result.final_vtt_path}")
+        if result.final_srt_path:
+            typer.echo(f"final srt: {result.final_srt_path}")
+        raise typer.Exit(code=0)
+
+    typer.echo(f"fail: {result.error}", err=True)
+    if result.error and (
+        result.error.startswith("missing")
+        or result.error.startswith("invalid clip.json")
+        or result.error.startswith("job dir does not exist")
+        or result.error.startswith("scenes dir does not exist")
+        or result.error.startswith("no scene dirs found")
+    ):
+        raise typer.Exit(code=2)
+    raise typer.Exit(code=1)
 
 
 @app.command("measure-drift")

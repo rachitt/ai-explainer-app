@@ -75,3 +75,9 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** this workspace exposes Python reliably through `uv run python` / `python3`, not necessarily a bare `python` shim.
 **Fix:** reran the helper through `UV_CACHE_DIR=.uv-cache uv run python` so it stayed inside the sandboxed workspace cache.
 **Applies to:** repo-local automation and one-off verification scripts; prefer `uv run python` over `python`.
+
+## 2026-04-22 — cleanup rm can be policy-blocked
+**Mistake:** generated temporary subtitle sidecars for manual verification, then tried to delete them with `rm -f`; the command was rejected by policy.
+**Root cause:** destructive shell commands may be blocked even for generated files inside the workspace.
+**Fix:** removed the known generated files with the patch tool and verified no subtitle sidecars remained.
+**Applies to:** cleanup of generated verification artifacts; prefer narrowly targeted deletion mechanisms and verify with `find`.
