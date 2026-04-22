@@ -12,6 +12,7 @@ from chalk.vgroup import VGroup
 from chalk.tex import MathTex
 from chalk.text import Text
 from chalk.axes import Axes, plot_function
+from chalk.coord import NumberLine, NumberPlane
 from chalk.value_tracker import ValueTracker
 from chalk.redraw import always_redraw, AlwaysRedraw, DecimalNumber
 from chalk.style import (
@@ -29,6 +30,7 @@ __all__ = [
     "Dot", "Polygon", "RegularPolygon", "ArcBetweenPoints",
     "VGroup", "MathTex", "Text",
     "Axes", "plot_function",
+    "NumberLine", "NumberPlane",
     # Animations
     "Transform", "ShiftAnim", "FadeIn", "FadeOut", "Write", "ChangeValue",
     "MoveAlongPath", "Rotate",
