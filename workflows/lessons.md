@@ -28,6 +28,12 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Fix:** flagged LaTeX-requiring examples in file docstrings; added `DecimalNumber` to the "requires LaTeX" gotcha list in `latex-for-video`; documented the `tlmgr install ...` incantation in `manim-debugging` catalog entry `latex-missing-package`. Skill authoring on a fresh box requires `brew install --cask basictex && sudo tlmgr install standalone preview doublestroke relsize everysel ms rsfs setspace tipa wasy wasysym xcolor jknapltx`.
 **Applies to:** any new `manim-*` skill. If an example can be written without LaTeX, do so; flag the LaTeX-requiring ones explicitly.
 
+## 2026-04-21 — Scene.add flattened only one level of VGroup
+**Mistake:** a VGroup of MathTex objects (MathTex is itself a VGroup of glyphs) passed to Scene.add landed in `self._mobjects` as VGroups, not VMobjects. The renderer's `isinstance(mob, VMobject)` guard silently dropped them, so labels never drew.
+**Root cause:** Scene.add/remove/clear iterated `VGroup.submobjects` with a single `for sub in m` — fine for flat VGroups, wrong for nested ones. VGroup nesting became common once MathTex + Text produced per-glyph children wrapped in outer groupings.
+**Fix:** added Scene._flatten recursively expanding any VGroup tree into leaf VMobjects; Scene.add/remove/clear all route through it. Animations' `_iter_vmobjects` already recurses; added `_stagger_units` so Write on a VGroup-of-VGroups staggers per top-level child.
+**Applies to:** any code that treats VGroup as "container of VMobjects" — must handle arbitrary nesting, not just one level. Prefer a recursive leaf iterator over `for sub in group`.
+
 ## 2026-04-21 — manim-render subprocess misses /Library/TeX/texbin
 **Mistake:** `pedagogica-tools manim-render` failed with `FileNotFoundError: 'latex'` even after basictex was installed, because `env = os.environ.copy()` inherited the calling shell's PATH which didn't include `/Library/TeX/texbin`.
 **Root cause:** Claude Code's shell session doesn't source the user's profile the same way an interactive shell does; basictex PATH entry was added to `.zshrc` / `path_helper` but wasn't visible when tools ran from within the session.

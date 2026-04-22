@@ -10,9 +10,26 @@ from chalk.vgroup import VGroup
 
 
 def _iter_vmobjects(target: Union[VMobject, VGroup]) -> list[VMobject]:
+    """Flatten a VMobject/VGroup tree into a list of leaf VMobjects."""
     if isinstance(target, VGroup):
-        return list(target.submobjects)
+        out: list[VMobject] = []
+        for child in target.submobjects:
+            out.extend(_iter_vmobjects(child))
+        return out
     return [target]
+
+
+def _stagger_units(target: Union[VMobject, VGroup]) -> list[list[VMobject]]:
+    """Group a target into stagger units for Write/sequential reveals.
+
+    VMobject → one unit of one leaf. VGroup → one unit per top-level child,
+    each flattened to its own leaves. Nested VGroups (e.g. a VGroup of MathTex
+    objects) thus reveal child-by-child with all glyphs of one child appearing
+    as a single unit.
+    """
+    if isinstance(target, VGroup):
+        return [_iter_vmobjects(child) for child in target.submobjects]
+    return [[target]]
 
 
 class Animation(Protocol):
@@ -163,6 +180,67 @@ class FadeIn:
         for m, fo, so in zip(self._mobs, self._target_fill, self._target_stroke):
             m.fill_opacity = fo
             m.stroke_opacity = so
+
+
+class Write:
+    """Stroke-by-stroke reveal across a VGroup's submobjects.
+
+    Staggers a FadeIn across submobjects with `lag_ratio` controlling overlap:
+    - 0.0 → all submobjects fade in simultaneously (same as FadeIn).
+    - 1.0 → each submobject finishes before the next begins.
+
+    Single VMobject → equivalent to FadeIn.
+    """
+
+    def __init__(
+        self,
+        target: Union[VMobject, VGroup],
+        run_time: float = 1.5,
+        lag_ratio: float = 0.4,
+        rate_func: Callable[[float], float] = smooth,
+    ) -> None:
+        self.target = target
+        self.run_time = run_time
+        self.lag_ratio = max(0.0, min(1.0, lag_ratio))
+        self.rate_func = rate_func
+        self._units: list[list[VMobject]] = []
+        self._target_fill: list[list[float]] = []
+        self._target_stroke: list[list[float]] = []
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return [m for unit in self._units for m in unit]
+
+    def begin(self) -> None:
+        self._units = _stagger_units(self.target)
+        self._target_fill = [[m.fill_opacity for m in u] for u in self._units]
+        self._target_stroke = [[m.stroke_opacity for m in u] for u in self._units]
+        for u in self._units:
+            for m in u:
+                m.fill_opacity = 0.0
+                m.stroke_opacity = 0.0
+
+    def interpolate(self, alpha: float) -> None:
+        n = len(self._units)
+        if n == 0:
+            return
+        per_duration = 1.0 / (1.0 + (n - 1) * self.lag_ratio)
+        for i, (unit, fos, sos) in enumerate(
+            zip(self._units, self._target_fill, self._target_stroke)
+        ):
+            t0 = i * self.lag_ratio * per_duration
+            local = 0.0 if per_duration <= 0 else (alpha - t0) / per_duration
+            local = max(0.0, min(1.0, local))
+            eased = self.rate_func(local)
+            for m, fo, so in zip(unit, fos, sos):
+                m.fill_opacity = eased * fo
+                m.stroke_opacity = eased * so
+
+    def finish(self) -> None:
+        for unit, fos, sos in zip(self._units, self._target_fill, self._target_stroke):
+            for m, fo, so in zip(unit, fos, sos):
+                m.fill_opacity = fo
+                m.stroke_opacity = so
 
 
 class FadeOut:

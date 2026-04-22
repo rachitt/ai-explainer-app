@@ -30,23 +30,26 @@ class Scene:
             self.fps = fps
         self._renderer.begin_scene(self.camera)
 
+    def _flatten(self, m: VMobject | VGroup) -> list[VMobject]:
+        """Recursively expand a VGroup tree into its leaf VMobjects."""
+        if isinstance(m, VGroup):
+            out: list[VMobject] = []
+            for sub in m.submobjects:
+                out.extend(self._flatten(sub))
+            return out
+        return [m]
+
     def add(self, *mobjects: VMobject | VGroup) -> None:
         for m in mobjects:
-            if isinstance(m, VGroup):
-                for sub in m:
-                    if sub not in self._mobjects:
-                        self._mobjects.append(sub)
-            elif m not in self._mobjects:
-                self._mobjects.append(m)
+            for leaf in self._flatten(m):
+                if leaf not in self._mobjects:
+                    self._mobjects.append(leaf)
 
     def remove(self, *mobjects: VMobject | VGroup) -> None:
         for m in mobjects:
-            if isinstance(m, VGroup):
-                for sub in m:
-                    if sub in self._mobjects:
-                        self._mobjects.remove(sub)
-            elif m in self._mobjects:
-                self._mobjects.remove(m)
+            for leaf in self._flatten(m):
+                if leaf in self._mobjects:
+                    self._mobjects.remove(leaf)
 
     def play(self, *animations: "Animation", run_time: float | None = None) -> None:
         assert self._sink is not None, "scene not attached to a sink"
@@ -86,11 +89,8 @@ class Scene:
         from chalk.animation import FadeOut
         keep_ids: set[int] = set()
         for k in (keep or []):
-            if isinstance(k, VGroup):
-                for sub in k.submobjects:
-                    keep_ids.add(id(sub))
-            else:
-                keep_ids.add(id(k))
+            for leaf in self._flatten(k):
+                keep_ids.add(id(leaf))
         to_fade = [m for m in self._mobjects if id(m) not in keep_ids]
         if not to_fade:
             return
