@@ -4,17 +4,52 @@ Pure compositions of C1 primitives. No new renderer features.
 
 RDKit is an optional dependency; from_smiles() degrades gracefully without it.
 
-Exports: Atom, Bond, MoleculeLayout, ReactionArrow
+Exports: Atom, Bond, Molecule, MoleculeLayout, ReactionArrow
 """
 from __future__ import annotations
 
-import math
-
 import numpy as np
 
+from chalk.connectable import (
+    Connectable,
+    circle_edge_toward,
+    get_center,
+    resolve_endpoint,
+)
+from chalk.style import (
+    BLUE,
+    GREEN,
+    GREY,
+    PRIMARY,
+    RED_FILL,
+    SCALE_ANNOT,
+    SCALE_LABEL,
+    YELLOW,
+)
 from chalk.vgroup import VGroup
-from chalk.style import PRIMARY, YELLOW, BLUE, GREEN, GREY, RED_FILL, SCALE_LABEL, SCALE_ANNOT
-from chalk.connectable import Connectable, circle_edge_toward, get_center, resolve_endpoint
+
+
+def _recursive_bbox(mob) -> tuple[float, float, float, float]:
+    """Return bbox for VMobjects or nested VGroups."""
+    if isinstance(mob, VGroup):
+        boxes = [_recursive_bbox(child) for child in mob.submobjects]
+        if not boxes:
+            return (0.0, 0.0, 0.0, 0.0)
+        return (
+            min(box[0] for box in boxes),
+            min(box[1] for box in boxes),
+            max(box[2] for box in boxes),
+            max(box[3] for box in boxes),
+        )
+    pts = mob.points
+    if len(pts) == 0:
+        return (0.0, 0.0, 0.0, 0.0)
+    return (
+        float(pts[:, 0].min()),
+        float(pts[:, 1].min()),
+        float(pts[:, 0].max()),
+        float(pts[:, 1].max()),
+    )
 
 
 class Atom(VGroup):
@@ -193,13 +228,16 @@ class MoleculeLayout(VGroup):
         self.bonds = bonds
         super().__init__(*bonds, *atoms)  # bonds behind atoms
 
+    def bbox(self) -> tuple[float, float, float, float]:
+        return _recursive_bbox(self)
+
     @classmethod
     def from_atoms_bonds(
         cls,
         atoms: list[dict],
         bonds: list[dict],
-        color_map: "dict[str, str] | None" = None,
-    ) -> "MoleculeLayout":
+        color_map: dict[str, str] | None = None,
+    ) -> MoleculeLayout:
         """Build from atom/bond dicts.
 
         atoms: [{"symbol": "C", "position": (x, y)}, ...]
@@ -243,16 +281,15 @@ class MoleculeLayout(VGroup):
         cls,
         smiles: str,
         scale: float = 1.5,
-        color_map: "dict[str, str] | None" = None,
-    ) -> "MoleculeLayout":
+        color_map: dict[str, str] | None = None,
+    ) -> MoleculeLayout:
         """Parse SMILES and layout molecule using RDKit's 2D coordinates.
 
         Falls back to a single-atom placeholder if RDKit is not installed.
         """
         try:
             from rdkit import Chem  # type: ignore[import]
-            from rdkit.Chem import AllChem, rdMolDescriptors  # type: ignore[import]
-            from rdkit.Chem import Draw  # type: ignore[import]
+            from rdkit.Chem import AllChem  # type: ignore[import]
         except ImportError:
             # Graceful degradation: return a single atom labeled with the SMILES
             placeholder = Atom("?", position=(0.0, 0.0), color=GREY)
@@ -297,6 +334,42 @@ class MoleculeLayout(VGroup):
         ]
 
         return cls.from_atoms_bonds(atoms_dicts, bonds_dicts, color_map)
+
+
+class Molecule(VGroup):
+    """Molecule assembly with caption below, guaranteed gap.
+
+    atoms/bonds format matches MoleculeLayout.from_atoms_bonds.
+    If caption non-empty, MathTex placed next_to DOWN with caption_buff gap.
+    """
+
+    def __init__(
+        self,
+        atoms: list[dict],
+        bonds: list[dict],
+        caption: str = "",
+        caption_buff: float = 0.45,
+        caption_scale: float = SCALE_LABEL,
+        caption_color: str = GREY,
+        color_map: dict[str, str] | None = None,
+    ) -> None:
+        from chalk.layout import next_to
+        from chalk.tex import MathTex
+
+        self._layout = MoleculeLayout.from_atoms_bonds(atoms, bonds, color_map)
+        self._caption = None
+        mobs: list = [self._layout]
+        if caption:
+            lbl = MathTex(caption, color=caption_color, scale=caption_scale)
+            next_to(lbl, self._layout, direction="DOWN", buff=caption_buff)
+            self._caption = lbl
+            mobs.append(lbl)
+        super().__init__(*mobs)
+
+    @property
+    def center(self) -> tuple[float, float]:
+        xmin, ymin, xmax, ymax = self._layout.bbox()
+        return ((xmin + xmax) / 2.0, (ymin + ymax) / 2.0)
 
 
 def _charge_str(charge: int) -> str:

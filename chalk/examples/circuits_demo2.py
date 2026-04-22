@@ -4,27 +4,36 @@ Run: uv run chalk chalk/examples/circuits_demo2.py --scene RCChargingDemo -o out
 """
 import math
 
+from chalk.circuits import (
+    Battery,
+    Capacitor,
+    CurrentFlow,
+    Resistor,
+    SeriesLoop,
+    VoltageLabel,
+    Wire,
+)
+
 from chalk import (
-    Scene,
-    FadeIn,
-    Write,
-    ChangeValue,
-    MathTex,
-    Axes,
-    plot_function,
-    PRIMARY,
-    YELLOW,
     BLUE,
     GREEN,
     GREY,
-    TRACK,
-    SCALE_LABEL,
+    PRIMARY,
     SCALE_BODY,
+    SCALE_LABEL,
+    TRACK,
+    YELLOW,
     ZONE_BOTTOM,
-    place_in_zone,
+    Axes,
+    ChangeValue,
+    FadeIn,
+    MathTex,
+    Scene,
+    Write,
     next_to,
+    place_in_zone,
+    plot_function,
 )
-from chalk.circuits import Resistor, Battery, Capacitor, Wire, CurrentFlow, VoltageLabel
 
 
 class RCChargingDemo(Scene):
@@ -33,25 +42,29 @@ class RCChargingDemo(Scene):
             r1 = Resistor((-1.8, 1.4), (0.5, 1.4), color=PRIMARY)
             c1 = Capacitor((2.1, 1.4), (3.5, 1.4), color=BLUE)
             batt = Battery((-4.2, -0.4), (-4.2, 0.4), polarity="right", color=GREEN)
-            wire = Wire(
-                (-4.2, 1.4), (4.2, 1.4), (4.2, -1.4), (-4.2, -1.4), (-4.2, 1.4),
-                breaks=[r1, c1, batt],
+            loop_group = SeriesLoop(
+                [r1, c1, batt],
+                width=8.4,
+                height=2.8,
+                wire_color=GREY,
             )
-            v_label = VoltageLabel(across=((-4.2, -0.4), (-4.2, 0.4)), value=r"V_0", side="UP")
+            wire = next(mob for mob in loop_group.submobjects if isinstance(mob, Wire))
+            v_label = VoltageLabel(
+                across=(tuple(batt.start), tuple(batt.end)),
+                value=r"V_0",
+                side="UP",
+            )
             r_label = MathTex(r"R", color=PRIMARY, scale=SCALE_LABEL)
             next_to(r_label, r1, direction="UP", buff=0.25)
             c_label = MathTex(r"C", color=BLUE, scale=SCALE_LABEL)
             next_to(c_label, c1, direction="UP", buff=0.25)
-            return wire, r1, c1, batt, v_label, r_label, c_label
+            return loop_group, wire, v_label, r_label, c_label
 
         # -- Beat 1: RC loop --------------------------------------------------
-        loop, r1, c1, batt, v_label, r_label, c_label = rc_loop()
-        self.add(loop, r1, c1, batt, v_label, r_label, c_label)
+        loop_group, _wire, v_label, r_label, c_label = rc_loop()
+        self.add(loop_group, v_label, r_label, c_label)
         self.play(
-            FadeIn(loop, run_time=0.5),
-            FadeIn(r1, run_time=0.4),
-            FadeIn(c1, run_time=0.4),
-            FadeIn(batt, run_time=0.4),
+            FadeIn(loop_group, run_time=0.5),
             FadeIn(v_label, run_time=0.4),
             FadeIn(r_label, run_time=0.4),
             FadeIn(c_label, run_time=0.4),
@@ -60,16 +73,13 @@ class RCChargingDemo(Scene):
         self.clear()
 
         # -- Beat 2: charging current ----------------------------------------
-        loop, r1, c1, batt, v_label, r_label, c_label = rc_loop()
-        flow = CurrentFlow(loop, charge_count=14, color=YELLOW)
+        loop_group, wire, v_label, r_label, c_label = rc_loop()
+        flow = CurrentFlow(wire, charge_count=14, color=YELLOW)
         charge_label = MathTex(r"i(t)\ \mathrm{charges}\ C", color=YELLOW, scale=SCALE_BODY)
         place_in_zone(charge_label, ZONE_BOTTOM)
-        self.add(loop, r1, c1, batt, v_label, r_label, c_label, flow, charge_label)
+        self.add(loop_group, v_label, r_label, c_label, flow, charge_label)
         self.play(
-            FadeIn(loop, run_time=0.4),
-            FadeIn(r1, run_time=0.4),
-            FadeIn(c1, run_time=0.4),
-            FadeIn(batt, run_time=0.4),
+            FadeIn(loop_group, run_time=0.4),
             FadeIn(v_label, run_time=0.4),
             FadeIn(r_label, run_time=0.4),
             FadeIn(c_label, run_time=0.4),

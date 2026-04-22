@@ -3,7 +3,7 @@
 Pure compositions of C1 primitives. No new renderer features.
 
 Exports: Resistor, Battery, Capacitor, Inductor, Switch, Ground,
-         Wire, CurrentFlow, VoltageLabel, KirchhoffDemo
+         Wire, SeriesLoop, CurrentFlow, VoltageLabel, KirchhoffDemo
 """
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ import math
 
 import numpy as np
 
-from chalk.vgroup import VGroup
-from chalk.redraw import AlwaysRedraw, always_redraw
-from chalk.style import PRIMARY, YELLOW, BLUE, GREEN, GREY, SCALE_LABEL, SCALE_ANNOT
+from chalk.redraw import AlwaysRedraw
+from chalk.style import BLUE, GREEN, GREY, PRIMARY, SCALE_ANNOT, SCALE_LABEL, YELLOW
 from chalk.value_tracker import ValueTracker
+from chalk.vgroup import VGroup
 
 
 def _unit_and_perp(start: np.ndarray, end: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
@@ -177,7 +177,7 @@ class Capacitor(VGroup):
         wire_r = Line((float(c2[0]), float(c2[1])), tuple(p1),
                       color=color, stroke_width=stroke_width)
 
-        def _plate(center: np.ndarray) -> "Line":
+        def _plate(center: np.ndarray) -> Line:
             top = center + plate_half * perp
             bot = center - plate_half * perp
             return Line(
@@ -206,7 +206,7 @@ class Inductor(VGroup):
         p1 = np.array(end, dtype=float)
         self.start = p0.copy()
         self.end = p1.copy()
-        u, perp, length = _unit_and_perp(p0, p1)
+        u, _perp, length = _unit_and_perp(p0, p1)
         if length < 1e-9:
             super().__init__()
             return
@@ -250,7 +250,7 @@ class Switch(VGroup):
         color: str = PRIMARY,
         stroke_width: float = 2.0,
     ) -> None:
-        from chalk.shapes import Line, Dot
+        from chalk.shapes import Dot, Line
 
         p0 = np.array(start, dtype=float)
         p1 = np.array(end, dtype=float)
@@ -304,9 +304,24 @@ class Ground(VGroup):
         x, y = float(point[0]), float(point[1])
         self.point = np.array(point, dtype=float)
         lines = [
-            Line((x - 0.28, y),        (x + 0.28, y),        color=color, stroke_width=stroke_width),
-            Line((x - 0.18, y - 0.10), (x + 0.18, y - 0.10), color=color, stroke_width=stroke_width),
-            Line((x - 0.08, y - 0.20), (x + 0.08, y - 0.20), color=color, stroke_width=stroke_width),
+            Line(
+                (x - 0.28, y),
+                (x + 0.28, y),
+                color=color,
+                stroke_width=stroke_width,
+            ),
+            Line(
+                (x - 0.18, y - 0.10),
+                (x + 0.18, y - 0.10),
+                color=color,
+                stroke_width=stroke_width,
+            ),
+            Line(
+                (x - 0.08, y - 0.20),
+                (x + 0.08, y - 0.20),
+                color=color,
+                stroke_width=stroke_width,
+            ),
         ]
         super().__init__(*lines)
 
@@ -324,12 +339,13 @@ class Wire(VGroup):
         color: str = GREY,
         stroke_width: float = 2.0,
     ) -> None:
+        self.breaks = list(breaks or ())
         self.waypoints = [np.array(p, dtype=float) for p in points]
         self.segments = [
             (self.waypoints[i].copy(), self.waypoints[i + 1].copy())
             for i in range(len(self.waypoints) - 1)
         ]
-        for comp in breaks or ():
+        for comp in self.breaks:
             self._apply_break(comp)
         lines = [
             _line_between_points(a, b, color, stroke_width)
@@ -339,8 +355,8 @@ class Wire(VGroup):
         super().__init__(*lines)
 
     def _apply_break(self, comp: object) -> None:
-        s = np.array(getattr(comp, "start"), dtype=float)
-        e = np.array(getattr(comp, "end"), dtype=float)
+        s = np.array(comp.start, dtype=float)
+        e = np.array(comp.end, dtype=float)
 
         for i, (a, b) in enumerate(self.segments):
             ts = self._segment_parameter(a, b, s)
@@ -399,6 +415,37 @@ class Wire(VGroup):
         return self.segments[-1][1].copy()
 
 
+def SeriesLoop(
+    components: list,
+    width: float = 8.0,
+    height: float = 3.0,
+    wire_color: str = GREY,
+    stroke_width: float = 2.0,
+) -> VGroup:
+    """Rectangular wire loop around N<=4 series components.
+
+    Caller positions components on the perimeter (top/bottom edges typical).
+    Returns VGroup(wire, *components) where the wire auto-splits at each
+    component's .start/.end via Wire(breaks=components).
+
+    Raises NotImplementedError for N > 4.
+    """
+    if len(components) > 4:
+        raise NotImplementedError("SeriesLoop supports at most 4 components")
+    hw, hh = width / 2.0, height / 2.0
+    tl = (-hw, hh)
+    tr = (hw, hh)
+    br = (hw, -hh)
+    bl = (-hw, -hh)
+    wire = Wire(
+        tl, tr, br, bl, tl,
+        color=wire_color,
+        stroke_width=stroke_width,
+        breaks=list(components),
+    )
+    return VGroup(wire, *components)
+
+
 class CurrentFlow(AlwaysRedraw):
     """Stream of charge-carrier dots animated along a Wire path.
 
@@ -445,7 +492,7 @@ def VoltageLabel(
 ) -> VGroup:
     """Bracketed voltage annotation across two wire endpoints.
 
-    Draws an arrow from the − terminal to the + terminal, with the value label
+    Draws an arrow from the - terminal to the + terminal, with the value label
     centered above/below. side="UP"|"DOWN" picks which side of the segment.
     """
     from chalk.shapes import Arrow

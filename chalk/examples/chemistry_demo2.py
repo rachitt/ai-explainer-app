@@ -4,66 +4,51 @@ Run: uv run chalk chalk/examples/chemistry_demo2.py --scene AcidBaseDemo -o out.
 """
 import math
 
+from chalk.chemistry import Molecule
+
 from chalk import (
-    Scene,
-    VGroup,
-    FadeIn,
-    MathTex,
-    Arrow,
-    PRIMARY,
-    YELLOW,
     GREEN,
     GREY,
-    RED_FILL,
-    SCALE_LABEL,
+    PRIMARY,
     SCALE_BODY,
-    ZONE_TOP,
+    SCALE_LABEL,
+    YELLOW,
     ZONE_BOTTOM,
-    place_in_zone,
+    ZONE_TOP,
+    Arrow,
+    FadeIn,
+    MathTex,
+    Scene,
+    VGroup,
     next_to,
+    place_in_zone,
 )
-from chalk.chemistry import Atom, Bond
 
 
 class AcidBaseDemo(Scene):
     def construct(self):
-        def bbox_of(mob):
-            if isinstance(mob, VGroup):
-                boxes = [bbox_of(child) for child in mob.submobjects]
-                return (
-                    min(box[0] for box in boxes),
-                    min(box[1] for box in boxes),
-                    max(box[2] for box in boxes),
-                    max(box[3] for box in boxes),
-                )
-            pts = mob.points
-            return (
-                float(pts[:, 0].min()),
-                float(pts[:, 1].min()),
-                float(pts[:, 0].max()),
-                float(pts[:, 1].max()),
+        def hcl(origin_x: float) -> VGroup:
+            return Molecule(
+                [
+                    {"symbol": "H", "position": (origin_x - 0.6, 0.8)},
+                    {"symbol": "Cl", "position": (origin_x + 0.7, 0.8)},
+                ],
+                [{"a": 0, "b": 1}],
+                caption=r"\mathrm{HCl}",
+                color_map={"Cl": GREEN},
             )
 
-        def place_formula(label: MathTex, molecule_body: VGroup) -> None:
-            xmin, ymin, xmax, _ = bbox_of(molecule_body)
-            label.move_to((xmin + xmax) / 2, ymin - 0.55)
-
-        def hcl(origin_x: float) -> VGroup:
-            h = Atom("H", position=(origin_x - 0.6, 0.8), color=GREY)
-            cl = Atom("Cl", position=(origin_x + 0.7, 0.8), color=GREEN)
-            bond = Bond(h, cl, color=PRIMARY)
-            label = MathTex(r"\mathrm{HCl}", color=GREY, scale=SCALE_LABEL)
-            place_formula(label, VGroup(bond, h, cl))
-            return VGroup(bond, h, cl, label)
-
         def naoh(origin_x: float) -> VGroup:
-            na = Atom("Na", position=(origin_x - 1.0, -0.8), color=GREEN)
-            o = Atom("O", position=(origin_x + 0.1, -0.8), color=RED_FILL)
-            h = Atom("H", position=(origin_x + 1.2, -0.8), color=GREY)
-            bond_oh = Bond(o, h, color=PRIMARY)
-            label = MathTex(r"\mathrm{NaOH}", color=GREY, scale=SCALE_LABEL)
-            place_formula(label, VGroup(na, bond_oh, o, h))
-            return VGroup(na, bond_oh, o, h, label)
+            return Molecule(
+                [
+                    {"symbol": "Na", "position": (origin_x - 1.0, -0.8)},
+                    {"symbol": "O", "position": (origin_x + 0.1, -0.8)},
+                    {"symbol": "H", "position": (origin_x + 1.2, -0.8)},
+                ],
+                [{"a": 1, "b": 2}],
+                caption=r"\mathrm{NaOH}",
+                color_map={"Na": GREEN},
+            )
 
         def reactants() -> VGroup:
             plus = MathTex(r"+", color=PRIMARY, scale=SCALE_BODY)
@@ -71,26 +56,32 @@ class AcidBaseDemo(Scene):
             return VGroup(hcl(-4.7), plus, naoh(-1.4))
 
         def nacl(origin_x: float) -> VGroup:
-            na = Atom("Na", position=(origin_x - 0.6, 0.6), charge="+", color=GREEN)
-            cl = Atom("Cl", position=(origin_x + 0.6, 0.6), charge="-", color=GREEN)
-            label = MathTex(r"\mathrm{NaCl}", color=GREY, scale=SCALE_LABEL)
-            place_formula(label, VGroup(na, cl))
-            return VGroup(na, cl, label)
+            return Molecule(
+                [
+                    {"symbol": "Na", "position": (origin_x - 0.6, 0.6), "charge": "+"},
+                    {"symbol": "Cl", "position": (origin_x + 0.6, 0.6), "charge": "-"},
+                ],
+                [],
+                caption=r"\mathrm{NaCl}",
+                color_map={"Na": GREEN, "Cl": GREEN},
+            )
 
         def water(origin_x: float) -> VGroup:
             bond_len = 1.1
             half_angle = math.radians(104.5 / 2)
             o_pos = (origin_x, -0.8)
-            h1_pos = (origin_x - bond_len * math.sin(half_angle), -0.8 - bond_len * math.cos(half_angle))
-            h2_pos = (origin_x + bond_len * math.sin(half_angle), -0.8 - bond_len * math.cos(half_angle))
-            o = Atom("O", position=o_pos, color=RED_FILL)
-            h1 = Atom("H", position=h1_pos, color=GREY)
-            h2 = Atom("H", position=h2_pos, color=GREY)
-            b1 = Bond(o, h1, color=PRIMARY)
-            b2 = Bond(o, h2, color=PRIMARY)
-            label = MathTex(r"\mathrm{H_2O}", color=GREY, scale=SCALE_LABEL)
-            place_formula(label, VGroup(b1, b2, o, h1, h2))
-            return VGroup(b1, b2, o, h1, h2, label)
+            h_y = -0.8 - bond_len * math.cos(half_angle)
+            h1_pos = (origin_x - bond_len * math.sin(half_angle), h_y)
+            h2_pos = (origin_x + bond_len * math.sin(half_angle), h_y)
+            return Molecule(
+                [
+                    {"symbol": "O", "position": o_pos},
+                    {"symbol": "H", "position": h1_pos},
+                    {"symbol": "H", "position": h2_pos},
+                ],
+                [{"a": 0, "b": 1}, {"a": 0, "b": 2}],
+                caption=r"\mathrm{H_2O}",
+            )
 
         def products() -> VGroup:
             plus = MathTex(r"+", color=PRIMARY, scale=SCALE_BODY)
