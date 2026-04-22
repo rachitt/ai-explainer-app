@@ -1,11 +1,12 @@
 from chalk.mobject import Mobject, VMobject
 from chalk.shapes import Circle, Square, Rectangle, Line, Arrow
-from chalk.animation import Transform, ShiftAnim, FadeIn, FadeOut, Write
+from chalk.animation import Transform, ShiftAnim, FadeIn, FadeOut, Write, ChangeValue
 from chalk.scene import Scene
 from chalk.vgroup import VGroup
 from chalk.tex import MathTex
 from chalk.text import Text
 from chalk.axes import Axes, plot_function
+from chalk.value_tracker import ValueTracker
 from chalk.style import (
     BG, PRIMARY, YELLOW, BLUE, GREEN, RED_FILL, GREY, TRACK,
     SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL, SCALE_ANNOT, SCALE_MIN,
@@ -21,7 +22,9 @@ __all__ = [
     "VGroup", "MathTex", "Text",
     "Axes", "plot_function",
     # Animations
-    "Transform", "ShiftAnim", "FadeIn", "FadeOut", "Write",
+    "Transform", "ShiftAnim", "FadeIn", "FadeOut", "Write", "ChangeValue",
+    # ValueTracker
+    "ValueTracker",
     # Scene
     "Scene",
     # Style constants

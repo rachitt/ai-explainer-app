@@ -1,12 +1,15 @@
 """Animation protocol and Transform implementation."""
 from __future__ import annotations
 
-from typing import Callable, Protocol, Sequence, Union
+from typing import TYPE_CHECKING, Callable, Protocol, Sequence, Union
 import numpy as np
 
 from chalk.mobject import VMobject
 from chalk.rate_funcs import smooth
 from chalk.vgroup import VGroup
+
+if TYPE_CHECKING:
+    from chalk.value_tracker import ValueTracker
 
 
 def _iter_vmobjects(target: Union[VMobject, VGroup]) -> list[VMobject]:
@@ -241,6 +244,37 @@ class Write:
             for m, fo, so in zip(unit, fos, sos):
                 m.fill_opacity = fo
                 m.stroke_opacity = so
+
+
+class ChangeValue:
+    """Animate a ValueTracker from its current value to `target` over run_time."""
+
+    def __init__(
+        self,
+        tracker: "ValueTracker",
+        target: float,
+        run_time: float = 1.0,
+        rate_func: Callable[[float], float] = smooth,
+    ) -> None:
+        self.tracker = tracker
+        self.target = float(target)
+        self.run_time = run_time
+        self.rate_func = rate_func
+        self._start: float = 0.0
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return []
+
+    def begin(self) -> None:
+        self._start = self.tracker.get_value()
+
+    def interpolate(self, alpha: float) -> None:
+        eased = self.rate_func(alpha)
+        self.tracker.set_value(self._start + eased * (self.target - self._start))
+
+    def finish(self) -> None:
+        self.tracker.set_value(self.target)
 
 
 class FadeOut:
