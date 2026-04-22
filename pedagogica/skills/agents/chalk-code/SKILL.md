@@ -78,6 +78,9 @@ Each scene (delimited by `self.clear()`) in generated chalk code MUST:
 1. Contain **at least one motion animation** chosen from: `ChangeValue`, `MoveAlongPath`, `Rotate`, `Transform`, `CameraShift`, `CameraZoom`, `ShiftAnim`, `Succession`, `LaggedStart`. FadeIn/FadeOut alone is not motion — scenes that use only fades fail `chalk-lint` rule R3 and must be fixed.
    - Exception: the final scene of a Scene class may be pure fades (rest frame).
 2. Contain **at most 3 `self.play(...)` calls** (beats). Pack tightly — one beat should do several things in parallel via `AnimationGroup` or `Succession`, not spread across many plays. Exceeding 3 fails rule R4.
+3. **Last no more than ~10 seconds** between `self.clear()` calls. A static frame held past ~10s looks boring; narration alone cannot carry a visual. Use `self.clear(keep=[anchor_mob, ...])` to advance the frame while preserving elements the next beat elaborates on. Exceeding ~10s of estimated runtime (sum of `run_time=` kwargs + `self.wait(x)` args) fails rule R6.
+
+**Target cadence: a new visual beat every 5–8 seconds.** Each beat can be an elaboration of the previous (add a new arrow, swap a label, advance a tracker) — keep it narratively continuous via `self.clear(keep=[...])`, not a jarring cut.
 
 If a storyboard beat naturally needs more motion than fits in 3 plays, split across `self.clear()` into a new scene.
 

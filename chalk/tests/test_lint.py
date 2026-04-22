@@ -182,6 +182,44 @@ class Demo(Scene):
     assert [e.rule for e in lint_file(scene) if e.rule == "R5-hand-sized-box"] == []
 
 
+def test_long_static_beat_reports_r6(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import FadeIn, Scene
+
+class Demo(Scene):
+    def construct(self):
+        self.play(FadeIn(a, run_time=0.5))
+        self.wait(15.0)
+""",
+    )
+
+    errors = [e for e in lint_file(scene) if e.rule == "R6-long-beat"]
+
+    assert len(errors) == 1
+
+
+def test_split_beats_pass_r6(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import FadeIn, ShiftAnim, Scene
+
+class Demo(Scene):
+    def construct(self):
+        self.play(FadeIn(a, run_time=0.5))
+        self.play(ShiftAnim(a, dx=1.0, dy=0.0, run_time=1.0))
+        self.wait(6.0)
+        self.clear()
+        self.play(FadeIn(b, run_time=0.5))
+        self.wait(5.0)
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R6-long-beat"] == []
+
+
 def test_rectangle_and_mathtex_at_different_coords_passes_r5(tmp_path: Path):
     scene = _write_scene(
         tmp_path / "scene.py",

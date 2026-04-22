@@ -88,6 +88,7 @@ chalk/examples/showcase.py:176:R3-no-motion
 chalk/examples/showcase.py:148:R4-too-many-beats
 chalk/examples/showcase.py:176:R4-too-many-beats
 chalk/examples/chemistry_demo2.py:29:R3-no-motion
+chalk/examples/chemistry_demo2.py:98:R3-no-motion
 chalk/examples/chemistry_demo2.py:107:R3-no-motion
 chalk/examples/graph_demo2.py:23:R3-no-motion
 chalk/examples/graph_demo2.py:60:R4-too-many-beats
@@ -96,4 +97,11 @@ chalk/examples/claude_code.py:44:R3-no-motion
 chalk/examples/claude_code.py:74:R3-no-motion
 chalk/examples/claude_code.py:129:R3-no-motion
 chalk/examples/claude_code.py:74:R4-too-many-beats
-chalk/examples/circuits_demo2.py:31:R3-no-motion
+chalk/examples/circuits_demo2.py:40:R3-no-motion
+# R6-long-beat grandfathered examples (pre-dating R6 introduction 2026-04-22)
+chalk/examples/voltage_divider.py:25:R6-long-beat
+chalk/examples/damped_oscillation.py:21:R6-long-beat
+chalk/examples/newton.py:32:R6-long-beat
+chalk/examples/claude_code.py:74:R6-long-beat
+chalk/examples/claude_code.py:129:R6-long-beat
+chalk/examples/claude_code.py:190:R6-long-beat

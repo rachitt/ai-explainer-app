@@ -17,6 +17,8 @@ _SCALE_NAMES = {n for n in dir(_style) if n.startswith("SCALE_")}
 
 _HEX_RE = re.compile(r"^#[0-9A-Fa-f]{3,8}$")
 _ALLOWLIST_PATH = Path(__file__).with_name("_lint_allowlist.txt")
+_MAX_BEAT_SECONDS = 10.0
+_DEFAULT_PLAY_SECONDS = 1.0
 _MOTION_ANIMATIONS = {
     "ChangeValue",
     "MoveAlongPath",
@@ -149,6 +151,19 @@ class _Visitor(ast.NodeVisitor):
                         "use labeled_box() — auto-sizes rectangle to fit label + padding",
                     )
                 )
+        for scene in scenes:
+            est = _estimated_scene_seconds(scene.statements)
+            if est > _MAX_BEAT_SECONDS:
+                self.errors.append(
+                    LintError(
+                        self.path,
+                        scene.start_line,
+                        0,
+                        "R6-long-beat",
+                        f"scene runs ~{est:.1f}s without self.clear(); split every 5-8s "
+                        "so the frame changes (use self.clear(keep=[...]) to preserve anchors)",
+                    )
+                )
 
 
 class _SceneChunk:
@@ -199,6 +214,42 @@ def _contains_motion_animation(statements: list[ast.stmt]) -> bool:
         for stmt in statements
         for node in ast.walk(stmt)
     )
+
+
+def _max_run_time_in_call(node: ast.Call) -> float:
+    """Max run_time= kwarg found anywhere inside this call tree (0 if none)."""
+    best = 0.0
+    for inner in ast.walk(node):
+        if not isinstance(inner, ast.Call):
+            continue
+        for kw in inner.keywords:
+            if kw.arg == "run_time":
+                val = _constant_number(kw.value)
+                if val is not None and val > best:
+                    best = val
+    return best
+
+
+def _estimated_scene_seconds(statements: list[ast.stmt]) -> float:
+    """Sum of self.wait(x) args + per-self.play() runtime estimates.
+
+    Under-counts when run_time is omitted (uses defaults) or non-literal; treat
+    as a lower bound. A lint miss is fine — a false R6 trip is not.
+    """
+    total = 0.0
+    for stmt in statements:
+        for node in ast.walk(stmt):
+            if not isinstance(node, ast.Call):
+                continue
+            if _is_self_method_call(node, "wait"):
+                if node.args:
+                    val = _constant_number(node.args[0])
+                    if val is not None:
+                        total += val
+            elif _is_self_method_call(node, "play"):
+                rt = _max_run_time_in_call(node)
+                total += rt if rt > 0 else _DEFAULT_PLAY_SECONDS
+    return total
 
 
 def _count_self_play_calls(statements: list[ast.stmt]) -> int:

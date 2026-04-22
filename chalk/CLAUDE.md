@@ -88,6 +88,14 @@ next_to(label, ball, direction="UP", buff=0.3)
 infinite canvas. When a beat ends and the next begins, the screen must reset.
 Otherwise every element from every beat piles up on screen.
 
+**Cadence: a new visual beat every 5–8 seconds.** A scene that holds the same
+frame for 15+ seconds reads as static and boring — narration alone cannot carry
+a still image that long. Use `self.clear(keep=[...])` to advance the frame
+while preserving anchor elements. Even elaboration (adding a label, swapping
+a color, advancing a tracker) reads as "something changed" to the viewer.
+Enforced by chalk-lint rule R6 — any chunk between `self.clear()` calls whose
+estimated runtime exceeds ~10 s fails.
+
 Use `self.clear()` at the end of every beat (except the last):
 
 ```python
