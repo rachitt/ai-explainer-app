@@ -57,3 +57,9 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** auto-layout without narrative awareness will always look worse than an LLM placing 6 nodes by hand. LLMs know narrative ('S is start, T is goal') and graphviz-style algorithms do not.
 **Fix:** removed from_adjacency and all layout helpers. Scene authors (LLMs) hand-place every coordinate using grid templates documented in the chalk-graph-patterns knowledge skill.
 **Applies to:** any future domain kit. Do not add auto-placement. Always expose primitives (Atom, Node, Bond, Edge, Resistor, Spring) that take explicit coords. If a layout would help, put a grid template in a knowledge skill — not the renderer.
+
+## 2026-04-22 — layout anchors must be leaf-friendly
+**Mistake:** used `next_to()` on nested domain `VGroup`s and called `bbox()` on a `Dot` while adding C2 second demos; snapshot construction crashed.
+**Root cause:** some domain objects contain nested `VGroup`/`MathTex` children, while `VGroup.bbox()` is not recursive and VMobjects do not all expose `bbox()`.
+**Fix:** anchor labels to leaf VMobjects where possible, use explicit local label positions for molecule assemblies that lack a clean leaf anchor, and compute Dot centers from points during animation.
+**Applies to:** chalk scene authoring with domain-kit composites; test snapshots before assuming a placement helper can consume a composite.
