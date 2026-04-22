@@ -4,9 +4,11 @@
 
 ## What this is
 
-An AI pipeline that turns a learning objective ("explain derivatives to calc 1 students") into a narrated explainer video in the style of 3Blue1Brown / Khan Academy. Core bet: LLMs generate Manim Community Edition code → render → overlay ElevenLabs TTS with word-level sync. No generative video models for pedagogical content.
+An AI pipeline that turns a learning objective ("explain derivatives to calc 1 students") into a narrated explainer video in the style of 3Blue1Brown / Khan Academy. Core bet: LLMs generate **chalk** code (this repo's own renderer, under `chalk/`) → render → overlay ElevenLabs TTS with word-level sync. No generative video models for pedagogical content.
 
-Full spec: `docs/ARCHITECTURE.md`, `docs/SKILLS.md`, `docs/ROADMAP.md`, `docs/RISKS.md`, `docs/NON_GOALS.md`.
+chalk replaced Manim Community Edition as the visual primitive on 2026-04-21. Rationale, kill criteria, and reversion plan live in `docs/adr/0001-chalk-replaces-manim.md`; phased primitive plan in `docs/CHALK_ROADMAP.md`. Scene authoring rules in `chalk/CLAUDE.md`.
+
+Full spec: `docs/ARCHITECTURE.md`, `docs/SKILLS.md`, `docs/ROADMAP.md`, `docs/RISKS.md`, `docs/NON_GOALS.md`, `docs/CHALK_ROADMAP.md`.
 
 ## Phase 1 scope (now)
 
@@ -14,11 +16,11 @@ Full spec: `docs/ARCHITECTURE.md`, `docs/SKILLS.md`, `docs/ROADMAP.md`, `docs/RI
 - **Domain:** calculus only. 2–4 minute videos, 720p, single English narrator, ElevenLabs TTS.
 - **Target:** 10 calculus topics, 8+ watchable, in 6 weeks.
 - **Persistence:** filesystem only, under `./artifacts/<job_id>/`. No DB.
-- **Sandbox:** macOS `sandbox-exec` for Manim execution.
+- **Sandbox:** macOS `sandbox-exec` for chalk execution.
 
 ## Non-negotiables
 
-- **Manim Community `0.19.x`** is the visual primitive. No SVG/Motion Canvas/Remotion detours.
+- **chalk** (this repo's own renderer) is the visual primitive. No Manim/SVG/Motion Canvas/Remotion detours. See `docs/adr/0001-chalk-replaces-manim.md` for why and `docs/CHALK_ROADMAP.md` for what ships when. Kill criteria in the ADR are the only path back to Manim CE.
 - **No generative video** (Sora/Veo/Runway/Kling) for pedagogical content — they can't keep equations consistent.
 - **No Anthropic API key usage in Phase 1.** Everything goes through Claude Code.
 - **No WhisperX in Phase 1.** ElevenLabs returns word timings natively; use that.
@@ -33,11 +35,12 @@ Each of the 22 agents in the spec = a Claude Code skill under `pedagogica/skills
 ## Repo layout
 
 ```
+chalk/            the visual primitive — library, CLAUDE.md authoring rules, examples, tests
 pedagogica/       Claude Code plugin — agent skills + knowledge skills + domain packs
 schemas/          Pydantic models for inter-agent messages (uv workspace package)
-tools/            Python helpers: manim_render, elevenlabs_tts, ffmpeg_mux, trace, job_view
-sandbox/          sandbox-exec profiles for Manim isolation
-docs/             ARCHITECTURE / SKILLS / ROADMAP / RISKS / NON_GOALS
+tools/            Python helpers: chalk_render, elevenlabs_tts, ffmpeg_mux, trace, job_view
+sandbox/          sandbox-exec profiles for chalk isolation
+docs/             ARCHITECTURE / SKILLS / ROADMAP / RISKS / NON_GOALS / CHALK_ROADMAP + adr/
 tests/            regression (10 calculus topics) + integration
 workflows/        lessons.md — append-only mistake log
 artifacts/        per-job state, gitignored
@@ -69,7 +72,7 @@ uv run pytest tests/regression                 # full Phase 1 suite (~30 min)
 - Do not edit `artifacts/` by hand — it's generated state.
 - Do not commit `.env`, credentials, ElevenLabs API keys, or rendered test videos.
 - Do not introduce a new LLM provider without updating `tools/src/pedagogica_tools/llm/` abstractions.
-- Do not relitigate the Manim bet mid-phase. Use `RISKS.md` R1 kill criteria.
+- Do not relitigate the chalk bet mid-phase. Use the kill criteria in `docs/adr/0001-chalk-replaces-manim.md` (K1–K5) and `RISKS.md` R1.
 
 ## When you correct a mistake
 
@@ -78,6 +81,7 @@ Append to `workflows/lessons.md`. Format: **Mistake / Root cause / Fix / Applies
 ## Where to find more
 
 - Architectural decisions → `docs/ARCHITECTURE.md` (runtime, DAG, schemas, persistence, sandbox, observability)
+- chalk (visual primitive) → `docs/adr/0001-chalk-replaces-manim.md` for the decision, `docs/CHALK_ROADMAP.md` for the phased plan, `chalk/CLAUDE.md` for scene-authoring rules
 - Skill authoring → `pedagogica/skills/AUTHORING.md` (created week 1)
 - Phase plan → `docs/ROADMAP.md` (week-by-week for Phase 1; milestones beyond)
 - What we're NOT building → `docs/NON_GOALS.md`

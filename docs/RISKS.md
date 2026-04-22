@@ -2,6 +2,8 @@
 
 Status: Phase 1 risk register. Reviewed against ARCHITECTURE.md and ROADMAP.md.
 
+> **Renderer update (2026-04-21):** R1 ("LLMs can't reliably generate Manim code") is now about chalk, not MCE, per ADR 0001. The kill criteria specific to the chalk bet live in the ADR (K1–K5) and supplement R1. New risk: chalk is a single-author library with bus factor 1 — mitigation is strict typing, 100% core-test coverage target, and ADRs for each primitive added. See `docs/CHALK_ROADMAP.md` for scope.
+
 Top 10 risks ordered by severity × likelihood. Each has a description, early-warning signal, mitigation, and fallback plan. A risk appears here only if it can materially alter the roadmap.
 
 Severity scale: `S1` existential (project cannot ship) / `S2` major (phase slips ≥ 3 weeks) / `S3` moderate (feature quality compromised).

@@ -2,6 +2,8 @@
 
 Status: Phase 1 design. Cross-referenced with ARCHITECTURE.md.
 
+> **Renderer update (2026-04-21):** Skill names below that start with `manim-` are renamed to `chalk-` per ADR 0001. Concretely: `manim-primitives` → `chalk-primitives`, `manim-calculus-patterns` → `chalk-calculus-patterns`, `manim-<domain>-patterns` → `chalk-<domain>-patterns`, `manim-debugging` → `chalk-debugging`. The skill counts, owners, and phase assignments are unchanged. Content inside each skill is to be rewritten against `chalk` primitives as each skill is authored — see `docs/CHALK_ROADMAP.md` for which primitives exist when.
+
 Skills are where the knowledge lives. Agents are lean orchestrators; skills carry the craft. This document specifies the skill format, the full Phase 1 → Phase 6 inventory, which skills each agent loads, two worked examples (happy path + failed-compile retry), the authoring process, and the per-phase ship plan.
 
 ---

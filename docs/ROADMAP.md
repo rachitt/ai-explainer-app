@@ -2,6 +2,8 @@
 
 Status: Phase 1 week-by-week detailed. Phases 2–6 milestones + kill criteria.
 
+> **Renderer update (2026-04-21):** References to Manim / MCE are superseded by **chalk** per ADR 0001. Skill names `manim-primitives`, `manim-calculus-patterns`, `manim-<domain>-patterns` are renamed `chalk-*`. chalk's own phased plan lives in `docs/CHALK_ROADMAP.md` and its milestones must land alongside the domain milestones here (e.g. chalk C1 parity floor must complete before pedagogica M1.6).
+
 This is the delivery plan. Every phase ends with a working, demonstrable system. Phase 1 is planned at the week level; later phases at the milestone level.
 
 ---

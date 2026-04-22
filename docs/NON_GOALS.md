@@ -44,11 +44,15 @@ Things we will not build, full stop. Revisiting any of these requires reopening 
 
 **Why permanent for single-user Phase 1–3.** Pedagogica in Phase 1–3 is single-user — Rachit is the only person using it. Phase 4 adds external users, and from Phase 4 the operative safety mechanism is still Anthropic's baseline plus prompt-level refusals for high-stakes domains (medical dosing, legal advice, self-harm). We do not build YouTube's or Reddit's moderation apparatus. If the product needs that to succeed, we've mis-scoped the customer.
 
-### 1.6 Relitigating the Manim bet
+### 1.6 Relitigating the renderer bet
 
-**Meaning.** The architectural decision to generate Manim code as the visual primitive (vs. SVG, vs. Remotion, vs. Motion Canvas, vs. custom renderer) is not on the table for discussion in Phases 1–6.
+**Meaning.** The architectural decision on which code the LLM generates for the visual primitive is not on the table for mid-phase debate.
 
-**Why permanent for the next 40 weeks.** This is a foundational bet; if it's wrong, we learn that via R1 kill criteria and pivot the whole project. But mid-phase Manim-vs-X debates waste time. The kill criteria are the mechanism for reopening this — not vibes.
+**History.** The bet originally named Manim Community Edition 0.19.x. On 2026-04-21 that bet was superseded by ADR 0001: **chalk** (this repo's own renderer under `chalk/`) replaced MCE as the primitive. The decision, rationale, kill criteria (K1–K5), and reversion plan are captured there. This was an explicit, documented renderer change — not a drift.
+
+**What stays permanent.** No further mid-phase renderer debates (chalk vs MCE vs Remotion vs Motion Canvas vs raw SVG) are in scope until one of ADR 0001's kill criteria fires. If K1–K5 fire, the reversion plan in the ADR is the path back to MCE; a *different* renderer choice requires a fresh ADR.
+
+**Why permanent for the next 40 weeks.** The foundational bet is still "own the renderer we generate for." Which specific renderer implements that bet is answered by ADR 0001 and can only be reopened through the kill criteria, not vibes. Mid-phase debates waste time either way.
 
 ---
 

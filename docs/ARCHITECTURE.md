@@ -2,6 +2,8 @@
 
 Status: Phase 1 design. Reviewed against Artifact 1 (approved).
 
+> **Renderer update (2026-04-21):** Every reference to "Manim" / "MCE" / "Manim Community Edition" in this document is superseded by **chalk** (this repo's own renderer). See `docs/adr/0001-chalk-replaces-manim.md` for the decision and `docs/CHALK_ROADMAP.md` for the phased primitive plan. Agent skill names (`manim-code`, `manim-primitives`, `manim-<domain>-patterns`) are renamed to the `chalk-*` equivalents. Sandbox, code-execution semantics, schema shapes, and DAG structure are unchanged.
+
 This document is the single source of truth for how Pedagogica is organized: how code is laid out, how agents communicate, what state is persisted, how Manim executes safely, how we observe what happens, and how the architecture evolves from the Phase-1 Claude Code-native runtime toward a hosted Python service by Phase 4.
 
 ---
