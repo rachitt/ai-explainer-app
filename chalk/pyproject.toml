@@ -8,6 +8,7 @@ dependencies = [
     "pycairo>=1.26,<2",
     "pyglet>=2.0,<3",
     "typer>=0.12",
+    "pypng>=0.20220715",
 ]
 
 [project.scripts]

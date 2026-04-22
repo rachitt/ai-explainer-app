@@ -23,6 +23,8 @@ class Scene:
         self._redrawables: list["AlwaysRedraw"] = []
         self._sink: FrameSink | None = None
         self._renderer = CairoRenderer()
+        self._frame_index: int = 0
+        self._sections: list[tuple[str, int]] = []
 
     def _attach(self, sink: "FrameSink", camera: Camera2D | None = None, fps: int | None = None) -> None:
         self._sink = sink
@@ -94,6 +96,7 @@ class Scene:
             self._refresh_all()
             frame = self._renderer.render_frame(self._render_mobs())
             self._sink.write(frame)
+            self._frame_index += 1
 
         for anim in animations:
             anim.finish()
@@ -105,6 +108,7 @@ class Scene:
             self._refresh_all()
             frame = self._renderer.render_frame(self._render_mobs())
             self._sink.write(frame)
+            self._frame_index += 1
 
     def clear(self, run_time: float = 0.5, keep: list | None = None) -> None:
         """Fade out every currently-added mobject (except those in `keep`) and
@@ -138,6 +142,15 @@ class Scene:
                 self._mobjects.remove(m)
         self._redrawables = [rd for rd in self._redrawables
                              if id(rd) in keep_rd_ids]
+
+    def section(self, name: str) -> None:
+        """Mark the current timeline position with a named bookmark."""
+        self._sections.append((name, self._frame_index))
+
+    @property
+    def sections(self) -> list[tuple[str, int]]:
+        """List of (name, frame_index) pairs emitted so far."""
+        return list(self._sections)
 
     def construct(self) -> None:
         """Override in subclasses to define the animation."""
