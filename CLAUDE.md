@@ -30,13 +30,14 @@ Full spec: `docs/ARCHITECTURE.md`, `docs/SKILLS.md`, `docs/ROADMAP.md`, `docs/RI
 
 ## Runtime model
 
-Pipeline = **7 agent skills** + **7 knowledge skills** (trimmed 2026-04-22 from 33 → 14; the rest were stale or merged in). Inter-agent messages = JSON files on disk under `artifacts/<job_id>/`, validated against Pydantic schemas in `schemas/`. Non-LLM work (chalk render, FFmpeg, ElevenLabs HTTP) = Python helpers in `tools/`, invoked via Bash as `uv run pedagogica-tools <subcommand>`.
+Pipeline = **8 agent skills** + **7 knowledge skills** (trimmed 2026-04-22 from 33 → 15; the rest were stale or merged in). Inter-agent messages = JSON files on disk under `artifacts/<job_id>/`, validated against Pydantic schemas in `schemas/`. Non-LLM work (chalk render, FFmpeg, ElevenLabs HTTP) = Python helpers in `tools/`, invoked via Bash as `uv run pedagogica-tools <subcommand>`.
 
 ### Agent skills (`pedagogica/skills/agents/`)
 
-`orchestrator` → `curriculum` → `storyboard` → `script` → `chalk-code` → `chalk-repair` → `sync`
+`orchestrator` → `intake` → `curriculum` → `storyboard` → `script` → `chalk-code` → `chalk-repair` → `sync`
 
 - `orchestrator` coordinates stages
+- `intake` normalizes raw user prompt → typed IntakeResult (topic, domain, audience, length)
 - `curriculum` breaks topic into beats
 - `storyboard` plans visual arc per scene
 - `script` writes narration (absorbs pacing + spoken-style rules inline)
