@@ -13,7 +13,7 @@ from chalk import (
     FadeIn,
     PRIMARY, YELLOW, BLUE, GREEN, GREY, TRACK,
     SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL, SCALE_ANNOT,
-    labeled_box,
+    labeled_box, arrow_between,
 )
 
 
@@ -53,9 +53,9 @@ class ClaudeCode(Scene):
 
         agent2, agent2_lbl = _agent_with_label(x=3.0, y=0.0)
 
-        arrow_in = Arrow((-0.95, 0.0), (2.00, 0.0),
-                         color=PRIMARY, stroke_width=2.0,
-                         head_length=0.3, head_width=0.25, shaft_width=0.06)
+        arrow_in = arrow_between(prompt_box, agent2, buff=0.15,
+                                 color=PRIMARY, stroke_width=2.0,
+                                 head_length=0.3, head_width=0.25, shaft_width=0.06)
 
         self.add(prompt_box, prompt_text)
         self.play(FadeIn(prompt_box,  run_time=0.6),
@@ -90,14 +90,15 @@ class ClaudeCode(Scene):
         edit_box, edit_lbl = make_tool("Edit",  3.3,  0.0)
         bash_box, bash_lbl = make_tool("Bash",  3.3, -1.8)
 
-        def make_link(y: float) -> Arrow:
-            # Agent center at (-3.5, 0), radius 0.85; exit at x=-2.6.
-            # Tool boxes centered at (3.3, y) with width 1.9; left edge at x=2.35.
-            return Arrow((-2.55, y * 0.35), (2.25, y),
-                         color=TRACK, stroke_width=1.5,
-                         head_length=0.22, head_width=0.2, shaft_width=0.04)
-
-        link_r, link_e, link_b = make_link(1.8), make_link(0.0), make_link(-1.8)
+        link_r = arrow_between(agent3, read_box, buff=0.15, color=TRACK,
+                               stroke_width=1.5, head_length=0.22,
+                               head_width=0.2, shaft_width=0.04)
+        link_e = arrow_between(agent3, edit_box, buff=0.15, color=TRACK,
+                               stroke_width=1.5, head_length=0.22,
+                               head_width=0.2, shaft_width=0.04)
+        link_b = arrow_between(agent3, bash_box, buff=0.15, color=TRACK,
+                               stroke_width=1.5, head_length=0.22,
+                               head_width=0.2, shaft_width=0.04)
 
         self.add(agent3, agent3_lbl)
         self.play(FadeIn(agent3,     run_time=0.5),

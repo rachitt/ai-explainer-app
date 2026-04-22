@@ -2,8 +2,8 @@ import pytest
 import numpy as np
 
 from chalk import (
-    Circle, Square, VGroup,
-    next_to, place_in_zone, labeled_box,
+    Circle, Square, Rectangle, VGroup,
+    next_to, place_in_zone, labeled_box, arrow_between,
     PRIMARY, YELLOW, BLUE, RED_FILL,
     SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL, SCALE_ANNOT, SCALE_MIN,
     ZONE_TOP, ZONE_CENTER, ZONE_BOTTOM,
@@ -83,6 +83,36 @@ def test_labeled_box_respects_min_width():
                             min_width=3.0)
     bpts = box.points
     assert (bpts[:, 0].max() - bpts[:, 0].min()) >= 3.0 - 1e-6
+
+
+def test_arrow_between_anchors_at_bbox_edges_with_buff():
+    src = Rectangle(width=2.0, height=1.0)
+    src.shift(-3.0, 0.0)         # center (-3, 0); right edge at x = -2
+    tgt = Circle(radius=0.5)
+    tgt.shift(3.0, 0.0)          # center (3, 0); left edge ~ x = 2.5
+    arr = arrow_between(src, tgt, buff=0.2,
+                         head_length=0.2, head_width=0.15, shaft_width=0.04)
+    # Leftmost shaft points should sit just right of src's right edge.
+    xmin = arr.points[:, 0].min()
+    xmax = arr.points[:, 0].max()
+    assert xmin >= -2.0 + 0.2 - 0.01   # start_x = src.right + buff
+    assert xmin <= -2.0 + 0.2 + 0.15   # small cushion for shaft_width
+    # Rightmost point (tip) should sit just left of tgt's left edge.
+    assert xmax <= 2.5 - 0.2 + 0.01
+    assert xmax >= 2.5 - 0.2 - 0.15
+
+
+def test_arrow_between_diagonal():
+    src = Rectangle(width=1.0, height=1.0)
+    src.shift(-2.0, -1.0)
+    tgt = Rectangle(width=1.0, height=1.0)
+    tgt.shift(2.0, 1.5)
+    arr = arrow_between(src, tgt, buff=0.1)
+    # Arrow points should run roughly from lower-left toward upper-right
+    assert arr.points[:, 0].min() > -2.0       # past source right edge
+    assert arr.points[:, 1].min() > -1.0       # past source top edge
+    assert arr.points[:, 0].max() < 2.0        # before target left edge
+    assert arr.points[:, 1].max() < 1.5        # before target bottom edge
 
 
 def test_place_in_zone_centers_vertically_in_zone():

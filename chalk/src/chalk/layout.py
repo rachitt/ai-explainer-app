@@ -99,6 +99,65 @@ def next_to(
     return mob
 
 
+def _ray_bbox_exit(
+    cx: float, cy: float, ux: float, uy: float,
+    xmin: float, ymin: float, xmax: float, ymax: float,
+) -> tuple[float, float]:
+    """From center (cx, cy), shoot a ray along unit vector (ux, uy); return
+    the point where it first crosses the axis-aligned bbox boundary.
+    """
+    ts: list[float] = []
+    if ux > 1e-9:
+        ts.append((xmax - cx) / ux)
+    elif ux < -1e-9:
+        ts.append((xmin - cx) / ux)
+    if uy > 1e-9:
+        ts.append((ymax - cy) / uy)
+    elif uy < -1e-9:
+        ts.append((ymin - cy) / uy)
+    t = min(ts) if ts else 0.0
+    return (cx + t * ux, cy + t * uy)
+
+
+def arrow_between(
+    source: Target,
+    target: Target,
+    buff:   float = 0.15,
+    color:  str   = "#E8EAED",
+    stroke_width: float = 2.0,
+    head_length:  float = 0.25,
+    head_width:   float = 0.22,
+    shaft_width:  float = 0.06,
+):
+    """Build an Arrow from source to target, anchored at their bbox edges with
+    `buff` gap on each side. Works for any VMobject / VGroup combination —
+    circles, rectangles, MathTex labels, etc.
+    """
+    from chalk.shapes import Arrow
+    sx0, sy0, sx1, sy1 = _bbox(source)
+    tx0, ty0, tx1, ty1 = _bbox(target)
+    scx, scy = (sx0 + sx1) / 2, (sy0 + sy1) / 2
+    tcx, tcy = (tx0 + tx1) / 2, (ty0 + ty1) / 2
+
+    dx, dy = tcx - scx, tcy - scy
+    mag = (dx * dx + dy * dy) ** 0.5
+    if mag < 1e-9:
+        raise ValueError("source and target share the same center; cannot draw arrow")
+    ux, uy = dx / mag, dy / mag
+
+    s_exit  = _ray_bbox_exit(scx, scy,  ux,  uy, sx0, sy0, sx1, sy1)
+    t_entry = _ray_bbox_exit(tcx, tcy, -ux, -uy, tx0, ty0, tx1, ty1)
+
+    start = (s_exit[0] + buff * ux,  s_exit[1] + buff * uy)
+    end   = (t_entry[0] - buff * ux, t_entry[1] - buff * uy)
+
+    return Arrow(
+        start, end,
+        color=color, stroke_width=stroke_width,
+        head_length=head_length, head_width=head_width, shaft_width=shaft_width,
+    )
+
+
 def labeled_box(
     label_latex: str,
     color: str,

@@ -115,6 +115,27 @@ except those in `keep`.  Use `keep` when one element anchors multiple beats
 five beats without ever calling `self.clear()`.  By the end, the title is
 still visible underneath the payoff caption.  Don't do this.
 
+## Arrows between objects (never hand-pick start/end coordinates)
+
+If you need an arrow from one mobject to another, **use `arrow_between()`**.
+It reads the source and target bboxes, shoots a ray between their centers,
+and anchors the arrow at their edges with a `buff` gap.
+
+```python
+arrow = arrow_between(prompt_box, agent_circle, buff=0.15, color=PRIMARY)
+self.add(arrow)
+self.play(FadeIn(arrow, run_time=0.4))
+```
+
+The source or target can be a VMobject (Circle, Rectangle, Arrow) or a VGroup
+(MathTex label, a grouped assembly).  The arrow will anchor at the bbox edge
+of whichever shape you pass.
+
+**Anti-pattern:** computing start=(source.x + source.width/2 + 0.1, ...) by
+hand, or hardcoding coordinates like `Arrow((-1.7, 0.0), (2.0, 0.0))`. This
+breaks every time a label resizes or a shape moves. One source of truth: the
+bboxes.
+
 ## Boxed labels (never hand-size a Rectangle around text)
 
 If you need a labeled box (resistor, tool, file, component), **use
