@@ -11,6 +11,7 @@ from chalk.vgroup import VGroup
 if TYPE_CHECKING:
     from chalk.animation import Animation
     from chalk.output import FrameSink
+    from chalk.redraw import AlwaysRedraw
 
 
 class Scene:
@@ -19,6 +20,7 @@ class Scene:
 
     def __init__(self) -> None:
         self._mobjects: list[VMobject] = []
+        self._redrawables: list["AlwaysRedraw"] = []
         self._sink: FrameSink | None = None
         self._renderer = CairoRenderer()
 
@@ -39,17 +41,42 @@ class Scene:
             return out
         return [m]
 
+    def _is_redrawable(self, m: VMobject | VGroup) -> bool:
+        from chalk.redraw import AlwaysRedraw
+        return isinstance(m, AlwaysRedraw)
+
+    def _refresh_all(self) -> None:
+        for rd in self._redrawables:
+            rd.refresh()
+
+    def _render_mobs(self) -> list[VMobject]:
+        from chalk.animation import _iter_vmobjects
+        mobs: list[VMobject] = list(self._mobjects)
+        for rd in self._redrawables:
+            mobs.extend(_iter_vmobjects(rd))
+        return mobs
+
     def add(self, *mobjects: VMobject | VGroup) -> None:
         for m in mobjects:
-            for leaf in self._flatten(m):
-                if leaf not in self._mobjects:
-                    self._mobjects.append(leaf)
+            if self._is_redrawable(m):
+                from chalk.redraw import AlwaysRedraw
+                rd = m  # type: ignore[assignment]
+                if rd not in self._redrawables:
+                    self._redrawables.append(rd)  # type: ignore[arg-type]
+            else:
+                for leaf in self._flatten(m):
+                    if leaf not in self._mobjects:
+                        self._mobjects.append(leaf)
 
     def remove(self, *mobjects: VMobject | VGroup) -> None:
         for m in mobjects:
-            for leaf in self._flatten(m):
-                if leaf in self._mobjects:
-                    self._mobjects.remove(leaf)
+            if self._is_redrawable(m):
+                if m in self._redrawables:
+                    self._redrawables.remove(m)  # type: ignore[arg-type]
+            else:
+                for leaf in self._flatten(m):
+                    if leaf in self._mobjects:
+                        self._mobjects.remove(leaf)
 
     def play(self, *animations: "Animation", run_time: float | None = None) -> None:
         assert self._sink is not None, "scene not attached to a sink"
@@ -64,7 +91,8 @@ class Scene:
             for anim in animations:
                 anim_alpha = min(alpha * total_time / anim.run_time, 1.0)
                 anim.interpolate(anim_alpha)
-            frame = self._renderer.render_frame(self._mobjects)
+            self._refresh_all()
+            frame = self._renderer.render_frame(self._render_mobs())
             self._sink.write(frame)
 
         for anim in animations:
@@ -74,7 +102,8 @@ class Scene:
         assert self._sink is not None, "scene not attached to a sink"
         n_frames = max(1, round(duration * self.fps))
         for _ in range(n_frames):
-            frame = self._renderer.render_frame(self._mobjects)
+            self._refresh_all()
+            frame = self._renderer.render_frame(self._render_mobs())
             self._sink.write(frame)
 
     def clear(self, run_time: float = 0.5, keep: list | None = None) -> None:
@@ -86,19 +115,29 @@ class Scene:
         submobjects are preserved — matching the Scene.add()/remove() semantics
         that expand VGroups into their constituent VMobjects on insertion.
         """
-        from chalk.animation import FadeOut
+        from chalk.animation import FadeOut, _iter_vmobjects
         keep_ids: set[int] = set()
         for k in (keep or []):
             for leaf in self._flatten(k):
                 keep_ids.add(id(leaf))
         to_fade = [m for m in self._mobjects if id(m) not in keep_ids]
+        # Also fade current leaves from redrawables (excluding kept redrawables)
+        keep_rd_ids = {id(k) for k in (keep or [])}
+        for rd in self._redrawables:
+            if id(rd) not in keep_rd_ids:
+                to_fade.extend(_iter_vmobjects(rd))
         if not to_fade:
+            # Still drop redrawables that aren't kept
+            self._redrawables = [rd for rd in self._redrawables
+                                  if id(rd) in keep_rd_ids]
             return
         self.play(*[FadeOut(m, run_time=run_time) for m in to_fade],
                   run_time=run_time)
         for m in to_fade:
             if m in self._mobjects:
                 self._mobjects.remove(m)
+        self._redrawables = [rd for rd in self._redrawables
+                             if id(rd) in keep_rd_ids]
 
     def construct(self) -> None:
         """Override in subclasses to define the animation."""

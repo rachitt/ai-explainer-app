@@ -7,6 +7,7 @@ from chalk.tex import MathTex
 from chalk.text import Text
 from chalk.axes import Axes, plot_function
 from chalk.value_tracker import ValueTracker
+from chalk.redraw import always_redraw, AlwaysRedraw, DecimalNumber
 from chalk.style import (
     BG, PRIMARY, YELLOW, BLUE, GREEN, RED_FILL, GREY, TRACK,
     SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL, SCALE_ANNOT, SCALE_MIN,
@@ -23,8 +24,9 @@ __all__ = [
     "Axes", "plot_function",
     # Animations
     "Transform", "ShiftAnim", "FadeIn", "FadeOut", "Write", "ChangeValue",
-    # ValueTracker
+    # ValueTracker + redraw
     "ValueTracker",
+    "always_redraw", "AlwaysRedraw", "DecimalNumber",
     # Scene
     "Scene",
     # Style constants
