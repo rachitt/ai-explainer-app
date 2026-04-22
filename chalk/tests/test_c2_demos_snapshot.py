@@ -54,6 +54,10 @@ _KEYFRAMES = [
     ("c2_chem2_reactants", "chemistry_demo2.py", "AcidBaseDemo", 1.5),
     ("c2_chem2_arrow", "chemistry_demo2.py", "AcidBaseDemo", 4.5),
     ("c2_chem2_products", "chemistry_demo2.py", "AcidBaseDemo", 8.0),
+    # Coding (duration ~11s, 3 beats)
+    ("c2_coding_code_cursor", "coding_demo.py", "CodingDemo", 1.5),
+    ("c2_coding_call_stack", "coding_demo.py", "CodingDemo", 6.0),
+    ("c2_coding_tree_walk", "coding_demo.py", "CodingDemo", 9.5),
 ]
 
 

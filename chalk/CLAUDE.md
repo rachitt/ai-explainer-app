@@ -232,6 +232,14 @@ See `chalk/examples/newton.py` — Newton's Second Law demonstrates every rule
 above: imported palette, named scales, zones, `next_to` (when we add one to
 newton later), fade-in reveals, `ShiftAnim` with parallel label motion.
 
+## Knowledge skills
+
+- `pedagogica/skills/knowledge/chalk-circuit-patterns/SKILL.md`
+- `pedagogica/skills/knowledge/chalk-graph-patterns/SKILL.md`
+- `pedagogica/skills/knowledge/chalk-physics-patterns/SKILL.md`
+- `pedagogica/skills/knowledge/chalk-chemistry-patterns/SKILL.md`
+- `pedagogica/skills/knowledge/chalk-coding-patterns/SKILL.md`
+
 ## Anti-patterns
 
 - Raw hex in scene code — use constants from `chalk.style`
