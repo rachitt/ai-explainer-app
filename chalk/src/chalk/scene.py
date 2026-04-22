@@ -85,6 +85,16 @@ class Scene:
         for anim in animations:
             anim.begin()
 
+        # Collect extra mobs spawned by animations (e.g. unmatched target glyphs
+        # in TransformMatchingTex) that aren't yet in _mobjects.
+        scene_ids = {id(m) for m in self._mobjects}
+        extra: list[VMobject] = []
+        for anim in animations:
+            for m in getattr(anim, "_new_mobs", []):
+                if id(m) not in scene_ids:
+                    extra.append(m)
+                    scene_ids.add(id(m))
+
         total_time = run_time or max(a.run_time for a in animations)
         n_frames = max(1, round(total_time * self.fps))
 
@@ -94,12 +104,17 @@ class Scene:
                 anim_alpha = min(alpha * total_time / anim.run_time, 1.0)
                 anim.interpolate(anim_alpha)
             self._refresh_all()
-            frame = self._renderer.render_frame(self._render_mobs())
+            frame = self._renderer.render_frame(self._render_mobs() + extra)
             self._sink.write(frame)
             self._frame_index += 1
 
         for anim in animations:
             anim.finish()
+
+        # Persist extra mobs into the scene so they survive subsequent wait() calls.
+        for m in extra:
+            if m not in self._mobjects:
+                self._mobjects.append(m)
 
     def wait(self, duration: float = 1.0) -> None:
         assert self._sink is not None, "scene not attached to a sink"

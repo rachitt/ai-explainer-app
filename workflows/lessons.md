@@ -39,3 +39,9 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** Claude Code's shell session doesn't source the user's profile the same way an interactive shell does; basictex PATH entry was added to `.zshrc` / `path_helper` but wasn't visible when tools ran from within the session.
 **Fix:** In `manim_render.py`, after `env = os.environ.copy()`, unconditionally prepend `/Library/TeX/texbin` to `env["PATH"]` if not already present.
 **Applies to:** any subprocess that invokes LaTeX-backed tools (manim, pdflatex, dvisvgm). Always inject the TeX bindir explicitly rather than trusting inherited PATH.
+
+## 2026-04-21 — TransformMatchingTex unmatched target glyphs never rendered
+**Mistake:** `TransformMatchingTex` FadeIn'd new glyphs (e.g. `/` in `a = F/m`) but they were invisible — both during the animation and in subsequent `wait()` calls.
+**Root cause:** `scene.play()` rendered only `self._mobjects`. Unmatched target glyphs live in `anim._new_mobs`, which was never added to the scene or the per-frame render list.
+**Fix:** `scene.play()` now collects `anim._new_mobs` from all animations after `begin()`, renders them alongside `_mobjects` each frame, and appends them to `_mobjects` after `finish()` so they persist.
+**Applies to:** any animation that spawns new VMobjects during playback (not pre-added via `scene.add()`). Use `_new_mobs` list; `scene.play()` picks it up automatically.
