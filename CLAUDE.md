@@ -30,7 +30,35 @@ Full spec: `docs/ARCHITECTURE.md`, `docs/SKILLS.md`, `docs/ROADMAP.md`, `docs/RI
 
 ## Runtime model
 
-Each of the 22 agents in the spec = a Claude Code skill under `pedagogica/skills/agents/<name>/`. Inter-agent messages = JSON files on disk under `artifacts/<job_id>/`, validated against Pydantic schemas in `schemas/`. Non-LLM work (Manim render, FFmpeg, ElevenLabs HTTP) = Python helpers in `tools/`, invoked via Bash from skills as `uv run pedagogica-tools <subcommand>`.
+Pipeline = **7 agent skills** + **7 knowledge skills** (trimmed 2026-04-22 from 33 → 14; the rest were stale or merged in). Inter-agent messages = JSON files on disk under `artifacts/<job_id>/`, validated against Pydantic schemas in `schemas/`. Non-LLM work (chalk render, FFmpeg, ElevenLabs HTTP) = Python helpers in `tools/`, invoked via Bash as `uv run pedagogica-tools <subcommand>`.
+
+### Agent skills (`pedagogica/skills/agents/`)
+
+`orchestrator` → `curriculum` → `storyboard` → `script` → `chalk-code` → `chalk-repair` → `sync`
+
+- `orchestrator` coordinates stages
+- `curriculum` breaks topic into beats
+- `storyboard` plans visual arc per scene
+- `script` writes narration (absorbs pacing + spoken-style rules inline)
+- `chalk-code` generates chalk Python (absorbs visual-planner beat→op mapping)
+- `chalk-repair` fixes failing chalk code (uses `chalk-debugging`)
+- `sync` TTS + word-timing + FFmpeg mux (absorbs audio-visual-sync + tts-prompting)
+
+### Knowledge skills (`pedagogica/skills/knowledge/`, also symlinked under `.claude/skills/` so Claude Code auto-discovers them for direct invocation)
+
+- `chalk-primitives` — canonical chalk API reference (chalk-code reads)
+- `chalk-calculus-patterns` — Riemann / chain-rule / FTC templates
+- `chalk-circuit-patterns` — Wire(breaks=[...]) + component conventions
+- `chalk-graph-patterns` — hand-placed node layouts, Dijkstra templates
+- `chalk-debugging` — chalk-repair reads this
+- `scene-spec-schema` — data contract between agents
+- `latex-for-video` — MathTex + pdflatex gotchas
+
+### How skills are invoked
+
+- **Claude (interactive)** — use the `Skill` tool with the skill name when work matches it (e.g. `Skill(skill="chalk-primitives")` before writing a scene).
+- **Codex (delegated work)** — briefs explicitly reference the skill path: e.g. "Read `pedagogica/skills/knowledge/chalk-circuit-patterns/SKILL.md` first before editing circuits code". Codex has no auto-discovery; paths must be explicit.
+- **Pedagogica runtime (Phase 1 goal)** — agents declare `requires:` in their SKILL.md frontmatter; the orchestrator loads them on stage start.
 
 ## Repo layout
 
