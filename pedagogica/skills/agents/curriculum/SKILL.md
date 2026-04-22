@@ -4,11 +4,7 @@ version: 0.0.1
 category: orchestration
 triggers:
   - stage:curriculum
-requires:
-  - pedagogy-sequencing@^0.0.0
-  - explanation-patterns@^0.0.0
-  - pedagogy-cognitive-load@^0.0.0
-  - domain-calculus@^0.0.0
+requires: []
 token_estimate: 2400
 tested_against_model: claude-sonnet-4-6
 owner: rachit

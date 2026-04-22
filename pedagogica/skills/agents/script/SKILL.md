@@ -4,12 +4,7 @@ version: 0.0.1
 category: orchestration
 triggers:
   - stage:script
-requires:
-  - spoken-narration-style@^0.0.0
-  - pacing-rules@^0.0.0
-  - pedagogy-cognitive-load@^0.1.0
-  - explanation-patterns@^0.1.0
-  - domain-calculus@^0.0.0
+requires: []
 token_estimate: 2400
 tested_against_model: claude-sonnet-4-6
 owner: rachit

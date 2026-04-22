@@ -4,12 +4,7 @@ version: 0.0.1
 category: orchestration
 triggers:
   - stage:storyboard
-requires:
-  - pedagogy-sequencing@^0.0.0
-  - pedagogy-cognitive-load@^0.0.0
-  - scene-composition@^0.0.0
-  - transition-vocabulary@^0.0.0
-  - domain-calculus@^0.0.0
+requires: []
 token_estimate: 3600
 tested_against_model: claude-sonnet-4-6
 owner: rachit
@@ -45,7 +40,7 @@ Write `artifacts/<job_id>/03_storyboard.json`. Fields:
   - `learning_objective_id`: the LO this scene serves (e.g. `"LO2"`) or `null` for `hook` / `recap`.
   - `visual_intent`: **one** concise prose sentence describing what the viewer sees. Not a Manim spec, not code.
   - `narration_intent`: **one** concise prose sentence describing what the narrator says. Not the final script.
-  - `required_skills`: list of `manim-*-patterns` skill names the Manim agent should load. Phase 1: usually `["manim-calculus-patterns"]` for content scenes; `hook` / `recap` may be empty.
+  - `required_skills`: list of `chalk-*-patterns` knowledge-skill names the chalk-code agent should load. E.g. `["chalk-calculus-patterns"]`, `["chalk-circuit-patterns"]`, `["chalk-physics-patterns"]`, `["chalk-chemistry-patterns"]`, `["chalk-coding-patterns"]`, `["chalk-graph-patterns"]`. `hook` / `recap` may be empty.
 - `palette`: **Phase 1 fixed preset** — copy exactly:
   ```json
   {"bg": "#0b0f1a", "fg": "#ffffff", "accent": "#4da3ff", "muted": "#7a8599", "highlight": "#ffcf5c"}

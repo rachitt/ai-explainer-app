@@ -4,7 +4,10 @@ from pydantic import Field, model_validator
 
 from pedagogica_schemas.base import BaseMessage
 
-Domain = Literal["calculus", "linalg", "prob", "stats", "discrete", "algebra"]
+Domain = Literal[
+    "calculus", "linalg", "prob", "stats", "discrete", "algebra",
+    "physics", "circuits", "chemistry", "coding",
+]
 AudienceLevel = Literal["elementary", "highschool", "undergrad", "graduate"]
 
 
