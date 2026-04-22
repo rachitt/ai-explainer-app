@@ -13,6 +13,7 @@ import numpy as np
 
 from chalk.vgroup import VGroup
 from chalk.style import PRIMARY, YELLOW, BLUE, RED_FILL, GREY, SCALE_LABEL, SCALE_ANNOT
+from chalk.connectable import Connectable, get_center, rect_edge_toward, resolve_endpoint
 
 if TYPE_CHECKING:
     from chalk.value_tracker import ValueTracker
@@ -27,8 +28,8 @@ class Spring(VGroup):
 
     def __init__(
         self,
-        start: tuple[float, float],
-        end: tuple[float, float],
+        start: Connectable | tuple[float, float],
+        end: Connectable | tuple[float, float],
         coils: int = 6,
         amplitude: float = 0.2,
         color: str = PRIMARY,
@@ -36,8 +37,13 @@ class Spring(VGroup):
     ) -> None:
         from chalk.shapes import Line
 
-        p0 = np.array(start, dtype=float)
-        p1 = np.array(end, dtype=float)
+        start_c = get_center(start)
+        end_c = get_center(end)
+        p0_raw = resolve_endpoint(start, end_c)
+        p1_raw = resolve_endpoint(end, start_c)
+
+        p0 = np.array(p0_raw, dtype=float)
+        p1 = np.array(p1_raw, dtype=float)
         chord = p1 - p0
         length = float(np.linalg.norm(chord))
 
@@ -94,10 +100,18 @@ def Pendulum(
         angle = angle_tracker.get_value()
         bx = px + length * math.sin(angle)
         by = py - length * math.cos(angle)
+        pivot_dot = Circle(
+            radius=0.07,
+            color=rod_color,
+            fill_color=rod_color,
+            fill_opacity=1.0,
+            stroke_width=0.0,
+        )
+        pivot_dot.shift(px, py)
         rod = Line((px, py), (bx, by), color=rod_color, stroke_width=3.0)
         bob = Circle(radius=bob_radius, color=bob_color, fill_color=bob_color, fill_opacity=1.0)
         bob.shift(bx, by)
-        return VGroup(rod, bob)
+        return VGroup(pivot_dot, rod, bob)
 
     return always_redraw(_build)
 
@@ -119,16 +133,18 @@ class Mass(VGroup):
         from chalk.layout import labeled_box
         from chalk.shapes import Arrow
 
+        self.position = np.array(position, dtype=float)
         box, lbl = labeled_box(label, color=color, scale=SCALE_LABEL)
         box.shift(position[0], position[1])
         lbl.move_to(position[0], position[1])
+        self._box_half_w = float((box.points[:, 0].max() - box.points[:, 0].min()) / 2)
+        self._box_half_h = float((box.points[:, 1].max() - box.points[:, 1].min()) / 2)
 
         mobs: list = [box, lbl]
 
         if show_weight:
             # Short downward arrow beneath the box bbox
-            half_h = (box.points[:, 1].max() - box.points[:, 1].min()) / 2
-            wy_start = position[1] - half_h - 0.1
+            wy_start = position[1] - self._box_half_h - 0.1
             wy_end = wy_start - 0.55
             weight_arrow = Arrow(
                 (position[0], wy_start),
@@ -142,6 +158,19 @@ class Mass(VGroup):
 
         super().__init__(*mobs)
 
+    @property
+    def center(self) -> tuple[float, float]:
+        return (float(self.position[0]), float(self.position[1]))
+
+    def edge_toward(self, target: tuple[float, float]) -> tuple[float, float]:
+        return rect_edge_toward(
+            float(self.position[0]),
+            float(self.position[1]),
+            self._box_half_w,
+            self._box_half_h,
+            target,
+        )
+
 
 class Vector(VGroup):
     """Directed arrow with an optional LaTeX label anchored near the tip.
@@ -151,20 +180,25 @@ class Vector(VGroup):
 
     def __init__(
         self,
-        start: tuple[float, float],
-        end: tuple[float, float],
+        start: Connectable | tuple[float, float],
+        end: Connectable | tuple[float, float],
         label: str = "",
         color: str = YELLOW,
     ) -> None:
         from chalk.shapes import Arrow
         from chalk.tex import MathTex
 
-        arrow = Arrow(start, end, color=color)
+        start_c = get_center(start)
+        end_c = get_center(end)
+        start_pt = resolve_endpoint(start, end_c)
+        end_pt = resolve_endpoint(end, start_c)
+
+        arrow = Arrow(start_pt, end_pt, color=color)
         mobs: list = [arrow]
 
         if label:
-            p0 = np.array(start, dtype=float)
-            p1 = np.array(end, dtype=float)
+            p0 = np.array(start_pt, dtype=float)
+            p1 = np.array(end_pt, dtype=float)
             direction = p1 - p0
             norm = float(np.linalg.norm(direction))
             lbl = MathTex(label, color=color, scale=SCALE_LABEL)
@@ -199,14 +233,19 @@ class FreeBody(VGroup):
         from chalk.tex import MathTex
 
         box, lbl = labeled_box(label, color=color, scale=SCALE_LABEL)
+        box_half_w = float((box.points[:, 0].max() - box.points[:, 0].min()) / 2)
+        box_half_h = float((box.points[:, 1].max() - box.points[:, 1].min()) / 2)
         mobs: list = [box, lbl]
 
         for magnitude, direction_deg, force_label in (forces or []):
             angle_rad = math.radians(direction_deg)
             dx = magnitude * math.cos(angle_rad)
             dy = magnitude * math.sin(angle_rad)
+            start_pt = rect_edge_toward(0.0, 0.0, box_half_w, box_half_h, (dx, dy))
+            tip_x = start_pt[0] + dx
+            tip_y = start_pt[1] + dy
             force_arrow = Arrow(
-                (0.0, 0.0), (dx, dy),
+                start_pt, (tip_x, tip_y),
                 color=force_color,
                 head_length=0.15,
                 head_width=0.12,
@@ -216,10 +255,10 @@ class FreeBody(VGroup):
             if force_label:
                 perp_x = -math.sin(angle_rad)
                 perp_y = math.cos(angle_rad)
-                tip_x = dx + 0.28 * perp_x
-                tip_y = dy + 0.28 * perp_y
+                label_x = tip_x + 0.28 * perp_x
+                label_y = tip_y + 0.28 * perp_y
                 f_lbl = MathTex(force_label, color=force_color, scale=SCALE_ANNOT)
-                f_lbl.move_to(tip_x, tip_y)
+                f_lbl.move_to(label_x, label_y)
                 mobs.append(f_lbl)
 
         super().__init__(*mobs)

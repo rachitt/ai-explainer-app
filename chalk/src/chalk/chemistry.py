@@ -14,6 +14,7 @@ import numpy as np
 
 from chalk.vgroup import VGroup
 from chalk.style import PRIMARY, YELLOW, BLUE, GREEN, GREY, RED_FILL, SCALE_LABEL, SCALE_ANNOT
+from chalk.connectable import Connectable, circle_edge_toward, get_center, resolve_endpoint
 
 
 class Atom(VGroup):
@@ -36,17 +37,21 @@ class Atom(VGroup):
         from chalk.tex import MathTex
 
         self.position = np.array(position, dtype=float)
-        circle = Circle(
-            radius=radius, color=color,
-            fill_color=color, fill_opacity=0.15,
-            stroke_width=2.5,
-        )
-        circle.shift(position[0], position[1])
-
         lbl = MathTex(
             rf"\mathrm{{{symbol}}}",
             color=color, scale=SCALE_LABEL,
         )
+        xmin, ymin, xmax, ymax = lbl.bbox()
+        label_hw = (xmax - xmin) / 2
+        label_hh = (ymax - ymin) / 2
+        self.fitted_radius = max(radius, max(label_hw, label_hh) + 0.12)
+
+        circle = Circle(
+            radius=self.fitted_radius, color=color,
+            fill_color=color, fill_opacity=0.15,
+            stroke_width=2.5,
+        )
+        circle.shift(position[0], position[1])
         lbl.move_to(position[0], position[1])
 
         mobs: list = [circle, lbl]
@@ -55,10 +60,25 @@ class Atom(VGroup):
                 rf"{{\scriptstyle {charge}}}",
                 color=color, scale=SCALE_ANNOT,
             )
-            charge_lbl.move_to(position[0] + radius * 0.85, position[1] + radius * 0.85)
+            charge_lbl.move_to(
+                position[0] + self.fitted_radius + 0.12,
+                position[1] + self.fitted_radius - 0.05,
+            )
             mobs.append(charge_lbl)
 
         super().__init__(*mobs)
+
+    @property
+    def center(self) -> tuple[float, float]:
+        return (float(self.position[0]), float(self.position[1]))
+
+    def edge_toward(self, target: tuple[float, float]) -> tuple[float, float]:
+        return circle_edge_toward(
+            float(self.position[0]),
+            float(self.position[1]),
+            self.fitted_radius,
+            target,
+        )
 
 
 class Bond(VGroup):
@@ -70,8 +90,8 @@ class Bond(VGroup):
 
     def __init__(
         self,
-        a: tuple[float, float],
-        b: tuple[float, float],
+        a: Connectable | tuple[float, float],
+        b: Connectable | tuple[float, float],
         order: int = 1,
         stereo: str = "plain",
         color: str = PRIMARY,
@@ -79,8 +99,11 @@ class Bond(VGroup):
     ) -> None:
         from chalk.shapes import Line, Polygon
 
-        pa = np.array(a, dtype=float)
-        pb = np.array(b, dtype=float)
+        a_is_connectable = isinstance(a, Connectable)
+        b_is_connectable = isinstance(b, Connectable)
+
+        pa = np.array(get_center(a), dtype=float)
+        pb = np.array(get_center(b), dtype=float)
         chord = pb - pa
         length = float(np.linalg.norm(chord))
         if length < 1e-9:
@@ -90,11 +113,15 @@ class Bond(VGroup):
         u = chord / length
         perp = np.array([-u[1], u[0]])
 
-        # Shorten bond ends so they don't overlap atom circles
-        atom_r = 0.32
-        shrink = min(atom_r, length / 3)
-        start = pa + shrink * u
-        end = pb - shrink * u
+        if a_is_connectable or b_is_connectable:
+            start = np.array(resolve_endpoint(a, get_center(b)), dtype=float)
+            end = np.array(resolve_endpoint(b, get_center(a)), dtype=float)
+        else:
+            # Back-compat for raw tuple endpoints: preserve the old fixed atom shrink.
+            atom_r = 0.32
+            shrink = min(atom_r, length / 3)
+            start = pa + shrink * u
+            end = pb - shrink * u
 
         mobs: list = []
 
@@ -196,10 +223,13 @@ class MoleculeLayout(VGroup):
             for a in atoms
         ]
 
+        from chalk.layout import check_no_overlap
+        check_no_overlap(atom_mobs, min_sep=0.50)
+
         bond_mobs = [
             Bond(
-                a=tuple(atoms[b["a"]]["position"]),
-                b=tuple(atoms[b["b"]]["position"]),
+                a=atom_mobs[b["a"]],
+                b=atom_mobs[b["b"]],
                 order=b.get("order", 1),
                 stereo=b.get("stereo", "plain"),
             )

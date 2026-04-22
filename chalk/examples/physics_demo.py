@@ -6,6 +6,7 @@ import math
 from chalk import (
     Scene, VGroup, ValueTracker,
     FadeIn, FadeOut, ChangeValue, Succession,
+    Rectangle,
     PRIMARY, YELLOW, BLUE, GREEN, GREY,
     SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL,
     ZONE_TOP, ZONE_CENTER, ZONE_BOTTOM,
@@ -18,9 +19,17 @@ class PhysicsDemo(Scene):
     def construct(self):
 
         # ── Beat 1: spring-mass system ───────────────────────────────────────
-        wall = Mass((-5.5, 0.0), label=r"\square", color=GREY, show_weight=False)
-        spring = Spring((-5.0, 0.0), (-2.5, 0.0), coils=6, color=PRIMARY)
+        wall = Rectangle(
+            width=0.6,
+            height=1.5,
+            color=GREY,
+            fill_color=GREY,
+            fill_opacity=0.4,
+            stroke_width=2.0,
+        )
+        wall.shift(-5.5, 0.0)
         mass = Mass((-2.2, 0.0), label="m", show_weight=False)
+        spring = Spring((-5.2, 0.0), mass, coils=6, color=PRIMARY)
         label_k = Vector((-4.0, 0.8), (-3.0, 0.8), label="k", color=GREY)
         self.add(wall, spring, mass, label_k)
         self.play(

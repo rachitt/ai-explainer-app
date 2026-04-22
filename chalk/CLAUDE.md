@@ -218,3 +218,7 @@ newton later), fade-in reveals, `ShiftAnim` with parallel label motion.
 If a scene genuinely needs something the rules don't allow, update `style.py`,
 `layout.py`, or this CLAUDE.md **first**, in the same commit. The rules are the
 single source of truth; scenes are consumers.
+
+## Positional kits — prevent overlap
+
+chalk has NO auto-layout. Graph, MoleculeLayout, and other positional kits require the scene author (LLM) to hand-place every coordinate. Use grid templates from the chalk-graph-patterns skill for graphs, RDKit 2D coords for molecules via MoleculeLayout.from_smiles, and chalk.layout.check_no_overlap to validate at construction time. Auto-placement algorithms from_adjacency, _spring_layout, etc have been removed — do not try to call them.

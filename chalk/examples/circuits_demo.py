@@ -51,13 +51,16 @@ class CircuitsDemo(Scene):
         flow = CurrentFlow(wire, charge_count=12, color=YELLOW)
         batt = Battery((-4.0, -0.3), (-4.0, 0.3), color=GREEN)
         r1 = Resistor((-1.5, 1.5), (1.5, 1.5), color=PRIMARY)
+        lbl_r = MathTex(r"R_1", color=PRIMARY, scale=SCALE_LABEL)
+        lbl_r.move_to(0.0, 2.0)
         vlbl = VoltageLabel(across=((-4.0, -0.3), (-4.0, 0.3)), value="V", side="UP")
 
-        self.add(wire, batt, r1, vlbl)
+        self.add(wire, batt, r1, lbl_r, vlbl)
         self.play(
             FadeIn(wire, run_time=0.5),
             FadeIn(batt, run_time=0.4),
             FadeIn(r1, run_time=0.4),
+            FadeIn(lbl_r, run_time=0.4),
             FadeIn(vlbl, run_time=0.4),
         )
         self.add(flow)

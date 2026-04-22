@@ -79,8 +79,15 @@ def test_pendulum_updates_on_tracker_change():
     initial_submobs = len(pend.submobjects)
     tracker.set_value(math.pi / 4)
     pend.refresh()
-    # Structure unchanged (still rod + bob)
+    # Structure unchanged (pivot + rod + bob)
     assert len(pend.submobjects) == initial_submobs
+
+
+def test_pendulum_has_pivot_dot():
+    tracker = ValueTracker(0.0)
+    pend = Pendulum(pivot=(0.0, 2.0), length=2.0, angle_tracker=tracker)
+    pend.refresh()
+    assert len(pend.submobjects) == 3
 
 
 def test_pendulum_renders():

@@ -45,3 +45,15 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** `scene.play()` rendered only `self._mobjects`. Unmatched target glyphs live in `anim._new_mobs`, which was never added to the scene or the per-frame render list.
 **Fix:** `scene.play()` now collects `anim._new_mobs` from all animations after `begin()`, renders them alongside `_mobjects` each frame, and appends them to `_mobjects` after `finish()` so they persist.
 **Applies to:** any animation that spawns new VMobjects during playback (not pre-added via `scene.add()`). Use `_new_mobs` list; `scene.play()` picks it up automatically.
+
+## 2026-04-21 — Spring layout converged to node overlap
+**Mistake:** rendered a graph scene where Fruchterman-Reingold placed nodes too close; circles visually overlapped and labels collided.
+**Root cause:** no minimum-separation enforcement in _spring_layout after the F-R loop. Attractive edge forces can pull nodes closer than 2*node_radius.
+**Fix:** added separation pass (iterative pairwise push) after F-R converges; also added chalk.layout.check_no_overlap and wired it into Graph.from_adjacency + MoleculeLayout.from_atoms_bonds to warn on author-supplied overlaps.
+**Applies to:** any future domain kit that lays out labeled objects from data (graph, chemistry, whatever next). Build min-separation into the layout OR call check_no_overlap post-construction.
+
+## 2026-04-21 — auto-layout was a dead end
+**Mistake:** built Graph.from_adjacency with Fruchterman-Reingold + separation pass + edge shortening. Every rendered scene exposed a new corner case: node overlap, title-crashing, weight labels inside circles, arrows through nodes. Each fix introduced two new bugs.
+**Root cause:** auto-layout without narrative awareness will always look worse than an LLM placing 6 nodes by hand. LLMs know narrative ('S is start, T is goal') and graphviz-style algorithms do not.
+**Fix:** removed from_adjacency and all layout helpers. Scene authors (LLMs) hand-place every coordinate using grid templates documented in the chalk-graph-patterns knowledge skill.
+**Applies to:** any future domain kit. Do not add auto-placement. Always expose primitives (Atom, Node, Bond, Edge, Resistor, Spring) that take explicit coords. If a layout would help, put a grid template in a knowledge skill — not the renderer.

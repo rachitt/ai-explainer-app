@@ -8,6 +8,7 @@ All offsets are in chalk world units.
 """
 from __future__ import annotations
 
+import warnings
 from typing import Literal, Union
 
 import numpy as np
@@ -18,6 +19,54 @@ from chalk.vgroup import VGroup
 
 Direction = Literal["UP", "DOWN", "LEFT", "RIGHT"]
 Target = Union[VMobject, VGroup]
+
+
+class LayoutOverlapWarning(UserWarning):
+    """Warning raised when layout mobjects are closer than the requested gap."""
+
+
+class LayoutOverlapError(ValueError):
+    """Error raised when layout mobjects are closer than the requested gap."""
+
+
+def check_no_overlap(
+    mobjects,
+    min_sep: float,
+    raise_on_fail: bool = False,
+) -> list[tuple[int, int, float]]:
+    """Check pairwise center-distance between positioned mobjects.
+
+    Each mobject must expose a .position attribute (np.ndarray of 2 floats).
+    Mobjects without .position are skipped.
+    """
+    positioned: list[tuple[int, np.ndarray]] = []
+    for i, mob in enumerate(mobjects):
+        if not hasattr(mob, "position"):
+            continue
+        positioned.append((i, np.asarray(mob.position, dtype=float)))
+
+    overlaps: list[tuple[int, int, float]] = []
+    for a_idx, a_pos in positioned:
+        for b_idx, b_pos in positioned:
+            if b_idx <= a_idx:
+                continue
+            dist = float(np.linalg.norm(a_pos - b_pos))
+            if dist < min_sep:
+                overlaps.append((a_idx, b_idx, dist))
+
+    if overlaps:
+        msg = (
+            f"{len(overlaps)} layout overlap(s): "
+            + ", ".join(
+                f"{i}-{j} distance {dist:.3f} < {min_sep:.3f}"
+                for i, j, dist in overlaps
+            )
+        )
+        if raise_on_fail:
+            raise LayoutOverlapError(msg)
+        warnings.warn(msg, LayoutOverlapWarning, stacklevel=2)
+
+    return overlaps
 
 
 def _bbox(target: Target) -> tuple[float, float, float, float]:

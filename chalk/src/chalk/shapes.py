@@ -208,6 +208,7 @@ class Dot(Circle):
         color: str = "#E8EAED",
         fill_opacity: float = 1.0,
     ) -> None:
+        self.position = np.array(point, dtype=float)
         super().__init__(
             radius=radius,
             color=color,
@@ -216,6 +217,20 @@ class Dot(Circle):
             stroke_width=0.0,
         )
         self.shift(point[0], point[1])
+
+    @property
+    def center(self) -> tuple[float, float]:
+        return (float(self.position[0]), float(self.position[1]))
+
+    def edge_toward(self, target: tuple[float, float]) -> tuple[float, float]:
+        from chalk.connectable import circle_edge_toward
+
+        return circle_edge_toward(
+            float(self.position[0]),
+            float(self.position[1]),
+            self.radius,
+            target,
+        )
 
 
 class Polygon(VMobject):

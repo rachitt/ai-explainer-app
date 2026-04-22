@@ -39,6 +39,11 @@ def test_atom_with_charge():
     assert len(a.submobjects) == 3
 
 
+def test_atom_radius_fits_multi_char_symbol():
+    a = Atom("Cl")
+    assert a.fitted_radius > 0.32
+
+
 def test_atom_position():
     a = Atom("C", position=(2.0, -1.0))
     import numpy as np

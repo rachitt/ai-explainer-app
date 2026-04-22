@@ -396,7 +396,7 @@ def VoltageLabel(
     p1 = np.array(across[1], dtype=float)
     u, perp, length = _unit_and_perp(p0, p1)
     sign = 1.0 if side == "UP" else -1.0
-    offset = 0.45
+    offset = max(0.45, 0.5 * length) + 0.3
 
     a_start = p0 + sign * offset * perp
     a_end = p1 + sign * offset * perp
@@ -413,10 +413,10 @@ def VoltageLabel(
 
     plus = MathTex(r"+", color=color, scale=SCALE_ANNOT)
     minus = MathTex(r"-", color=color, scale=SCALE_ANNOT)
-    plus.move_to(float(a_end[0] + sign * 0.22 * perp[0]),
-                 float(a_end[1] + sign * 0.22 * perp[1]))
-    minus.move_to(float(a_start[0] + sign * 0.22 * perp[0]),
-                  float(a_start[1] + sign * 0.22 * perp[1]))
+    plus_pos = a_end + 0.15 * u
+    minus_pos = a_start - 0.15 * u
+    plus.move_to(float(plus_pos[0]), float(plus_pos[1]))
+    minus.move_to(float(minus_pos[0]), float(minus_pos[1]))
 
     return VGroup(arrow, lbl, plus, minus)
 
