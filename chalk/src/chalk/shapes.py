@@ -1,4 +1,4 @@
-"""Concrete VMobject shapes: Circle and Square."""
+"""Concrete VMobject shapes: Circle, Square, Dot, Polygon, RegularPolygon, ArcBetweenPoints."""
 from __future__ import annotations
 
 import math
@@ -152,6 +152,158 @@ def _triangle_points(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> np.ndarray:
         d = p1 - p0
         pts.extend([p0, p0 + d / 3, p0 + 2 * d / 3, p1])
     return np.array(pts, dtype=float)
+
+
+def _polygon_points(vertices: list[np.ndarray]) -> np.ndarray:
+    """Build closed polygon from vertices using cubic Bezier line segments."""
+    n = len(vertices)
+    pts = []
+    for i in range(n):
+        p0 = vertices[i]
+        p1 = vertices[(i + 1) % n]
+        d = p1 - p0
+        pts.extend([p0, p0 + d / 3, p0 + 2 * d / 3, p1])
+    return np.array(pts, dtype=float)
+
+
+def _arc_segment(
+    center: np.ndarray, radius: float, a_start: float, a_end: float
+) -> list[np.ndarray]:
+    """One cubic Bezier approximation of an arc from a_start to a_end (radians)."""
+    da = a_end - a_start
+    alpha_c = (4 / 3) * math.tan(da / 4)
+    cos0, sin0 = math.cos(a_start), math.sin(a_start)
+    cos1, sin1 = math.cos(a_end), math.sin(a_end)
+    p0 = center + radius * np.array([cos0, sin0])
+    p3 = center + radius * np.array([cos1, sin1])
+    p1 = p0 + radius * alpha_c * np.array([-sin0, cos0])
+    p2 = p3 - radius * alpha_c * np.array([-sin1, cos1])
+    return [p0, p1, p2, p3]
+
+
+def _arc_points(
+    center: np.ndarray, radius: float, a_start: float, angle: float
+) -> np.ndarray:
+    """Build Bezier arc of total angle `angle` (can be negative) starting at a_start."""
+    n_segs = max(1, math.ceil(abs(angle) / (math.pi / 2)))
+    da = angle / n_segs
+    pts = []
+    for i in range(n_segs):
+        seg = _arc_segment(center, radius, a_start + i * da, a_start + (i + 1) * da)
+        if i == 0:
+            pts.extend(seg)
+        else:
+            pts.extend(seg[1:])  # skip duplicate start point
+    return np.array(pts, dtype=float)
+
+
+class Dot(Circle):
+    """Filled circular dot at a given world-space point."""
+
+    def __init__(
+        self,
+        point: tuple[float, float] = (0.0, 0.0),
+        radius: float = 0.08,
+        color: str = "#E8EAED",
+        fill_opacity: float = 1.0,
+    ) -> None:
+        super().__init__(
+            radius=radius,
+            color=color,
+            fill_color=color,
+            fill_opacity=fill_opacity,
+            stroke_width=0.0,
+        )
+        self.shift(point[0], point[1])
+
+
+class Polygon(VMobject):
+    """Closed polygon through given vertices."""
+
+    def __init__(
+        self,
+        *vertices: tuple[float, float],
+        color: str = "#E8EAED",
+        fill_color: str | None = None,
+        fill_opacity: float = 0.0,
+        stroke_width: float = 2.5,
+    ) -> None:
+        super().__init__(
+            stroke_color=color,
+            stroke_width=stroke_width,
+            fill_color=fill_color or "#000000",
+            fill_opacity=fill_opacity,
+        )
+        verts = [np.array(v, dtype=float) for v in vertices]
+        self.points = _polygon_points(verts)
+
+
+class RegularPolygon(Polygon):
+    """Regular n-gon centered at origin."""
+
+    def __init__(
+        self,
+        n: int,
+        radius: float = 1.0,
+        start_angle: float = 0.0,
+        **kwargs,
+    ) -> None:
+        vertices = [
+            (radius * math.cos(start_angle + 2 * math.pi * i / n),
+             radius * math.sin(start_angle + 2 * math.pi * i / n))
+            for i in range(n)
+        ]
+        super().__init__(*vertices, **kwargs)
+        self.n = n
+        self.radius = radius
+
+
+class ArcBetweenPoints(VMobject):
+    """Circular arc from start to end subtending `angle` radians.
+
+    Positive angle curves left (counterclockwise from start→end perspective).
+    angle=0 ≈ straight line.
+    """
+
+    def __init__(
+        self,
+        start: tuple[float, float],
+        end: tuple[float, float],
+        angle: float = math.pi / 3,
+        color: str = "#E8EAED",
+        stroke_width: float = 2.0,
+        fill_opacity: float = 0.0,
+    ) -> None:
+        super().__init__(
+            stroke_color=color,
+            stroke_width=stroke_width,
+            fill_opacity=fill_opacity,
+        )
+        p0 = np.array(start, dtype=float)
+        p1 = np.array(end, dtype=float)
+        if abs(angle) < 1e-6:
+            # Degenerate: straight line
+            d = p1 - p0
+            self.points = np.array([p0, p0 + d / 3, p0 + 2 * d / 3, p1])
+            return
+        chord = p1 - p0
+        chord_len = float(np.linalg.norm(chord))
+        if chord_len < 1e-9:
+            self.points = np.array([p0, p0, p0, p0])
+            return
+        radius = chord_len / (2 * math.sin(abs(angle) / 2))
+        # Unit vector along chord and perpendicular
+        u = chord / chord_len
+        perp = np.array([-u[1], u[0]])
+        # Distance from chord midpoint to center (signed by angle direction)
+        mid = (p0 + p1) / 2
+        dist_to_center = radius * math.cos(abs(angle) / 2)
+        # positive angle → center on the left of start→end
+        sign = 1.0 if angle > 0 else -1.0
+        center = mid - sign * dist_to_center * perp
+        a_start = math.atan2(float(p0[1] - center[1]), float(p0[0] - center[0]))
+        # CW sweep (−angle) curves left for positive angle in y-up coordinates
+        self.points = _arc_points(center, radius, a_start, -angle)
 
 
 class Arrow(VMobject):

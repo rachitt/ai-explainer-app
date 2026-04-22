@@ -1,5 +1,8 @@
 from chalk.mobject import Mobject, VMobject
-from chalk.shapes import Circle, Square, Rectangle, Line, Arrow
+from chalk.shapes import (
+    Circle, Square, Rectangle, Line, Arrow,
+    Dot, Polygon, RegularPolygon, ArcBetweenPoints,
+)
 from chalk.animation import (
     Transform, ShiftAnim, FadeIn, FadeOut, Write, ChangeValue,
     MoveAlongPath, Rotate,
@@ -23,6 +26,7 @@ __all__ = [
     # Mobjects
     "Mobject", "VMobject",
     "Circle", "Square", "Rectangle", "Line", "Arrow",
+    "Dot", "Polygon", "RegularPolygon", "ArcBetweenPoints",
     "VGroup", "MathTex", "Text",
     "Axes", "plot_function",
     # Animations
