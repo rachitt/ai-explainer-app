@@ -1,9 +1,10 @@
 from chalk.mobject import Mobject, VMobject
 from chalk.shapes import Circle, Square, Rectangle, Line, Arrow
-from chalk.animation import Transform, ShiftAnim, FadeIn, FadeOut
+from chalk.animation import Transform, ShiftAnim, FadeIn, FadeOut, Write
 from chalk.scene import Scene
 from chalk.vgroup import VGroup
 from chalk.tex import MathTex
+from chalk.text import Text
 from chalk.axes import Axes, plot_function
 from chalk.style import (
     BG, PRIMARY, YELLOW, BLUE, GREEN, RED_FILL, GREY, TRACK,
@@ -17,10 +18,10 @@ __all__ = [
     # Mobjects
     "Mobject", "VMobject",
     "Circle", "Square", "Rectangle", "Line", "Arrow",
-    "VGroup", "MathTex",
+    "VGroup", "MathTex", "Text",
     "Axes", "plot_function",
     # Animations
-    "Transform", "ShiftAnim", "FadeIn", "FadeOut",
+    "Transform", "ShiftAnim", "FadeIn", "FadeOut", "Write",
     # Scene
     "Scene",
     # Style constants
