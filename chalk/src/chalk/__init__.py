@@ -1,6 +1,9 @@
 from chalk.mobject import Mobject, VMobject
 from chalk.shapes import Circle, Square, Rectangle, Line, Arrow
-from chalk.animation import Transform, ShiftAnim, FadeIn, FadeOut, Write, ChangeValue
+from chalk.animation import (
+    Transform, ShiftAnim, FadeIn, FadeOut, Write, ChangeValue,
+    MoveAlongPath, Rotate,
+)
 from chalk.scene import Scene
 from chalk.vgroup import VGroup
 from chalk.tex import MathTex
@@ -24,6 +27,7 @@ __all__ = [
     "Axes", "plot_function",
     # Animations
     "Transform", "ShiftAnim", "FadeIn", "FadeOut", "Write", "ChangeValue",
+    "MoveAlongPath", "Rotate",
     # ValueTracker + redraw
     "ValueTracker",
     "always_redraw", "AlwaysRedraw", "DecimalNumber",

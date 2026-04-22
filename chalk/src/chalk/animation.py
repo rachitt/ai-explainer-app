@@ -246,6 +246,108 @@ class Write:
                 m.stroke_opacity = so
 
 
+def _centroid(mob: Union[VMobject, VGroup]) -> np.ndarray:
+    """Return the centroid (mean of all leaf points) of a mob or VGroup."""
+    leaves = _iter_vmobjects(mob)
+    all_pts = [m.points for m in leaves if len(m.points) > 0]
+    if not all_pts:
+        return np.zeros(2)
+    return np.mean(np.concatenate(all_pts, axis=0), axis=0)
+
+
+class MoveAlongPath:
+    """Translate mob so its centroid follows the arc-length parameterization of path."""
+
+    def __init__(
+        self,
+        mob: Union[VMobject, VGroup],
+        path: VMobject,
+        run_time: float = 2.0,
+        rate_func: Callable[[float], float] = smooth,
+    ) -> None:
+        self.mob = mob
+        self.path = path
+        self.run_time = run_time
+        self.rate_func = rate_func
+        self._mobs: list[VMobject] = []
+        self._snap_points: list[np.ndarray] = []
+        self._snap_subpaths: list[list[np.ndarray]] = []
+        self._path_start: np.ndarray = np.zeros(2)
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return self._mobs
+
+    def begin(self) -> None:
+        from chalk.path_utils import arclength_point
+        self._mobs = _iter_vmobjects(self.mob)
+        self._snap_points = [m.points.copy() for m in self._mobs]
+        self._snap_subpaths = [[s.copy() for s in m.subpaths] for m in self._mobs]
+        self._path_start = arclength_point(self.path, 0.0).copy()
+
+    def interpolate(self, alpha: float) -> None:
+        from chalk.path_utils import arclength_point
+        eased = self.rate_func(alpha)
+        target = arclength_point(self.path, eased)
+        delta = target - self._path_start
+        for m, pts, subs in zip(self._mobs, self._snap_points, self._snap_subpaths):
+            m.points = pts + delta
+            m.subpaths = [s + delta for s in subs]
+
+    def finish(self) -> None:
+        self.interpolate(1.0)
+
+
+class Rotate:
+    """Rotate mob by `angle` radians around `about_point` over run_time."""
+
+    def __init__(
+        self,
+        mob: Union[VMobject, VGroup],
+        angle: float,
+        about_point: "tuple[float, float] | None" = None,
+        run_time: float = 1.0,
+        rate_func: Callable[[float], float] = smooth,
+    ) -> None:
+        self.mob = mob
+        self.angle = angle
+        self.about_point = about_point
+        self.run_time = run_time
+        self.rate_func = rate_func
+        self._mobs: list[VMobject] = []
+        self._snap_points: list[np.ndarray] = []
+        self._snap_subpaths: list[list[np.ndarray]] = []
+        self._center: np.ndarray = np.zeros(2)
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return self._mobs
+
+    def begin(self) -> None:
+        self._mobs = _iter_vmobjects(self.mob)
+        self._snap_points = [m.points.copy() for m in self._mobs]
+        self._snap_subpaths = [[s.copy() for s in m.subpaths] for m in self._mobs]
+        if self.about_point is not None:
+            self._center = np.array(self.about_point, dtype=float)
+        else:
+            self._center = _centroid(self.mob)
+
+    def _rot(self, pts: np.ndarray, theta: float) -> np.ndarray:
+        c, s = np.cos(theta), np.sin(theta)
+        R = np.array([[c, -s], [s, c]])
+        return (pts - self._center) @ R.T + self._center
+
+    def interpolate(self, alpha: float) -> None:
+        eased = self.rate_func(alpha)
+        theta = self.angle * eased
+        for m, pts, subs in zip(self._mobs, self._snap_points, self._snap_subpaths):
+            m.points = self._rot(pts, theta)
+            m.subpaths = [self._rot(s, theta) for s in subs]
+
+    def finish(self) -> None:
+        self.interpolate(1.0)
+
+
 class ChangeValue:
     """Animate a ValueTracker from its current value to `target` over run_time."""
 
