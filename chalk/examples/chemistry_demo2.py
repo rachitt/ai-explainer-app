@@ -27,12 +27,33 @@ from chalk.chemistry import Atom, Bond
 
 class AcidBaseDemo(Scene):
     def construct(self):
+        def bbox_of(mob):
+            if isinstance(mob, VGroup):
+                boxes = [bbox_of(child) for child in mob.submobjects]
+                return (
+                    min(box[0] for box in boxes),
+                    min(box[1] for box in boxes),
+                    max(box[2] for box in boxes),
+                    max(box[3] for box in boxes),
+                )
+            pts = mob.points
+            return (
+                float(pts[:, 0].min()),
+                float(pts[:, 1].min()),
+                float(pts[:, 0].max()),
+                float(pts[:, 1].max()),
+            )
+
+        def place_formula(label: MathTex, molecule_body: VGroup) -> None:
+            xmin, ymin, xmax, _ = bbox_of(molecule_body)
+            label.move_to((xmin + xmax) / 2, ymin - 0.55)
+
         def hcl(origin_x: float) -> VGroup:
             h = Atom("H", position=(origin_x - 0.6, 0.8), color=GREY)
             cl = Atom("Cl", position=(origin_x + 0.7, 0.8), color=GREEN)
             bond = Bond(h, cl, color=PRIMARY)
             label = MathTex(r"\mathrm{HCl}", color=GREY, scale=SCALE_LABEL)
-            next_to(label, bond, direction="DOWN", buff=0.3)
+            place_formula(label, VGroup(bond, h, cl))
             return VGroup(bond, h, cl, label)
 
         def naoh(origin_x: float) -> VGroup:
@@ -41,7 +62,7 @@ class AcidBaseDemo(Scene):
             h = Atom("H", position=(origin_x + 1.2, -0.8), color=GREY)
             bond_oh = Bond(o, h, color=PRIMARY)
             label = MathTex(r"\mathrm{NaOH}", color=GREY, scale=SCALE_LABEL)
-            next_to(label, bond_oh, direction="DOWN", buff=0.3)
+            place_formula(label, VGroup(na, bond_oh, o, h))
             return VGroup(na, bond_oh, o, h, label)
 
         def reactants() -> VGroup:
@@ -53,7 +74,7 @@ class AcidBaseDemo(Scene):
             na = Atom("Na", position=(origin_x - 0.6, 0.6), charge="+", color=GREEN)
             cl = Atom("Cl", position=(origin_x + 0.6, 0.6), charge="-", color=GREEN)
             label = MathTex(r"\mathrm{NaCl}", color=GREY, scale=SCALE_LABEL)
-            label.move_to(origin_x, -0.3)
+            place_formula(label, VGroup(na, cl))
             return VGroup(na, cl, label)
 
         def water(origin_x: float) -> VGroup:
@@ -68,7 +89,7 @@ class AcidBaseDemo(Scene):
             b1 = Bond(o, h1, color=PRIMARY)
             b2 = Bond(o, h2, color=PRIMARY)
             label = MathTex(r"\mathrm{H_2O}", color=GREY, scale=SCALE_LABEL)
-            label.move_to(origin_x, -2.5)
+            place_formula(label, VGroup(b1, b2, o, h1, h2))
             return VGroup(b1, b2, o, h1, h2, label)
 
         def products() -> VGroup:

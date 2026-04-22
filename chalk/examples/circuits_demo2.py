@@ -98,6 +98,7 @@ class RCChargingDemo(Scene):
             color=BLUE,
             stroke_width=3.0,
         )
+        curve.closed = False
         v_axis = MathTex(r"V_C", color=GREY, scale=SCALE_LABEL)
         next_to(v_axis, axes, direction="LEFT", buff=0.3)
         t_axis = MathTex(r"t", color=GREY, scale=SCALE_LABEL)

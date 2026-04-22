@@ -75,7 +75,8 @@ class CairoRenderer:
                     float(pts_px[i + 3, 0]), float(pts_px[i + 3, 1]),
                 )
                 i += 4
-            ctx.close_path()
+            if getattr(mob, "closed", True):
+                ctx.close_path()
 
         fill_rule = (
             cairo.FILL_RULE_EVEN_ODD
