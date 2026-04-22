@@ -117,6 +117,56 @@ def manim_render(
         raise typer.Exit(code=1)
 
 
+@app.command("chalk-render")
+def chalk_render(
+    code_path: str = typer.Argument(..., help="Path to the chalk scene .py file."),
+    scene_class: str = typer.Argument(..., help="Scene class name inside the file."),
+    output: str = typer.Argument(..., help="Output .mp4 path."),
+    scene_id: str = typer.Option(..., "--scene-id", help="Scene id for CompileResult."),
+    attempt_number: int = typer.Option(1, "--attempt", help="Compile attempt number (1..N)."),
+    result_json: str | None = typer.Option(
+        None, "--result-json", help="Where to write the CompileResult JSON."
+    ),
+    cpu_limit: int = typer.Option(300, help="CPU seconds (rlimit)."),
+    wall_limit: int = typer.Option(300, help="Wall-clock seconds."),
+    memory_limit_mb: int = typer.Option(4096, help="Memory cap in MB (best-effort)."),
+    output_size_limit_mb: int = typer.Option(500, help="Max single-file size (RLIMIT_FSIZE)."),
+    width: int = typer.Option(1280, help="Frame width in pixels."),
+    height: int = typer.Option(720, help="Frame height in pixels."),
+    fps: int = typer.Option(30, help="Frames per second."),
+    sandbox_profile: str | None = typer.Option(
+        None, "--sandbox-profile", help="Override sandbox/chalk.sb path."
+    ),
+) -> None:
+    """Render a chalk scene inside the sandbox-exec profile.
+
+    Exit codes: 0 = render succeeded, 1 = compile failure.
+    """
+    from pedagogica_tools.chalk_render import RenderOptions, render as chalk_render_fn
+
+    result = chalk_render_fn(
+        code_path=code_path,
+        scene_class=scene_class,
+        output_path=output,
+        scene_id=scene_id,
+        attempt_number=attempt_number,
+        options=RenderOptions(
+            cpu_limit=cpu_limit,
+            wall_limit=wall_limit,
+            memory_limit_mb=memory_limit_mb,
+            output_size_limit_mb=output_size_limit_mb,
+            width=width,
+            height=height,
+            fps=fps,
+            sandbox_profile=Path(sandbox_profile) if sandbox_profile else None,
+        ),
+        result_json_path=result_json,
+    )
+    typer.echo(result.model_dump_json(indent=2))
+    if not result.success:
+        raise typer.Exit(code=1)
+
+
 @app.command("elevenlabs-tts")
 def elevenlabs_tts(
     text_path: str = typer.Argument(..., help="Plain-text file containing narration."),

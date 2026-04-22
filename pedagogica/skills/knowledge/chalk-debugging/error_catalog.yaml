@@ -1,0 +1,111 @@
+# chalk error catalog — machine-readable view of SKILL.md §2.
+# Consumed by the orchestrator to classify stderr → error_classification,
+# and by chalk-repair to look up fixes.
+
+version: 0.1.0
+entries:
+  - id: stroke-color-on-shape
+    classification: api_error
+    fingerprint: "unexpected keyword argument.*'stroke_color'|TypeError.*stroke_color"
+    symptom: >
+      TypeError when constructing Rectangle, Circle, Line, Arrow, or Dot
+      with stroke_color= kwarg.
+    cause: >
+      chalk shape constructors use color= for stroke. Manim uses stroke_color=;
+      chalk does not.
+    fix: "Replace stroke_color=X with color=X at the construction call."
+    patch_before: "Rectangle(width=3.0, height=2.0, stroke_color=BLUE)"
+    patch_after: "Rectangle(width=3.0, height=2.0, color=BLUE)"
+
+  - id: move-to-on-vmobject
+    classification: api_error
+    fingerprint: "AttributeError.*'(Rectangle|Circle|Line|Arrow|Dot|VMobject)'.*'move_to'"
+    symptom: >
+      AttributeError when calling .move_to() on a bare VMobject shape.
+    cause: >
+      Only VGroup subclasses (MathTex, Text, VGroup, DecimalNumber) have
+      .move_to(x, y). Bare VMobject shapes (Rectangle, Circle, Line, Arrow,
+      Dot) use .shift(dx, dy).
+    fix: "Replace .move_to(wx, wy) with .shift(wx, wy)."
+    patch_before: "rect.move_to(wx_l + w/2, wy_b + h/2)"
+    patch_after: "rect.shift(wx_l + w/2, wy_b + h/2)"
+
+  - id: plot-function-x-range
+    classification: api_error
+    fingerprint: "unexpected keyword argument.*'x_range'.*plot_function|TypeError.*plot_function.*x_range"
+    symptom: "TypeError when calling plot_function with x_range= kwarg."
+    cause: "plot_function uses x_start= and x_end= positional kwargs, not x_range=."
+    fix: "Replace x_range=(a, b) with x_start=a, x_end=b."
+    patch_before: "plot_function(ax, f, x_range=(0.0, 3.0), color=BLUE)"
+    patch_after: "plot_function(ax, f, x_start=0.0, x_end=3.0, color=BLUE)"
+
+  - id: axes-c2p-renamed
+    classification: api_error
+    fingerprint: "AttributeError.*'Axes'.*'c2p'|has no attribute 'c2p'"
+    symptom: "AttributeError on ax.c2p(x, y)."
+    cause: >
+      chalk's Axes uses to_point(), not c2p(). Manim uses c2p().
+      Return value is a (wx, wy) float tuple, not a numpy array.
+    fix: "Replace ax.c2p(x, y) with ax.to_point(x, y)."
+    patch_before: "point = ax.c2p(2, 4)"
+    patch_after: "wx, wy = ax.to_point(2, 4)"
+
+  - id: create-not-in-chalk
+    classification: import_error
+    fingerprint: "cannot import name 'Create'|NameError.*'Create'|ImportError.*Create"
+    symptom: "ImportError or NameError on Create."
+    cause: "chalk has no Create or DrawBorderThenFill. Manim does."
+    fix: "Replace Create(mob, run_time=d) with FadeIn(mob, run_time=d)."
+    patch_before: "self.play(Create(graph, run_time=1.2))"
+    patch_after: "self.play(FadeIn(graph, run_time=1.2))"
+
+  - id: animate-set-value-not-in-chalk
+    classification: api_error
+    fingerprint: "AttributeError.*'ValueTracker'.*'animate'|has no attribute 'animate'"
+    symptom: "AttributeError on tracker.animate.set_value(v)."
+    cause: "chalk has no .animate property. Manim does."
+    fix: "Replace tracker.animate.set_value(v) with ChangeValue(tracker, v, run_time=d)."
+    patch_before: "self.play(x.animate.set_value(3.0), run_time=3.0)"
+    patch_after: "self.play(ChangeValue(x, 3.0, run_time=3.0))"
+
+  - id: vmobject-subpaths-int
+    classification: api_error
+    fingerprint: "TypeError.*'int' object is not subscriptable"
+    symptom: "TypeError during rendering of a manually-built VMobject."
+    cause: >
+      Code set m.subpaths = [0] (an int inside a list) rather than leaving it
+      as the default []. The renderer iterates subpaths as numpy arrays;
+      integers fail.
+    fix: "Remove any m.subpaths = [...] assignment. Leave subpaths as default []."
+    patch_before: "m.subpaths = [0]"
+    patch_after: "# no subpaths assignment needed"
+
+  - id: mathtex-raw-string-missing
+    classification: latex_error
+    fingerprint: "SyntaxError.*(unicode error|bad escape)|KeyError.*\\\\[a-z]"
+    symptom: "SyntaxError or LaTeX compilation fails with unexpected characters."
+    cause: "LaTeX source passed as a regular Python string; backslashes interpreted as Python escapes."
+    fix: "Add r prefix to every LaTeX-containing string."
+    patch_before: 'eq = MathTex("\\frac{d}{dx}", color=PRIMARY)'
+    patch_after: 'eq = MathTex(r"\\frac{d}{dx}", color=PRIMARY)'
+
+  - id: wildcard-import-chalk
+    classification: import_error
+    fingerprint: "NameError.*not defined|ImportError.*chalk"
+    symptom: "NameError for a symbol that should be in chalk, or import failure."
+    cause: >
+      Symbol missing from explicit import list, or code uses from chalk import *
+      which is prohibited per chalk-code skill.
+    fix: >
+      Add the missing symbol to the explicit from chalk import (...) list.
+      Check chalk-primitives SKILL.md for the correct symbol name.
+    patch_before: "from chalk import *"
+    patch_after: |
+      from chalk import (
+          Scene, MathTex, FadeIn, Write,
+          ValueTracker, ChangeValue, always_redraw,
+          PRIMARY, BLUE, GREY,
+          SCALE_BODY, SCALE_ANNOT,
+          ZONE_TOP, ZONE_BOTTOM,
+          place_in_zone,
+      )
