@@ -132,11 +132,11 @@ chalk uses a **2D world-coord system**: origin at centre, x right, y up. Units a
 - **VMobject shapes (Circle, Rectangle, Line, Arrow, Dot)** do NOT have `.move_to`. Use `.shift(dx, dy)` to offset from their default origin.
 - Scale: `.scale(s)` only when `s != 1.0`.
 - Z-order: not a chalk concept — rely on render order (objects added later appear on top).
-- Preferred layout helpers (use instead of manual positioning when possible):
+- Required layout helpers (use these — never hand-roll the equivalent):
   - `place_in_zone(mob, ZONE_TOP)` — centres mob in the top zone.
   - `next_to(mob_a, mob_b, direction="RIGHT", buff=0.25)` — positions mob_a beside mob_b.
-  - `labeled_box(label_tex, padding=0.3)` — auto-sized Rectangle around a MathTex.
-  - `arrow_between(mob_a, mob_b, color=C)` — Arrow anchored to bbox edges.
+  - `labeled_box(label_tex, color=..., scale=..., pad_x=..., pad_y=...)` — auto-sized Rectangle around a MathTex. **MUST use this for any text-in-box.** Hand-sizing `Rectangle(width=..., height=...)` + a separate `MathTex.move_to(same_coord)` fails chalk-lint rule R5 (label will overflow if it's longer than the literal width you picked).
+  - `arrow_between(mob_a, mob_b, color=C)` — Arrow anchored to bbox edges. **MUST use this instead of hand-picked start/end coords** for any arrow between two shapes.
 
 For axes-anchored coordinates:
 ```python
@@ -275,6 +275,7 @@ Self-check before emitting:
 7. `ax.to_point(data_x, data_y)` used for all axes-anchored coords — never raw numbers.
 8. `x_start=`/`x_end=` for `plot_function` — not `x_range=`.
 9. `code` and `code.py` are byte-identical.
+10. No `Rectangle(width=..., height=...)` centered at the same coord as a `MathTex` — use `labeled_box()`. Fails chalk-lint R5.
 
 ## Example
 

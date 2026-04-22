@@ -139,3 +139,64 @@ class Demo(Scene):
     )
 
     assert [e.rule for e in lint_file(scene) if e.rule == "R4-too-many-beats"] == []
+
+
+def test_hand_sized_rectangle_around_mathtex_reports_r5(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import FadeIn, MathTex, Rectangle, Scene, GREY, YELLOW, SCALE_LABEL
+
+class Demo(Scene):
+    def construct(self):
+        box = Rectangle(width=2.0, height=1.4, color=GREY, stroke_width=1.5)
+        box.shift(3.8, 0.0)
+        lbl = MathTex(r"I = 2", color=YELLOW, scale=SCALE_LABEL)
+        lbl.move_to(3.8, 0.0)
+        self.add(box, lbl)
+        self.play(FadeIn(box))
+""",
+    )
+
+    errors = [e for e in lint_file(scene) if e.rule == "R5-hand-sized-box"]
+
+    assert len(errors) == 1
+
+
+def test_labeled_box_passes_r5(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import FadeIn, Scene, GREY, YELLOW, SCALE_LABEL, labeled_box
+
+class Demo(Scene):
+    def construct(self):
+        box, lbl = labeled_box(r"I = 2", color=GREY, label_color=YELLOW, scale=SCALE_LABEL)
+        box.shift(3.8, 0.0)
+        lbl.move_to(3.8, 0.0)
+        self.add(box, lbl)
+        self.play(FadeIn(box))
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R5-hand-sized-box"] == []
+
+
+def test_rectangle_and_mathtex_at_different_coords_passes_r5(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import FadeIn, MathTex, Rectangle, Scene, GREY, PRIMARY, SCALE_BODY
+
+class Demo(Scene):
+    def construct(self):
+        bg = Rectangle(width=10.0, height=6.0, color=GREY, fill_opacity=0.8)
+        bg.shift(0.0, 0.0)
+        title = MathTex(r"title", color=PRIMARY, scale=SCALE_BODY)
+        title.move_to(0.0, 3.0)
+        self.add(bg, title)
+        self.play(FadeIn(bg))
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R5-hand-sized-box"] == []

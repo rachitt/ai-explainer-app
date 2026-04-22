@@ -137,6 +137,18 @@ class _Visitor(ast.NodeVisitor):
                         f"scene has {beats} self.play() beats; cap each scene at 3",
                     )
                 )
+        for scene in scenes:
+            for lineno, rect_name, tex_name in _find_hand_sized_boxes(scene.statements):
+                self.errors.append(
+                    LintError(
+                        self.path,
+                        lineno,
+                        0,
+                        "R5-hand-sized-box",
+                        f"Rectangle {rect_name!r} centered at same coord as MathTex {tex_name!r}; "
+                        "use labeled_box() — auto-sizes rectangle to fit label + padding",
+                    )
+                )
 
 
 class _SceneChunk:
@@ -205,6 +217,84 @@ def _is_self_method_call(node: ast.Call, method_name: str) -> bool:
         and isinstance(node.func.value, ast.Name)
         and node.func.value.id == "self"
     )
+
+
+def _constant_number(node: ast.AST) -> float | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+    if (
+        isinstance(node, ast.UnaryOp)
+        and isinstance(node.op, ast.USub)
+        and isinstance(node.operand, ast.Constant)
+        and isinstance(node.operand.value, (int, float))
+    ):
+        return -float(node.operand.value)
+    return None
+
+
+def _extract_position(call: ast.Call) -> tuple[float, float] | None:
+    if len(call.args) != 2:
+        return None
+    x = _constant_number(call.args[0])
+    y = _constant_number(call.args[1])
+    if x is None or y is None:
+        return None
+    return (x, y)
+
+
+def _find_hand_sized_boxes(
+    statements: list[ast.stmt],
+) -> list[tuple[int, str, str]]:
+    """Return (lineno, rect_name, tex_name) for each Rectangle+MathTex pair sharing position."""
+    rectangles: dict[str, tuple[int, tuple[float, float] | None]] = {}
+    mathtex: dict[str, tuple[int, tuple[float, float] | None]] = {}
+    labeled_box_names: set[str] = set()
+
+    for stmt in statements:
+        if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1:
+            target = stmt.targets[0]
+            value = stmt.value
+            if isinstance(value, ast.Call) and _name_of(value.func) == "labeled_box":
+                if isinstance(target, ast.Tuple):
+                    for elt in target.elts:
+                        if isinstance(elt, ast.Name):
+                            labeled_box_names.add(elt.id)
+                continue
+            if isinstance(value, ast.Call) and isinstance(target, ast.Name):
+                callee = _name_of(value.func)
+                if callee == "Rectangle":
+                    rectangles[target.id] = (stmt.lineno, None)
+                elif callee == "MathTex":
+                    mathtex[target.id] = (stmt.lineno, None)
+        elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+            call = stmt.value
+            if not isinstance(call.func, ast.Attribute):
+                continue
+            method = call.func.attr
+            target = call.func.value
+            if not isinstance(target, ast.Name):
+                continue
+            name = target.id
+            if method == "shift" and name in rectangles:
+                pos = _extract_position(call)
+                if pos is not None:
+                    rectangles[name] = (rectangles[name][0], pos)
+            elif method == "move_to" and name in mathtex:
+                pos = _extract_position(call)
+                if pos is not None:
+                    mathtex[name] = (mathtex[name][0], pos)
+
+    hits: list[tuple[int, str, str]] = []
+    for rect_name, (rect_line, rect_pos) in rectangles.items():
+        if rect_name in labeled_box_names or rect_pos is None:
+            continue
+        for tex_name, (_tex_line, tex_pos) in mathtex.items():
+            if tex_name in labeled_box_names or tex_pos is None:
+                continue
+            if abs(rect_pos[0] - tex_pos[0]) < 0.05 and abs(rect_pos[1] - tex_pos[1]) < 0.05:
+                hits.append((rect_line, rect_name, tex_name))
+                break
+    return hits
 
 
 def _name_of(node: ast.AST) -> str | None:
