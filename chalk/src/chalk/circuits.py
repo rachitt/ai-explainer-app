@@ -446,8 +446,10 @@ def KirchhoffDemo(
     br = ( hw, -hh)
     bl = (-hw, -hh)
 
-    top_wire    = Wire(tl, tr, color=GREY)
-    right_wire  = Wire(tr, br, color=GREY)
+    top_wire_l  = Wire(tl, (-1.2, hh), color=GREY)
+    top_wire_r  = Wire((1.2, hh), tr, color=GREY)
+    right_wire_t = Wire(tr, (hw, 0.8), color=GREY)
+    right_wire_b = Wire((hw, -0.8), br, color=GREY)
     bottom_wire = Wire(br, bl, color=GREY)
 
     battery  = Battery(bl, tl, polarity="right", color=color_battery)
@@ -467,8 +469,8 @@ def KirchhoffDemo(
     i_lbl.move_to(0.0, hh + 1.05)
 
     return VGroup(
-        top_wire, right_wire, bottom_wire, battery,
-        r1, r2,
+        top_wire_l, top_wire_r, right_wire_t, right_wire_b,
+        bottom_wire, battery, r1, r2,
         r1_lbl, r2_lbl, batt_lbl,
         i_arrow, i_lbl,
     )
