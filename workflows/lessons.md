@@ -81,3 +81,9 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** destructive shell commands may be blocked even for generated files inside the workspace.
 **Fix:** removed the known generated files with the patch tool and verified no subtitle sidecars remained.
 **Applies to:** cleanup of generated verification artifacts; prefer narrowly targeted deletion mechanisms and verify with `find`.
+
+## 2026-04-22 — chalk MathTex takes one string, not variadic substrings
+**Mistake:** wrote `MathTex(r"\sin", r"(", r"x^2", r")", color=PRIMARY)` to get indexed substrings for surgical Circumscribe, copying manim's signature. Compile failed: `TypeError: MathTex.__init__() got multiple values for argument 'color'` — second positional arg bound to `color`, colliding with the kwarg.
+**Root cause:** chalk's `MathTex(tex_string, color=..., stroke_width=..., fill_opacity=..., scale=...)` takes a single `tex_string`, unlike manim's variadic `MathTex(*tex_strings)`. No indexed-substring access `mobj[2]` — the whole LaTeX renders to one VGroup.
+**Fix:** use a single MathTex and target the whole expression (Circumscribe/Indicate on the VGroup); or compose multiple MathTex objects with `next_to()` and anchor on the one you want to highlight.
+**Applies to:** any chalk scene wanting sub-expression emphasis. Document in chalk-primitives if recurring.
