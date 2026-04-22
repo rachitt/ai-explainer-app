@@ -7,6 +7,7 @@ from chalk.animation import (
     Transform, ShiftAnim, FadeIn, FadeOut, Write, ChangeValue,
     MoveAlongPath, Rotate,
     AnimationGroup, Succession, LaggedStart,
+    Indicate, Flash, Circumscribe,
 )
 from chalk.scene import Scene
 from chalk.vgroup import VGroup
@@ -23,6 +24,7 @@ from chalk.style import (
     ZONE_TOP, ZONE_CENTER, ZONE_BOTTOM,
 )
 from chalk.layout import next_to, place_in_zone, labeled_box, arrow_between, brace_label
+from chalk.rate_funcs import linear, smooth, ease_in_out, there_and_back
 from chalk.brace import Brace
 from chalk.tex_morph import TransformMatchingTex
 
@@ -38,6 +40,7 @@ __all__ = [
     "Transform", "ShiftAnim", "FadeIn", "FadeOut", "Write", "ChangeValue",
     "MoveAlongPath", "Rotate",
     "AnimationGroup", "Succession", "LaggedStart",
+    "Indicate", "Flash", "Circumscribe",
     # ValueTracker + redraw
     "ValueTracker",
     "always_redraw", "AlwaysRedraw", "DecimalNumber",

@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable, Protocol, Sequence, Union
+import math
 import numpy as np
 
 from chalk.mobject import VMobject
-from chalk.rate_funcs import smooth
+from chalk.rate_funcs import smooth, there_and_back
 from chalk.vgroup import VGroup
 
 if TYPE_CHECKING:
@@ -462,6 +463,182 @@ class LaggedStart(AnimationGroup):
 
     def __init__(self, *animations: "Animation", lag_ratio: float = 0.3) -> None:
         super().__init__(*animations, lag_ratio=lag_ratio)
+
+
+class Indicate:
+    """Temporarily scale up and recolor a mob, then return to original state.
+
+    Uses there_and_back rate func by default: grows at midpoint, returns by end.
+    """
+
+    def __init__(
+        self,
+        mob: Union[VMobject, VGroup],
+        scale_factor: float = 1.2,
+        color: str = "#FFD54F",
+        run_time: float = 1.0,
+        rate_func: Callable[[float], float] = there_and_back,
+    ) -> None:
+        self.mob = mob
+        self.scale_factor = scale_factor
+        self.color = color
+        self.run_time = run_time
+        self.rate_func = rate_func
+        self._mobs: list[VMobject] = []
+        self._snap_points: list[np.ndarray] = []
+        self._snap_subpaths: list[list[np.ndarray]] = []
+        self._orig_colors: list[str] = []
+        self._centers: list[np.ndarray] = []
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return self._mobs
+
+    def begin(self) -> None:
+        self._mobs = _iter_vmobjects(self.mob)
+        self._snap_points = [m.points.copy() for m in self._mobs]
+        self._snap_subpaths = [[s.copy() for s in m.subpaths] for m in self._mobs]
+        self._orig_colors = [m.fill_color for m in self._mobs]
+        self._centers = [
+            np.mean(pts, axis=0) if len(pts) > 0 else np.zeros(2)
+            for pts in self._snap_points
+        ]
+
+    def interpolate(self, alpha: float) -> None:
+        eased = self.rate_func(alpha)
+        s = 1.0 + (self.scale_factor - 1.0) * eased
+        for m, pts, subs, orig_c, center in zip(
+            self._mobs, self._snap_points, self._snap_subpaths,
+            self._orig_colors, self._centers
+        ):
+            # Scale around center
+            m.points = (pts - center) * s + center
+            m.subpaths = [(sp - center) * s + center for sp in subs]
+            # Lerp color toward indicated color
+            if eased > 0.01:
+                m.fill_color = self.color
+                m.stroke_color = self.color
+            else:
+                m.fill_color = orig_c
+
+    def finish(self) -> None:
+        for m, pts, subs, orig_c in zip(
+            self._mobs, self._snap_points, self._snap_subpaths, self._orig_colors
+        ):
+            m.points = pts.copy()
+            m.subpaths = [s.copy() for s in subs]
+            m.fill_color = orig_c
+            m.stroke_color = orig_c
+
+
+class Flash:
+    """Radial burst of short lines emanating from a point."""
+
+    def __init__(
+        self,
+        point: "tuple[float, float]",
+        color: str = "#FFD54F",
+        num_lines: int = 12,
+        line_length: float = 0.3,
+        run_time: float = 0.6,
+    ) -> None:
+        from chalk.shapes import Line
+        self.run_time = run_time
+        self.rate_func = smooth
+        self._lines: list[VMobject] = []
+        self._start_opacities: list[float] = []
+        pt = np.array(point, dtype=float)
+        for i in range(num_lines):
+            angle = 2 * math.pi * i / num_lines
+            direction = np.array([math.cos(angle), math.sin(angle)])
+            start = pt + 0.05 * direction  # small offset from center
+            end = pt + (0.05 + line_length) * direction
+            line = Line(
+                (float(start[0]), float(start[1])),
+                (float(end[0]), float(end[1])),
+                color=color, stroke_width=2.0,
+            )
+            self._lines.append(line)
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return self._lines
+
+    def begin(self) -> None:
+        for line in self._lines:
+            line.stroke_opacity = 0.0
+        self._start_opacities = [0.0] * len(self._lines)
+
+    def interpolate(self, alpha: float) -> None:
+        eased = there_and_back(alpha)
+        for line in self._lines:
+            line.stroke_opacity = eased
+
+    def finish(self) -> None:
+        for line in self._lines:
+            line.stroke_opacity = 0.0
+
+
+class Circumscribe:
+    """Animated outline (rectangle or circle) drawn around a mob."""
+
+    def __init__(
+        self,
+        mob: Union[VMobject, VGroup],
+        shape: str = "rect",
+        color: str = "#FFD54F",
+        buff: float = 0.1,
+        run_time: float = 1.0,
+    ) -> None:
+        self.mob = mob
+        self.shape = shape
+        self.color = color
+        self.buff = buff
+        self.run_time = run_time
+        self.rate_func = smooth
+        self._outline: VMobject | None = None
+
+    def _make_outline(self) -> VMobject:
+        from chalk.shapes import Rectangle
+        from chalk.shapes import Circle as C
+        if isinstance(self.mob, VGroup):
+            bb = self.mob.bbox()
+        else:
+            pts = self.mob.points
+            bb = (float(pts[:, 0].min()), float(pts[:, 1].min()),
+                  float(pts[:, 0].max()), float(pts[:, 1].max()))
+        xmin, ymin, xmax, ymax = bb
+        cx = (xmin + xmax) / 2
+        cy = (ymin + ymax) / 2
+        if self.shape == "rect":
+            w = xmax - xmin + 2 * self.buff
+            h = ymax - ymin + 2 * self.buff
+            r = Rectangle(width=w, height=h, color=self.color, stroke_width=2.5)
+            r.shift(cx, cy)
+            return r
+        else:  # circle
+            radius = max(xmax - xmin, ymax - ymin) / 2 + self.buff
+            r = C(radius=radius, color=self.color, stroke_width=2.5)
+            r.shift(cx, cy)
+            return r
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return [self._outline] if self._outline is not None else []
+
+    def begin(self) -> None:
+        self._outline = self._make_outline()
+        self._outline.stroke_opacity = 0.0
+
+    def interpolate(self, alpha: float) -> None:
+        eased = self.rate_func(alpha)
+        if self._outline is not None:
+            # Draw-on effect: appear then hold
+            self._outline.stroke_opacity = min(1.0, eased * 2)
+
+    def finish(self) -> None:
+        if self._outline is not None:
+            self._outline.stroke_opacity = 1.0
 
 
 class FadeOut:

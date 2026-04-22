@@ -16,3 +16,8 @@ def ease_in_out(t: float) -> float:
         return 8 * t * t * t * t
     p = t - 1
     return 1 - 8 * p * p * p * p
+
+
+def there_and_back(t: float) -> float:
+    """Ramp to 1 at midpoint then ramp back to 0: 2*min(t, 1-t)."""
+    return 2 * min(t, 1.0 - t)
