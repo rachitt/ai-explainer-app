@@ -73,50 +73,6 @@ def view(job_id: str) -> None:
         raise typer.Exit(code=2) from e
 
 
-@app.command("manim-render")
-def manim_render(
-    code_path: str = typer.Argument(..., help="Path to the Manim scene .py file."),
-    scene_class: str = typer.Argument(..., help="Scene class name inside the file."),
-    output: str = typer.Argument(..., help="Output .mp4 path."),
-    scene_id: str = typer.Option(..., "--scene-id", help="Scene id for CompileResult."),
-    attempt_number: int = typer.Option(1, "--attempt", help="Compile attempt number (1..N)."),
-    result_json: str | None = typer.Option(
-        None, "--result-json", help="Where to write the CompileResult JSON."
-    ),
-    cpu_limit: int = typer.Option(300, help="CPU seconds (rlimit)."),
-    wall_limit: int = typer.Option(300, help="Wall-clock seconds."),
-    memory_limit_mb: int = typer.Option(4096, help="Memory cap in MB (best-effort)."),
-    output_size_limit_mb: int = typer.Option(500, help="Max single-file size (RLIMIT_FSIZE)."),
-    sandbox_profile: str | None = typer.Option(
-        None, "--sandbox-profile", help="Override sandbox/manim.sb path."
-    ),
-) -> None:
-    """Render a Manim scene inside the sandbox-exec profile.
-
-    Exit codes: 0 = render succeeded, 1 = compile failure.
-    """
-    from pedagogica_tools.manim_render import RenderOptions, render
-
-    result = render(
-        code_path=code_path,
-        scene_class=scene_class,
-        output_path=output,
-        scene_id=scene_id,
-        attempt_number=attempt_number,
-        options=RenderOptions(
-            cpu_limit=cpu_limit,
-            wall_limit=wall_limit,
-            memory_limit_mb=memory_limit_mb,
-            output_size_limit_mb=output_size_limit_mb,
-            sandbox_profile=Path(sandbox_profile) if sandbox_profile else None,
-        ),
-        result_json_path=result_json,
-    )
-    typer.echo(result.model_dump_json(indent=2))
-    if not result.success:
-        raise typer.Exit(code=1)
-
-
 @app.command("chalk-render")
 def chalk_render(
     code_path: str = typer.Argument(..., help="Path to the chalk scene .py file."),
