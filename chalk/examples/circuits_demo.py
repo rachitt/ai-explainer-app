@@ -47,10 +47,13 @@ class CircuitsDemo(Scene):
         self.clear()
 
         # ── Beat 2: current flow along a wire loop ───────────────────────────
-        wire = Wire((-4.0, 1.5), (4.0, 1.5), (4.0, -1.5), (-4.0, -1.5), (-4.0, 1.5))
-        flow = CurrentFlow(wire, charge_count=12, color=YELLOW)
         batt = Battery((-4.0, -0.3), (-4.0, 0.3), color=GREEN)
         r1 = Resistor((-1.5, 1.5), (1.5, 1.5), color=PRIMARY)
+        wire = Wire(
+            (-4.0, 1.5), (4.0, 1.5), (4.0, -1.5), (-4.0, -1.5), (-4.0, 1.5),
+            breaks=[r1, batt],
+        )
+        flow = CurrentFlow(wire, charge_count=12, color=YELLOW)
         lbl_r = MathTex(r"R_1", color=PRIMARY, scale=SCALE_LABEL)
         lbl_r.move_to(0.0, 2.0)
         vlbl = VoltageLabel(across=((-4.0, -0.3), (-4.0, 0.3)), value="V", side="UP")

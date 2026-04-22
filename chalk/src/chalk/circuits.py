@@ -40,6 +40,15 @@ def _lines_from_vertices(vertices: list[np.ndarray], color: str, stroke_width: f
     ]
 
 
+def _line_between_points(start: np.ndarray, end: np.ndarray, color: str, stroke_width: float):
+    from chalk.shapes import Line
+    return Line(
+        (float(start[0]), float(start[1])),
+        (float(end[0]), float(end[1])),
+        color=color, stroke_width=stroke_width,
+    )
+
+
 class Resistor(VGroup):
     """American-style zigzag resistor from start to end.
 
@@ -57,6 +66,8 @@ class Resistor(VGroup):
     ) -> None:
         p0 = np.array(start, dtype=float)
         p1 = np.array(end, dtype=float)
+        self.start = p0.copy()
+        self.end = p1.copy()
         u, perp, length = _unit_and_perp(p0, p1)
         if length < 1e-9:
             super().__init__()
@@ -96,6 +107,8 @@ class Battery(VGroup):
 
         p0 = np.array(start, dtype=float)
         p1 = np.array(end, dtype=float)
+        self.start = p0.copy()
+        self.end = p1.copy()
         u, perp, length = _unit_and_perp(p0, p1)
         if length < 1e-9:
             super().__init__()
@@ -147,6 +160,8 @@ class Capacitor(VGroup):
 
         p0 = np.array(start, dtype=float)
         p1 = np.array(end, dtype=float)
+        self.start = p0.copy()
+        self.end = p1.copy()
         u, perp, length = _unit_and_perp(p0, p1)
         if length < 1e-9:
             super().__init__()
@@ -189,6 +204,8 @@ class Inductor(VGroup):
 
         p0 = np.array(start, dtype=float)
         p1 = np.array(end, dtype=float)
+        self.start = p0.copy()
+        self.end = p1.copy()
         u, perp, length = _unit_and_perp(p0, p1)
         if length < 1e-9:
             super().__init__()
@@ -237,6 +254,8 @@ class Switch(VGroup):
 
         p0 = np.array(start, dtype=float)
         p1 = np.array(end, dtype=float)
+        self.start = p0.copy()
+        self.end = p1.copy()
         u, perp, length = _unit_and_perp(p0, p1)
         if length < 1e-9:
             super().__init__()
@@ -283,6 +302,7 @@ class Ground(VGroup):
         from chalk.shapes import Line
 
         x, y = float(point[0]), float(point[1])
+        self.point = np.array(point, dtype=float)
         lines = [
             Line((x - 0.28, y),        (x + 0.28, y),        color=color, stroke_width=stroke_width),
             Line((x - 0.18, y - 0.10), (x + 0.18, y - 0.10), color=color, stroke_width=stroke_width),
@@ -300,44 +320,83 @@ class Wire(VGroup):
     def __init__(
         self,
         *points: tuple[float, float],
+        breaks: list[object] | tuple[object, ...] | None = None,
         color: str = GREY,
         stroke_width: float = 2.0,
     ) -> None:
-        from chalk.shapes import Line
-
         self.waypoints = [np.array(p, dtype=float) for p in points]
-        lines = [
-            Line(
-                (float(self.waypoints[i][0]), float(self.waypoints[i][1])),
-                (float(self.waypoints[i + 1][0]), float(self.waypoints[i + 1][1])),
-                color=color, stroke_width=stroke_width,
-            )
+        self.segments = [
+            (self.waypoints[i].copy(), self.waypoints[i + 1].copy())
             for i in range(len(self.waypoints) - 1)
         ]
+        for comp in breaks or ():
+            self._apply_break(comp)
+        lines = [
+            _line_between_points(a, b, color, stroke_width)
+            for a, b in self.segments
+            if float(np.linalg.norm(b - a)) >= 1e-9
+        ]
         super().__init__(*lines)
+
+    def _apply_break(self, comp: object) -> None:
+        s = np.array(getattr(comp, "start"), dtype=float)
+        e = np.array(getattr(comp, "end"), dtype=float)
+
+        for i, (a, b) in enumerate(self.segments):
+            ts = self._segment_parameter(a, b, s)
+            te = self._segment_parameter(a, b, e)
+            if ts is None or te is None:
+                continue
+
+            first, second = (s, e) if ts <= te else (e, s)
+            replacement = []
+            if float(np.linalg.norm(first - a)) >= 1e-9:
+                replacement.append((a, first.copy()))
+            if float(np.linalg.norm(b - second)) >= 1e-9:
+                replacement.append((second.copy(), b))
+            self.segments[i:i + 1] = replacement
+            return
+
+        raise ValueError(f"break component endpoints {s},{e} do not lie on any wire segment")
+
+    @staticmethod
+    def _segment_parameter(a: np.ndarray, b: np.ndarray, p: np.ndarray) -> float | None:
+        v = b - a
+        length_sq = float(np.dot(v, v))
+        if length_sq < 1e-18:
+            return None
+        rel = p - a
+        cross = float(v[0] * rel[1] - v[1] * rel[0])
+        length = math.sqrt(length_sq)
+        if abs(cross) > 1e-6 * length:
+            return None
+        t = float(np.dot(rel, v) / length_sq)
+        if t < -1e-6 or t > 1.0 + 1e-6:
+            return None
+        return max(0.0, min(1.0, t))
 
     def point_at_fraction(self, t: float) -> np.ndarray:
         """World position at fraction t (0=start, 1=end) of total wire length."""
         t = max(0.0, min(1.0, t))
-        wps = self.waypoints
-        if len(wps) < 2:
-            return wps[0].copy() if wps else np.zeros(2)
+        if not self.segments:
+            return self.waypoints[0].copy() if self.waypoints else np.zeros(2)
 
-        seg_lengths = [float(np.linalg.norm(wps[i + 1] - wps[i])) for i in range(len(wps) - 1)]
+        seg_lengths = [float(np.linalg.norm(b - a)) for a, b in self.segments]
         total = sum(seg_lengths)
         if total < 1e-9:
-            return wps[0].copy()
+            return self.segments[0][0].copy()
 
         target = t * total
         cumlen = 0.0
         for i, seg_len in enumerate(seg_lengths):
+            a, b = self.segments[i]
             if cumlen + seg_len >= target - 1e-9:
                 if seg_len < 1e-9:
-                    return wps[i].copy()
+                    return a.copy()
                 local_t = (target - cumlen) / seg_len
-                return wps[i] + local_t * (wps[i + 1] - wps[i])
+                return a + local_t * (b - a)
             cumlen += seg_len
-        return wps[-1].copy()
+        return self.segments[-1][1].copy()
 
 
 class CurrentFlow(AlwaysRedraw):
@@ -446,15 +505,12 @@ def KirchhoffDemo(
     br = ( hw, -hh)
     bl = (-hw, -hh)
 
-    top_wire_l  = Wire(tl, (-1.2, hh), color=GREY)
-    top_wire_r  = Wire((1.2, hh), tr, color=GREY)
-    right_wire_t = Wire(tr, (hw, 0.8), color=GREY)
-    right_wire_b = Wire((hw, -0.8), br, color=GREY)
-    bottom_wire = Wire(br, bl, color=GREY)
-
     battery  = Battery(bl, tl, polarity="right", color=color_battery)
     r1       = Resistor((-1.2, hh), (1.2, hh), color=color_resistor)
     r2       = Resistor((hw, 0.8), (hw, -0.8), color=color_resistor)
+    top_wire = Wire(tl, tr, color=GREY, breaks=[r1])
+    right_wire = Wire(tr, br, color=GREY, breaks=[r2])
+    bottom_wire = Wire(br, bl, color=GREY)
 
     r1_lbl = MathTex(r1_label, color=color_resistor, scale=SCALE_LABEL)
     r1_lbl.move_to(0.0, hh + 0.38)
@@ -469,8 +525,7 @@ def KirchhoffDemo(
     i_lbl.move_to(0.0, hh + 1.05)
 
     return VGroup(
-        top_wire_l, top_wire_r, right_wire_t, right_wire_b,
-        bottom_wire, battery, r1, r2,
+        top_wire, right_wire, bottom_wire, battery, r1, r2,
         r1_lbl, r2_lbl, batt_lbl,
         i_arrow, i_lbl,
     )
