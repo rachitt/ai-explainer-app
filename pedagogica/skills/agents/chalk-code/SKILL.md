@@ -1,42 +1,44 @@
 ---
 name: chalk-code
-version: 0.1.0
+version: 0.2.0
 category: orchestration
 triggers:
   - stage:chalk-code
 requires:
-  - scene-spec-schema@^0.1.0
   - chalk-primitives@^0.1.0
   - latex-for-video@^0.0.0
-  - color-and-typography@^0.1.0
   - chalk-calculus-patterns@^0.1.0
 token_estimate: 4500
 tested_against_model: claude-opus-4-7
 owner: rachit
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 description: >
-  Turns a SceneSpec + LayoutResult (+ optional Script) into a runnable chalk
-  Python file for a single scene. Emits ChalkCode — the full `code.py` body,
-  the Scene class name, and the list of skills consulted. Opus 4.7 model tier.
-  Reserved for first-pass codegen; failures route to chalk-repair rather than
-  regenerating here. Replaces manim-code since 2026-04-21 (ADR 0001).
+  Turns a storyboard SceneBeat (+ Script) into a runnable chalk Python file for
+  a single scene. Folds visual-planning and layout inline — no SceneSpec /
+  LayoutResult inputs. Emits ChalkCode: the full `code.py` body, the Scene
+  class name, and the list of skills consulted. Opus 4.7 model tier. Failures
+  route to chalk-repair rather than regenerating here. Replaces manim-code
+  since 2026-04-21 (ADR 0001).
 ---
 
 # Chalk Code agent
 
 ## Purpose
 
-Read `scenes/<scene_id>/spec.json` (`SceneSpec`), `scenes/<scene_id>/placements.json` (`LayoutResult`), and (when present) `scenes/<scene_id>/script.json` (`Script`), and emit `scenes/<scene_id>/code.py` — the Python file the render sandbox will execute via `pedagogica-tools chalk-render`. Also emit `scenes/<scene_id>/code.json` (`ManimCode`) carrying the code as a string, the Scene class name, and the list of skills loaded.
+Read the scene's `SceneBeat` from `03_storyboard.json` and its `scenes/<scene_id>/script.json` (`Script`), and emit `scenes/<scene_id>/code.py` — the Python file the render sandbox will execute via `pedagogica-tools chalk-render`. Also emit `scenes/<scene_id>/code.json` (`ManimCode`) carrying the code as a string, the Scene class name, and the list of skills loaded.
 
-This is the single most reasoning-intensive call in the pipeline — you are turning a semantic graph of elements and animations into ~150–400 lines of chalk that positions, renders, colours, times, and transitions everything correctly on the first try. That is why this agent runs on Opus 4.7 and every other stage runs on Sonnet or Haiku.
+Visual planning (which elements exist, which animations fire in which order) and layout (world-coord placement per element) are **folded inline** into this stage — there is no separate `SceneSpec` or `LayoutResult` artifact on disk in Phase 1. You are the visual planner, the layout solver, and the code generator, in one pass.
+
+This is the single most reasoning-intensive call in the pipeline — you are turning a one-sentence `visual_intent` plus a script into ~150–400 lines of chalk that positions, renders, colours, times, and transitions everything correctly on the first try. That is why this agent runs on Opus 4.7 and every other stage runs on Sonnet or Haiku.
 
 ## Inputs
 
-- `artifacts/<job_id>/scenes/<scene_id>/spec.json` — the `SceneSpec`. Every `SceneElement` → a chalk object; every `SceneAnimation` → a `self.play(...)` or `self.wait(...)`.
-- `artifacts/<job_id>/scenes/<scene_id>/placements.json` — the `LayoutResult`. Every element's `(position, scale, z_order, font_size)` comes from here, not from the spec's `properties`.
-- `artifacts/<job_id>/scenes/<scene_id>/script.json` — the `Script`, when available. Use its `markers` to confirm element ids exist.
-- `artifacts/<job_id>/03_storyboard.json` — the matching `SceneBeat` for `required_skills` and `visual_intent`.
+- `artifacts/<job_id>/03_storyboard.json` — find the scene whose `scene_id` matches the one you are codegen'ing. Use `visual_intent` (what the viewer sees), `narration_intent` (what the narrator says), `target_duration_seconds` (sets the motion/beat budget), `beat_type`, `learning_objective_id`, and `required_skills` (which `chalk-*-patterns` knowledge skill(s) to load).
+- `artifacts/<job_id>/scenes/<scene_id>/script.json` — the `Script` already written for this scene. Use its `text`/`words`/`markers` to decide what element ids need to exist (each `markers[*].ref` is a promised element id) and how long the scene needs to be (`estimated_duration_seconds` ≈ narration length).
+- `artifacts/<job_id>/02_curriculum.json` — optional context. Cross-reference the `LearningObjective` named by the scene's `learning_objective_id` when the visual intent is ambiguous.
 - `artifacts/<job_id>/job_state.json` — for `trace_id`.
+
+You **do not** read `spec.json` or `placements.json` — they do not exist in Phase 1. The element list and per-element `(x, y, scale)` placements are your responsibility, informed by the knowledge skills loaded (especially the domain-specific `chalk-*-patterns` pack indicated by `required_skills`).
 
 ## Output
 
@@ -44,7 +46,7 @@ Write two sibling files:
 
 1. `artifacts/<job_id>/scenes/<scene_id>/code.py` — the runnable Python. Executed verbatim by `pedagogica-tools chalk-render` inside `sandbox-exec`. Must import from `chalk` only; no filesystem or network access.
 2. `artifacts/<job_id>/scenes/<scene_id>/code.json` — `ManimCode` (schema reused for chalk):
-   - Trace metadata: `trace_id`, fresh `span_id`, `parent_span_id = layout.span_id`, `timestamp`, `producer = "chalk-code"`, `schema_version = "0.1.0"`.
+   - Trace metadata: `trace_id`, fresh `span_id`, `parent_span_id = script.span_id` (from `scenes/<scene_id>/script.json`), `timestamp`, `producer = "chalk-code"`, `schema_version = "0.1.0"`.
    - `scene_id`, `scene_class_name`, `code` (byte-identical to `.py`), `skills_loaded`.
 
 ## chalk target
@@ -112,7 +114,9 @@ class Scene04(Scene):
 
 ## chalk primitive mapping
 
-| spec `type` | chalk primitive | Notes |
+The following table maps the kinds of thing a storyboard `visual_intent` asks for (a graph, an equation, a labeled box, an arrow) to the chalk primitive that realises it. There is no `spec.type` enum on disk in Phase 1 — the left column is a mental model you apply when breaking `visual_intent` into concrete elements.
+
+| visual kind | chalk primitive | Notes |
 |---|---|---|
 | `math` | `MathTex(r"...", color=..., scale=SCALE_BODY)` | Always raw string prefix `r`. Scale from font_size via tiers. |
 | `text` | `Text("...", color=..., scale=SCALE_ANNOT)` | For prose labels, not equations. |
@@ -152,7 +156,9 @@ label.move_to(wx, wy)                   # place VGroup subclasses
 
 ## Animation mapping
 
-| spec `op` | chalk call | Notes |
+Pick the animation verb that matches the beat's intent (reveal, morph, highlight, pause, value-change). There is no `spec.op` enum on disk — the left column below is a mental model.
+
+| intent | chalk call | Notes |
 |---|---|---|
 | `write` | `Write(mob, run_time=d)` | Best for MathTex glyphs. |
 | `create` / `fade_in` | `FadeIn(mob, run_time=d)` | chalk has no `Create`. Use `FadeIn` for all reveals. |
@@ -279,11 +285,11 @@ The `Dot(point=...)` and `DecimalNumber(tracker)` cases work because they accept
 
 | Skill | When to load |
 |---|---|
-| `scene-spec-schema` | Always. |
 | `chalk-primitives` | Always — primitive mapping, common chalk gotchas. |
-| `latex-for-video` | Always for any scene with a `math`-typed element. |
-| `color-and-typography` | Always — palette table is authoritative. |
-| `chalk-calculus-patterns` | When storyboard `required_skills` contains it, or when the scene has a calculus graph/function. |
+| `latex-for-video` | Always for any scene with a MathTex element. |
+| `chalk-calculus-patterns` | When `required_skills` in the storyboard scene beat contains it, or when the scene has a calculus graph/function. |
+| `chalk-circuit-patterns` / `chalk-physics-patterns` / `chalk-chemistry-patterns` / `chalk-coding-patterns` / `chalk-graph-patterns` | Load whichever is named in `required_skills`. Exactly one domain pack per scene. |
+| `scene-spec-schema` | Optional — useful as a mental model for the element → animation decomposition, even though no spec.json is produced on disk. |
 
 ## Model
 
@@ -300,19 +306,20 @@ Exit 1 → one re-prompt with stderr; second failure is a hard fail. Schema reje
 
 Self-check before emitting:
 1. `scene_class_name` matches `class <NAME>(Scene):` in `code`.
-2. Every `element.id` from the spec has a corresponding Python variable and is `self.add()`-ed or animated-in.
-3. Every `animation.id` appears as exactly one `self.play()` or `self.wait()`.
-4. No raw hex colour literals — everything goes through palette constants.
-5. No `.stroke_color=` on shapes — chalk uses `color=` for stroke.
-6. No `.move_to()` on bare VMobject shapes (Circle, Rectangle, Line, Arrow, Dot) — use `.shift(dx, dy)`.
-7. `ax.to_point(data_x, data_y)` used for all axes-anchored coords — never raw numbers.
-8. `x_start=`/`x_end=` for `plot_function` — not `x_range=`.
-9. `code` and `code.py` are byte-identical.
-10. No `Rectangle(width=..., height=...)` centered at the same coord as a `MathTex` — use `labeled_box()`. Fails chalk-lint R5.
+2. Every element the `visual_intent` promises has a corresponding Python variable and is `self.add()`-ed or animated-in.
+3. Every `markers[*].ref` from `script.json` has a corresponding Python variable (so sync can anchor to it). Use the dotted ref verbatim as the variable name is not required — the ref is a logical identifier, not a Python identifier — but the element must exist in the code.
+4. Total estimated runtime (sum of animation `run_time=` + `self.wait(x)`) is within ±15% of the scene beat's `target_duration_seconds`.
+5. No raw hex colour literals — everything goes through palette constants.
+6. No `.stroke_color=` on shapes — chalk uses `color=` for stroke.
+7. No `.move_to()` on bare VMobject shapes (Circle, Rectangle, Line, Arrow, Dot) — use `.shift(dx, dy)`.
+8. `ax.to_point(data_x, data_y)` used for all axes-anchored coords — never raw numbers.
+9. `x_start=`/`x_end=` for `plot_function` — not `x_range=`.
+10. `code` and `code.py` are byte-identical.
+11. No `Rectangle(width=..., height=...)` centered at the same coord as a `MathTex` — use `labeled_box()`. Fails chalk-lint R5.
 
 ## Example
 
-Given the visual-planner's `scene_04` — secant-to-tangent on `y = x²`:
+Given a storyboard `scene_04` with `visual_intent = "a secant line between two points on y = x² slides until the gap closes, becoming the tangent; a slope readout updates continuously"` and `target_duration_seconds = 10.0`:
 
 ```python
 from chalk import (
@@ -380,10 +387,8 @@ Sibling `code.json` (abbreviated):
   "code": "...",
   "scene_class_name": "Scene04",
   "skills_loaded": [
-    "scene-spec-schema@0.1.0",
     "chalk-primitives@0.1.0",
     "latex-for-video@0.0.1",
-    "color-and-typography@0.1.0",
     "chalk-calculus-patterns@0.1.0"
   ]
 }
@@ -410,4 +415,5 @@ Sibling `code.json` (abbreviated):
 
 ## Changelog
 
+- **0.2.0** (2026-04-22) — reconciled to trimmed roster. Inputs drop `spec.json` + `placements.json` (visual-planner + layout folded inline); now read storyboard SceneBeat + script.json directly. `requires` drops `scene-spec-schema` and the deleted `color-and-typography`. Self-check reframed around `visual_intent` / `markers[*].ref` instead of spec element ids. Example preamble updated.
 - **0.1.0** (2026-04-21) — initial chalk port. Replaces manim-code per ADR 0001. Specific imports, no wildcard. chalk primitive mapping, `ax.to_point()`, `ChangeValue`, `FadeIn`-only reveals. Chalk palette constants, scale tiers, zone helpers. Self-check list updated for chalk gotchas.

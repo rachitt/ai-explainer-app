@@ -30,7 +30,7 @@ Full spec: `docs/ARCHITECTURE.md`, `docs/SKILLS.md`, `docs/ROADMAP.md`, `docs/RI
 
 ## Runtime model
 
-Pipeline = **8 agent skills** + **7 knowledge skills** (trimmed 2026-04-22 from 33 → 15; the rest were stale or merged in). Inter-agent messages = JSON files on disk under `artifacts/<job_id>/`, validated against Pydantic schemas in `schemas/`. Non-LLM work (chalk render, FFmpeg, ElevenLabs HTTP) = Python helpers in `tools/`, invoked via Bash as `uv run pedagogica-tools <subcommand>`.
+Pipeline = **8 agent skills** + **10 knowledge skills** (roster settled 2026-04-22 after the 33 → trim; the rest were stale or merged in). Inter-agent messages = JSON files on disk under `artifacts/<job_id>/`, validated against Pydantic schemas in `schemas/`. Non-LLM work (chalk render, FFmpeg, ElevenLabs HTTP) = Python helpers in `tools/`, invoked via Bash as `uv run pedagogica-tools <subcommand>`.
 
 ### Agent skills (`pedagogica/skills/agents/`)
 
@@ -50,9 +50,12 @@ Pipeline = **8 agent skills** + **7 knowledge skills** (trimmed 2026-04-22 from 
 - `chalk-primitives` — canonical chalk API reference (chalk-code reads)
 - `chalk-calculus-patterns` — Riemann / chain-rule / FTC templates
 - `chalk-circuit-patterns` — Wire(breaks=[...]) + component conventions
+- `chalk-physics-patterns` — projectile, pendulum, spring-mass, FBD templates
+- `chalk-chemistry-patterns` — bond / molecule / reaction-mechanism templates
+- `chalk-coding-patterns` — code-trace, call-stack, tree-search templates
 - `chalk-graph-patterns` — hand-placed node layouts, Dijkstra templates
 - `chalk-debugging` — chalk-repair reads this
-- `scene-spec-schema` — data contract between agents
+- `scene-spec-schema` — SceneSpec mental model (no on-disk spec.json in Phase 1, but the contract still informs the element → animation decomposition)
 - `latex-for-video` — MathTex + pdflatex gotchas
 
 ### How skills are invoked

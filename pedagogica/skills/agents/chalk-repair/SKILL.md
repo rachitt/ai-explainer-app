@@ -1,26 +1,25 @@
 ---
 name: chalk-repair
-version: 0.1.0
+version: 0.2.0
 category: orchestration
 triggers:
   - stage:chalk-repair
   - compile:failure
 requires:
-  - scene-spec-schema@^0.1.0
   - chalk-primitives@^0.1.0
   - chalk-debugging@^0.1.0
   - latex-for-video@^0.0.0
-  - color-and-typography@^0.1.0
 token_estimate: 3800
 tested_against_model: claude-sonnet-4-6
 owner: rachit
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 description: >
   Repairs a failing chalk scene. Reads the prior code.py and the CompileResult
   (stderr + error_classification), loads chalk-debugging, and emits a
   replacement ChalkCode. Runs on Sonnet 4.6 for attempts 1 and 2, escalates to
   Opus 4.7 on attempt 3. Context expands per attempt: minimal error → error +
   40-line window → full file + error catalog. Capped at 3 attempts total.
+  Reconciled 2026-04-22 to the trimmed roster (no spec.json / placements.json).
   Replaces manim-repair since 2026-04-21 (ADR 0001).
 ---
 
@@ -28,17 +27,19 @@ description: >
 
 ## Purpose
 
-Fix a chalk scene that failed to render. Read `scenes/<scene_id>/code.py` (the failing source), `scenes/<scene_id>/compile_attempt_<N>.json` (the `CompileResult` with `success=false`), and any original inputs (`spec.json`, `placements.json`, `script.json`), and emit a **replacement** `code.py` + `code.json` that renders successfully.
+Fix a chalk scene that failed to render. Read `scenes/<scene_id>/code.py` (the failing source), `scenes/<scene_id>/compile_attempt_<N>.json` (the `CompileResult` with `success=false`), and the scene context: the matching `SceneBeat` in `03_storyboard.json` and the `scenes/<scene_id>/script.json`. Emit a **replacement** `code.py` + `code.json` that renders successfully.
 
 Per `docs/ARCHITECTURE.md` §12, compile retries are capped at **3 attempts** with an **expanding context window** and **model escalation** on the last attempt.
+
+Phase 1 has no `spec.json` or `placements.json` — visual planning and layout live inside `code.py` itself (chalk-code folds them inline). Do not attempt to read those files.
 
 ## Inputs
 
 | Attempt | Files you read | Loaded skills | Model |
 |---|---|---|---|
-| 1 | `code.py`, `compile_attempt_1.json` (stderr only), `spec.json`, `placements.json` | `scene-spec-schema`, `chalk-primitives`, `chalk-debugging` | Sonnet 4.6 |
+| 1 | `code.py`, `compile_attempt_1.json` (stderr only), matching `SceneBeat` in `03_storyboard.json`, `script.json` | `chalk-primitives`, `chalk-debugging` | Sonnet 4.6 |
 | 2 | same + 40-line window around offending line, `compile_attempt_2.json` | same + `latex-for-video` if latex-classified | Sonnet 4.6 |
-| 3 | same + full `code.py` end-to-end + `chalk-debugging` `error_catalog.yaml` entry | same + `color-and-typography` + original chalk-*-patterns pack | **Opus 4.7** |
+| 3 | same + full `code.py` end-to-end + `chalk-debugging` `error_catalog.yaml` entry | same + the `chalk-*-patterns` pack named in the storyboard's `required_skills` | **Opus 4.7** |
 
 ## Output
 
@@ -89,9 +90,9 @@ If the error is planning-level (e.g., spec asks for an element that can't be rea
 Across all attempts:
 - **`scene_class_name`** — never rename.
 - **Element ids referenced by script markers** — if a marker says `show eq.secant`, the repaired code must still construct `eq_secant`.
-- **Palette constants** — do not edit; colour-system changes are `color-and-typography`'s domain.
+- **Palette constants** — do not edit; chalk's named palette (`PRIMARY`, `BLUE`, `YELLOW`, `GREEN`, `RED_FILL`, `GREY`) is authoritative. Do not substitute raw hex.
 - **Visual intent from the storyboard** — a simpler rendering is fine; a different scene is not.
-- **Layout placements from `placements.json`** — if a placement caused the crash (e.g. font_size 0), clamp locally; don't renegotiate.
+- **Inline layout decisions in the prior `code.py`** — if a placement caused the crash (e.g. `font_size=0`, a shape centred off-frame), clamp the specific value locally; don't re-plan the whole scene's layout.
 
 ## What you may change
 
@@ -204,9 +205,10 @@ Self-check before emitting:
 - **Adding `x.animate.set_value()`** — chalk has no `.animate`. Use `ChangeValue`.
 - **Using `stroke_color=`** — chalk uses `color=`.
 - **Continuing past attempt 3** — hard fail. Don't attempt a fourth.
-- **Changing PALETTE or colour constants** — that's `color-and-typography`'s domain.
-- **Regenerating spec/layout/script** — this agent fixes code only.
+- **Changing PALETTE or colour constants** — chalk's named palette is authoritative; do not substitute hex.
+- **Regenerating the script or re-planning the scene** — this agent fixes code only. Script edits belong to the script stage; scene re-planning belongs to chalk-code on a later run.
 
 ## Changelog
 
+- **0.2.0** (2026-04-22) — reconciled to trimmed roster. `requires` drops `scene-spec-schema` and the deleted `color-and-typography`. Attempt table no longer reads `spec.json` / `placements.json` (they do not exist in Phase 1); instead reads the scene's storyboard beat + `script.json`. Attempt 3 loads the domain `chalk-*-patterns` pack named in `required_skills`.
 - **0.1.0** (2026-04-21) — initial chalk port from manim-repair. chalk-specific repair patterns: stroke_color→color, move_to→shift, x_range→x_start/x_end, c2p→to_point, animate.set_value→ChangeValue, Create→FadeIn, VMobject.subpaths. Loads chalk-debugging instead of manim-debugging.
