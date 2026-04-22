@@ -63,3 +63,15 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** some domain objects contain nested `VGroup`/`MathTex` children, while `VGroup.bbox()` is not recursive and VMobjects do not all expose `bbox()`.
 **Fix:** anchor labels to leaf VMobjects where possible, use explicit local label positions for molecule assemblies that lack a clean leaf anchor, and compute Dot centers from points during animation.
 **Applies to:** chalk scene authoring with domain-kit composites; test snapshots before assuming a placement helper can consume a composite.
+
+## 2026-04-22 — reference mux artifact can miss sync plans
+**Mistake:** assumed `artifacts/kvl_001` had `scenes/*/sync.json` because it already had `synced.mp4` and `final_narrated.mp4`.
+**Root cause:** the generated reference artifact preserved mux outputs but not the `SyncPlan` inputs required to remux with `--force`.
+**Fix:** make `ffmpeg-mux` fail clearly on missing `sync.json`; for verification, generate temporary sync plans from existing media durations and delete them afterward.
+**Applies to:** any rerun of mux stages against archived artifacts; check schema inputs before forcing regeneration.
+
+## 2026-04-22 — dev shells may not expose `python`
+**Mistake:** used `python` in a verification helper and the shell failed before generating temporary sync plans.
+**Root cause:** this workspace exposes Python reliably through `uv run python` / `python3`, not necessarily a bare `python` shim.
+**Fix:** reran the helper through `UV_CACHE_DIR=.uv-cache uv run python` so it stayed inside the sandboxed workspace cache.
+**Applies to:** repo-local automation and one-off verification scripts; prefer `uv run python` over `python`.

@@ -177,9 +177,54 @@ def elevenlabs_tts(
 
 
 @app.command("ffmpeg-mux")
-def ffmpeg_mux(job_dir: str) -> None:
+def ffmpeg_mux(
+    job_dir: str = typer.Argument(..., help="Artifact job directory to mux."),
+    crossfade_seconds: float = typer.Option(0.0, "--crossfade-seconds"),
+    output: str = typer.Option("final.mp4", "--output", help="Final output filename."),
+    force: bool = typer.Option(False, "--force", help="Rebuild even when outputs are fresh."),
+    scenes_only: bool = typer.Option(
+        False, "--scenes-only", help="Only build per-scene synced.mp4."
+    ),
+    concat_only: bool = typer.Option(
+        False, "--concat-only", help="Only concat existing synced.mp4."
+    ),
+) -> None:
     """Concat per-scene renders + audio into final.mp4 with crossfades."""
-    typer.echo(f"[stub] ffmpeg-mux {job_dir}")
+    if scenes_only and concat_only:
+        typer.echo("--scenes-only and --concat-only are mutually exclusive", err=True)
+        raise typer.Exit(code=2)
+
+    from pedagogica_tools.ffmpeg_mux import MuxOptions, mux
+
+    try:
+        result = mux(
+            job_dir,
+            MuxOptions(
+                crossfade_seconds=crossfade_seconds,
+                output_name=output,
+                force=force,
+                scenes_only=scenes_only,
+                concat_only=concat_only,
+            ),
+        )
+    except NotImplementedError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
+
+    if result.ok:
+        summary = "ok"
+        if result.output_path:
+            summary += f": {result.output_path}"
+        if result.duration_seconds is not None:
+            summary += f" ({result.duration_seconds:.3f}s)"
+        typer.echo(summary)
+        raise typer.Exit(code=0)
+
+    typer.echo(f"fail: {result.error}", err=True)
+    if result.error and (
+        result.error == "ffmpeg not found on PATH" or result.error.startswith("ffmpeg failed")
+    ):
+        raise typer.Exit(code=1)
     raise typer.Exit(code=2)
 
 
