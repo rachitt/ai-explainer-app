@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: chalk-lint
+        name: chalk-lint (palette + scale discipline)
+        entry: uv run chalk-lint
+        language: system
+        files: ^chalk/(src|examples)/.*\.py$
+        pass_filenames: true

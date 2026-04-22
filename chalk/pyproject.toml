@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 chalk = "chalk.cli:app"
+chalk-lint = "chalk.lint:main"
 
 [build-system]
 requires = ["hatchling"]
