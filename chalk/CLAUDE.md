@@ -158,6 +158,35 @@ so the text always fits. Optional args: `pad_x`, `pad_y`, `min_width`,
 `MathTex(r"\mathrm{README}")` placed at the same center.  One word change to
 the label and the text now extends past the box on either side.
 
+## Circuit wires crossing components (always use `breaks=[...]`)
+
+When a `Wire` polyline passes through a point where a series component sits
+(Resistor / Battery / Capacitor / Inductor / Switch), the wire MUST declare the
+component in `breaks=[...]`. Otherwise a grey stroke runs through the component
+body — visible behind the resistor zigzag, behind capacitor plates, etc.
+
+```python
+from chalk.circuits import Wire, Resistor, Battery
+
+r1 = Resistor((-1.5, 1.5), (1.5, 1.5), color=PRIMARY)
+batt = Battery((-4.0, -0.3), (-4.0, 0.3), color=GREEN)
+
+# Closed loop with both components embedded:
+loop = Wire(
+    (-4, 1.5), (4, 1.5), (4, -1.5), (-4, -1.5), (-4, 1.5),
+    breaks=[r1, batt],
+)
+```
+
+Wire auto-splits its polyline at each component's `(start, end)`, leaving a
+gap the exact size of the component. Only series components with collinear
+endpoints qualify; Ground is a point symbol and never appears in `breaks`.
+
+**Anti-pattern:** declaring the wire without breaks and layering the component
+over it, or hand-splitting the wire into `top_l`, `top_r`, etc. The former
+looks broken; the latter is a maintenance trap (moving one component means
+rewriting every wire stub).
+
 ## Reveal pattern (never pop in)
 
 Elements must fade in, not appear abruptly. After `self.add(...)`, immediately
