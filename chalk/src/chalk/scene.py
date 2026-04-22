@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from chalk.camera import Camera2D
+from chalk.camera import Camera2D, CameraFrame
 from chalk.mobject import VMobject
 from chalk.renderer import CairoRenderer
 from chalk.vgroup import VGroup
@@ -25,6 +25,7 @@ class Scene:
         self._renderer = CairoRenderer()
         self._frame_index: int = 0
         self._sections: list[tuple[str, int]] = []
+        self._rendering_active: bool = True
 
     def _attach(self, sink: "FrameSink", camera: Camera2D | None = None, fps: int | None = None) -> None:
         self._sink = sink
@@ -95,6 +96,17 @@ class Scene:
                     extra.append(m)
                     scene_ids.add(id(m))
 
+        if not self._rendering_active:
+            # Fast-forward: update state to end without writing any frames.
+            for anim in animations:
+                anim.interpolate(1.0)
+                anim.finish()
+            self._refresh_all()
+            for m in extra:
+                if m not in self._mobjects:
+                    self._mobjects.append(m)
+            return
+
         total_time = run_time or max(a.run_time for a in animations)
         n_frames = max(1, round(total_time * self.fps))
 
@@ -118,12 +130,35 @@ class Scene:
 
     def wait(self, duration: float = 1.0) -> None:
         assert self._sink is not None, "scene not attached to a sink"
+        if not self._rendering_active:
+            self._refresh_all()
+            return
         n_frames = max(1, round(duration * self.fps))
         for _ in range(n_frames):
             self._refresh_all()
             frame = self._renderer.render_frame(self._render_mobs())
             self._sink.write(frame)
             self._frame_index += 1
+
+    def next_section(self, name: str = "", skip_animations: bool = False) -> None:
+        """Begin a new named section. skip_animations=True fast-forwards play/wait (no frames written)."""
+        self._sections.append((name, self._frame_index))
+        self._rendering_active = not skip_animations
+
+    def save_last_frame(self, path: str) -> None:
+        """Render the current scene state and write it as a PNG to path."""
+        import png  # type: ignore[import]
+        frame = self._renderer.render_frame(self._render_mobs())
+        h, w, _ = frame.shape
+        rows = [frame[y].flatten().tolist() for y in range(h)]
+        with open(path, "wb") as f:
+            writer = png.Writer(width=w, height=h, alpha=True, bitdepth=8, greyscale=False)
+            writer.write(f, rows)
+
+    @property
+    def camera_frame(self) -> CameraFrame:
+        """Proxy for animating camera pan and zoom via CameraShift / CameraZoom."""
+        return CameraFrame(self.camera)
 
     def clear(self, run_time: float = 0.5, keep: list | None = None) -> None:
         """Fade out every currently-added mobject (except those in `keep`) and
@@ -139,9 +174,16 @@ class Scene:
         for k in (keep or []):
             for leaf in self._flatten(k):
                 keep_ids.add(id(leaf))
+        keep_rd_ids = {id(k) for k in (keep or [])}
+
+        if not self._rendering_active:
+            # Fast-forward: drop mobs without rendering a fade.
+            self._mobjects = [m for m in self._mobjects if id(m) in keep_ids]
+            self._redrawables = [rd for rd in self._redrawables if id(rd) in keep_rd_ids]
+            return
+
         to_fade = [m for m in self._mobjects if id(m) not in keep_ids]
         # Also fade current leaves from redrawables (excluding kept redrawables)
-        keep_rd_ids = {id(k) for k in (keep or [])}
         for rd in self._redrawables:
             if id(rd) not in keep_rd_ids:
                 to_fade.extend(_iter_vmobjects(rd))

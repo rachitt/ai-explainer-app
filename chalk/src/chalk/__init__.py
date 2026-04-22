@@ -2,12 +2,14 @@ from chalk.mobject import Mobject, VMobject
 from chalk.shapes import (
     Circle, Square, Rectangle, Line, Arrow,
     Dot, Polygon, RegularPolygon, ArcBetweenPoints,
+    ParametricFunction,
 )
 from chalk.animation import (
     Transform, ShiftAnim, FadeIn, FadeOut, Write, ChangeValue,
     MoveAlongPath, Rotate,
     AnimationGroup, Succession, LaggedStart,
     Indicate, Flash, Circumscribe,
+    CameraShift, CameraZoom,
 )
 from chalk.scene import Scene
 from chalk.vgroup import VGroup
@@ -32,7 +34,7 @@ __all__ = [
     # Mobjects
     "Mobject", "VMobject",
     "Circle", "Square", "Rectangle", "Line", "Arrow",
-    "Dot", "Polygon", "RegularPolygon", "ArcBetweenPoints",
+    "Dot", "Polygon", "RegularPolygon", "ArcBetweenPoints", "ParametricFunction",
     "VGroup", "MathTex", "Text",
     "Axes", "plot_function",
     "NumberLine", "NumberPlane",
@@ -41,6 +43,7 @@ __all__ = [
     "MoveAlongPath", "Rotate",
     "AnimationGroup", "Succession", "LaggedStart",
     "Indicate", "Flash", "Circumscribe",
+    "CameraShift", "CameraZoom",
     # ValueTracker + redraw
     "ValueTracker",
     "always_redraw", "AlwaysRedraw", "DecimalNumber",

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+from typing import Callable
 import numpy as np
 from chalk.mobject import VMobject
 
@@ -304,6 +305,40 @@ class ArcBetweenPoints(VMobject):
         a_start = math.atan2(float(p0[1] - center[1]), float(p0[0] - center[0]))
         # CW sweep (−angle) curves left for positive angle in y-up coordinates
         self.points = _arc_points(center, radius, a_start, -angle)
+
+
+class ParametricFunction(VMobject):
+    """A curve defined by a parametric function t → (x, y).
+
+    t_range: (t_min, t_max, dt) controls sampling density.
+    The curve is built from cubic Bezier line segments connecting samples.
+    """
+
+    def __init__(
+        self,
+        func: Callable[[float], tuple[float, float]],
+        t_range: tuple[float, float, float] = (0.0, 1.0, 0.01),
+        color: str = "#58C4DD",
+        stroke_width: float = 2.5,
+        fill_opacity: float = 0.0,
+    ) -> None:
+        super().__init__(
+            stroke_color=color,
+            stroke_width=stroke_width,
+            fill_color="#000000",
+            fill_opacity=fill_opacity,
+        )
+        t_min, t_max, dt = t_range
+        n = max(2, round((t_max - t_min) / abs(dt)) + 1)
+        ts = np.linspace(t_min, t_max, n)
+        samples = np.array([func(float(t)) for t in ts], dtype=float)
+        pts: list[np.ndarray] = []
+        for i in range(len(samples) - 1):
+            p0 = samples[i]
+            p3 = samples[i + 1]
+            d = p3 - p0
+            pts.extend([p0, p0 + d / 3, p0 + 2 * d / 3, p3])
+        self.points = np.array(pts, dtype=float) if pts else np.zeros((4, 2))
 
 
 class Arrow(VMobject):

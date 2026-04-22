@@ -11,6 +11,7 @@ from chalk.vgroup import VGroup
 
 if TYPE_CHECKING:
     from chalk.value_tracker import ValueTracker
+    from chalk.scene import Scene
 
 
 def _iter_vmobjects(target: Union[VMobject, VGroup]) -> list[VMobject]:
@@ -639,6 +640,74 @@ class Circumscribe:
     def finish(self) -> None:
         if self._outline is not None:
             self._outline.stroke_opacity = 1.0
+
+
+class CameraShift:
+    """Animate the camera's pan offset by (dx, dy) in world units."""
+
+    def __init__(
+        self,
+        scene: "Scene",
+        dx: float,
+        dy: float,
+        run_time: float = 1.0,
+        rate_func: Callable[[float], float] = smooth,
+    ) -> None:
+        from chalk.scene import Scene as _Scene  # noqa: F401
+        self._camera = scene.camera
+        self.dx = dx
+        self.dy = dy
+        self.run_time = run_time
+        self.rate_func = rate_func
+        self._start_x: float = 0.0
+        self._start_y: float = 0.0
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return []
+
+    def begin(self) -> None:
+        self._start_x = self._camera.center_x
+        self._start_y = self._camera.center_y
+
+    def interpolate(self, alpha: float) -> None:
+        eased = self.rate_func(alpha)
+        self._camera.center_x = self._start_x + self.dx * eased
+        self._camera.center_y = self._start_y + self.dy * eased
+
+    def finish(self) -> None:
+        self.interpolate(1.0)
+
+
+class CameraZoom:
+    """Animate the camera's zoom level to target_zoom."""
+
+    def __init__(
+        self,
+        scene: "Scene",
+        target_zoom: float,
+        run_time: float = 1.0,
+        rate_func: Callable[[float], float] = smooth,
+    ) -> None:
+        self._camera = scene.camera
+        self.target_zoom = target_zoom
+        self.run_time = run_time
+        self.rate_func = rate_func
+        self._start_zoom: float = 1.0
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        return []
+
+    def begin(self) -> None:
+        self._start_zoom = self._camera.zoom
+
+    def interpolate(self, alpha: float) -> None:
+        eased = self.rate_func(alpha)
+        self._camera.zoom = self._start_zoom + (self.target_zoom - self._start_zoom) * eased
+
+    def finish(self) -> None:
+        self.interpolate(1.0)
 
 
 class FadeOut:
