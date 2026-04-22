@@ -193,6 +193,8 @@ class Write:
     - 1.0 → each submobject finishes before the next begins.
 
     Single VMobject → equivalent to FadeIn.
+
+    Internally delegates to LaggedStart(FadeIn(unit) for unit in units).
     """
 
     def __init__(
@@ -206,44 +208,42 @@ class Write:
         self.run_time = run_time
         self.lag_ratio = max(0.0, min(1.0, lag_ratio))
         self.rate_func = rate_func
-        self._units: list[list[VMobject]] = []
-        self._target_fill: list[list[float]] = []
-        self._target_stroke: list[list[float]] = []
+        self._delegate: "LaggedStart | None" = None
+
+    def _build_delegate(self) -> "LaggedStart":
+        units = _stagger_units(self.target)
+        n = len(units)
+        if n == 0:
+            return LaggedStart(
+                FadeIn(self.target, run_time=self.run_time, rate_func=self.rate_func),
+                lag_ratio=self.lag_ratio,
+            )
+        # Compute per-unit duration so total fits exactly in self.run_time:
+        # run_time = per_duration * (1 + (n-1) * lag_ratio)
+        per_duration = self.run_time / max(1.0 + (n - 1) * self.lag_ratio, 1e-9)
+        sub_anims = [
+            FadeIn(VGroup(*unit_mobs), run_time=per_duration, rate_func=self.rate_func)
+            for unit_mobs in units
+        ]
+        return LaggedStart(*sub_anims, lag_ratio=self.lag_ratio)
 
     @property
     def mobjects(self) -> list[VMobject]:
-        return [m for unit in self._units for m in unit]
+        if self._delegate is not None:
+            return self._delegate.mobjects
+        return _iter_vmobjects(self.target)
 
     def begin(self) -> None:
-        self._units = _stagger_units(self.target)
-        self._target_fill = [[m.fill_opacity for m in u] for u in self._units]
-        self._target_stroke = [[m.stroke_opacity for m in u] for u in self._units]
-        for u in self._units:
-            for m in u:
-                m.fill_opacity = 0.0
-                m.stroke_opacity = 0.0
+        self._delegate = self._build_delegate()
+        self._delegate.begin()
 
     def interpolate(self, alpha: float) -> None:
-        n = len(self._units)
-        if n == 0:
-            return
-        per_duration = 1.0 / (1.0 + (n - 1) * self.lag_ratio)
-        for i, (unit, fos, sos) in enumerate(
-            zip(self._units, self._target_fill, self._target_stroke)
-        ):
-            t0 = i * self.lag_ratio * per_duration
-            local = 0.0 if per_duration <= 0 else (alpha - t0) / per_duration
-            local = max(0.0, min(1.0, local))
-            eased = self.rate_func(local)
-            for m, fo, so in zip(unit, fos, sos):
-                m.fill_opacity = eased * fo
-                m.stroke_opacity = eased * so
+        if self._delegate is not None:
+            self._delegate.interpolate(alpha)
 
     def finish(self) -> None:
-        for unit, fos, sos in zip(self._units, self._target_fill, self._target_stroke):
-            for m, fo, so in zip(unit, fos, sos):
-                m.fill_opacity = fo
-                m.stroke_opacity = so
+        if self._delegate is not None:
+            self._delegate.finish()
 
 
 def _centroid(mob: Union[VMobject, VGroup]) -> np.ndarray:
@@ -377,6 +377,91 @@ class ChangeValue:
 
     def finish(self) -> None:
         self.tracker.set_value(self.target)
+
+
+class AnimationGroup:
+    """Composite of multiple animations running with controlled overlap.
+
+    lag_ratio=0.0 → all start together (parallel).
+    lag_ratio=1.0 → each starts only after the previous ends (sequential).
+    0 < lag_ratio < 1 → staggered overlap.
+
+    run_time defaults to the time when the last animation ends.
+    """
+
+    def __init__(
+        self,
+        *animations: "Animation",
+        lag_ratio: float = 0.0,
+        run_time: float | None = None,
+    ) -> None:
+        self._animations = list(animations)
+        self.lag_ratio = lag_ratio
+        # Compute effective run_time from all animation start/end windows
+        if run_time is not None:
+            self.run_time = run_time
+        elif not animations:
+            self.run_time = 0.0
+        else:
+            self.run_time = self._auto_run_time()
+
+    def _auto_run_time(self) -> float:
+        """Total time until the last animation finishes."""
+        delay = 0.0
+        end = 0.0
+        for anim in self._animations:
+            end = max(end, delay + anim.run_time)
+            delay += self.lag_ratio * anim.run_time
+        return max(end, 1e-9)
+
+    def _window(self, i: int, total: float) -> tuple[float, float]:
+        """Return (t_start, t_end) in [0, total] for animation i."""
+        delay = 0.0
+        for j, anim in enumerate(self._animations):
+            if j == i:
+                return (delay, delay + anim.run_time)
+            delay += self.lag_ratio * anim.run_time
+        return (0.0, total)
+
+    @property
+    def mobjects(self) -> list[VMobject]:
+        out: list[VMobject] = []
+        for anim in self._animations:
+            out.extend(anim.mobjects)
+        return out
+
+    def begin(self) -> None:
+        for anim in self._animations:
+            anim.begin()
+
+    def interpolate(self, global_alpha: float) -> None:
+        t = global_alpha * self.run_time
+        for i, anim in enumerate(self._animations):
+            t_start, t_end = self._window(i, self.run_time)
+            span = t_end - t_start
+            if span < 1e-9:
+                local = 1.0
+            else:
+                local = max(0.0, min(1.0, (t - t_start) / span))
+            anim.interpolate(local)
+
+    def finish(self) -> None:
+        for anim in self._animations:
+            anim.finish()
+
+
+class Succession(AnimationGroup):
+    """Animations run fully sequentially (lag_ratio=1.0)."""
+
+    def __init__(self, *animations: "Animation") -> None:
+        super().__init__(*animations, lag_ratio=1.0)
+
+
+class LaggedStart(AnimationGroup):
+    """Animations start in sequence with a fixed lag_ratio overlap."""
+
+    def __init__(self, *animations: "Animation", lag_ratio: float = 0.3) -> None:
+        super().__init__(*animations, lag_ratio=lag_ratio)
 
 
 class FadeOut:

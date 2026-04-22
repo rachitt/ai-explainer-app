@@ -6,6 +6,7 @@ from chalk.shapes import (
 from chalk.animation import (
     Transform, ShiftAnim, FadeIn, FadeOut, Write, ChangeValue,
     MoveAlongPath, Rotate,
+    AnimationGroup, Succession, LaggedStart,
 )
 from chalk.scene import Scene
 from chalk.vgroup import VGroup
@@ -36,6 +37,7 @@ __all__ = [
     # Animations
     "Transform", "ShiftAnim", "FadeIn", "FadeOut", "Write", "ChangeValue",
     "MoveAlongPath", "Rotate",
+    "AnimationGroup", "Succession", "LaggedStart",
     # ValueTracker + redraw
     "ValueTracker",
     "always_redraw", "AlwaysRedraw", "DecimalNumber",
