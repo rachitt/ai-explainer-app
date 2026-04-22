@@ -56,7 +56,15 @@ class VMobject(Mobject):
         if not isinstance(other, VMobject):
             raise TypeError("can only interpolate between VMobjects")
         self.align_points(other)
-        self.points = (1 - alpha) * self.points + alpha * other.points
+        if self.subpaths and other.subpaths:
+            new_subs = [
+                (1 - alpha) * a + alpha * b
+                for a, b in zip(self.subpaths, other.subpaths)
+            ]
+            self.subpaths = new_subs
+            self.points = np.concatenate(new_subs, axis=0)
+        else:
+            self.points = (1 - alpha) * self.points + alpha * other.points
         self.stroke_width = (1 - alpha) * self.stroke_width + alpha * other.stroke_width
         self.fill_opacity = (1 - alpha) * self.fill_opacity + alpha * other.fill_opacity
         self.stroke_opacity = (1 - alpha) * self.stroke_opacity + alpha * other.stroke_opacity
@@ -84,7 +92,41 @@ class VMobject(Mobject):
         return self
 
     def align_points(self, other: "VMobject") -> None:
-        """Ensure equal curve count via de Casteljau subdivision at t=0.5."""
+        """Ensure equal curve count via de Casteljau subdivision at t=0.5.
+
+        When both sides have multi-subpath geometry (glyphs with counters,
+        MathTex expressions composed of multiple glyphs per VMobject), align
+        subpath-by-subpath: pad the shorter list with collapsed subpaths at the
+        counterpart's centroid so extras morph from a point, then equalize
+        curve count within each paired subpath.
+        """
+        if self.subpaths or other.subpaths:
+            self_subs = self.subpaths if self.subpaths else [self.points]
+            other_subs = other.subpaths if other.subpaths else [other.points]
+
+            if len(self_subs) < len(other_subs):
+                for extra in other_subs[len(self_subs):]:
+                    self_subs.append(_collapsed_subpath(extra))
+            elif len(other_subs) < len(self_subs):
+                for extra in self_subs[len(other_subs):]:
+                    other_subs.append(_collapsed_subpath(extra))
+
+            for idx, (a, b) in enumerate(zip(self_subs, other_subs)):
+                na = len(a) // self.POINTS_PER_CURVE
+                nb = len(b) // self.POINTS_PER_CURVE
+                if na == 0 or nb == 0:
+                    continue
+                if na < nb:
+                    self_subs[idx] = _subdivide_to(a, nb)
+                elif nb < na:
+                    other_subs[idx] = _subdivide_to(b, na)
+
+            self.subpaths = self_subs
+            other.subpaths = other_subs
+            self.points = np.concatenate(self_subs, axis=0)
+            other.points = np.concatenate(other_subs, axis=0)
+            return
+
         n1 = len(self.points) // self.POINTS_PER_CURVE
         n2 = len(other.points) // self.POINTS_PER_CURVE
         if n1 == n2:
@@ -93,6 +135,20 @@ class VMobject(Mobject):
             self.points = _subdivide_to(self.points, n2)
         else:
             other.points = _subdivide_to(other.points, n1)
+
+
+def _collapsed_subpath(ref: np.ndarray) -> np.ndarray:
+    """Return a single-cubic subpath collapsed to ref's centroid.
+
+    Used when aligning two VMobjects with unequal subpath counts: extras on
+    one side are morphed to/from a point at the counterpart's center so they
+    shrink to nothing rather than tearing across the frame.
+    """
+    if len(ref) == 0:
+        center = np.zeros(2)
+    else:
+        center = ref.mean(axis=0)
+    return np.tile(center, (VMobject.POINTS_PER_CURVE, 1))
 
 
 def _split_cubic(p: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

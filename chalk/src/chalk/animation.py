@@ -41,6 +41,7 @@ class Transform:
         self.run_time = run_time
         self.rate_func = rate_func
         self._start_points: np.ndarray | None = None
+        self._start_subpaths: list[np.ndarray] | None = None
         self._start_stroke_color: str = source.stroke_color
         self._start_fill_color: str = source.fill_color
         self._start_stroke_width: float = source.stroke_width
@@ -53,6 +54,7 @@ class Transform:
 
     def begin(self) -> None:
         self._start_points = self.source.points.copy()
+        self._start_subpaths = [s.copy() for s in self.source.subpaths]
         self._start_stroke_color = self.source.stroke_color
         self._start_fill_color = self.source.fill_color
         self._start_stroke_width = self.source.stroke_width
@@ -62,8 +64,10 @@ class Transform:
     def interpolate(self, alpha: float) -> None:
         eased = self.rate_func(alpha)
         assert self._start_points is not None
+        assert self._start_subpaths is not None
         # Restore to start state, then let VMobject.interpolate do the lerp
         self.source.points = self._start_points.copy()
+        self.source.subpaths = [s.copy() for s in self._start_subpaths]
         self.source.stroke_color = self._start_stroke_color
         self.source.fill_color = self._start_fill_color
         self.source.stroke_width = self._start_stroke_width
@@ -73,6 +77,7 @@ class Transform:
 
     def finish(self) -> None:
         self.source.points = self.target.points.copy()
+        self.source.subpaths = [s.copy() for s in self.target.subpaths]
         self.source.stroke_color = self.target.stroke_color
         self.source.fill_color = self.target.fill_color
         self.source.stroke_width = self.target.stroke_width

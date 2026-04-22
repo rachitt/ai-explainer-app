@@ -79,3 +79,67 @@ def test_transform_color_lerp():
     # Midpoint color should be grey
     r = int(c.stroke_color.lstrip("#")[0:2], 16)
     assert 120 < r < 136
+
+
+def _vmobj_with_subpaths(subs: list[np.ndarray], color: str = "#ffffff"):
+    from chalk.mobject import VMobject
+    m = VMobject(stroke_color=color, fill_color=color, fill_opacity=1.0)
+    m.subpaths = [s.copy() for s in subs]
+    m.points = np.concatenate(m.subpaths, axis=0) if m.subpaths else np.zeros((0, 2))
+    return m
+
+
+def test_interpolate_matching_subpaths():
+    """Equal subpath counts + equal curve counts: pointwise lerp."""
+    from chalk.rate_funcs import linear
+    sub_a0 = np.array([[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]])
+    sub_a1 = np.array([[2.0, 2.0], [2.0, 3.0], [3.0, 3.0], [3.0, 2.0]])
+    sub_b0 = np.array([[0.0, 0.0], [0.0, 2.0], [2.0, 2.0], [2.0, 0.0]])
+    sub_b1 = np.array([[4.0, 4.0], [4.0, 5.0], [5.0, 5.0], [5.0, 4.0]])
+    a = _vmobj_with_subpaths([sub_a0, sub_a1])
+    b = _vmobj_with_subpaths([sub_b0, sub_b1])
+    a.interpolate(b, 0.5)
+    np.testing.assert_allclose(a.subpaths[0], (sub_a0 + sub_b0) / 2)
+    np.testing.assert_allclose(a.subpaths[1], (sub_a1 + sub_b1) / 2)
+    np.testing.assert_allclose(a.points, np.concatenate(a.subpaths, axis=0))
+
+
+def test_interpolate_unequal_subpath_counts_pads():
+    """Shorter side gets padded with collapsed subpaths at counterpart centroid."""
+    from chalk.rate_funcs import linear
+    sub_a0 = np.array([[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]])
+    sub_b0 = np.array([[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]])
+    sub_b1 = np.array([[10.0, 10.0], [10.0, 12.0], [12.0, 12.0], [12.0, 10.0]])
+    a = _vmobj_with_subpaths([sub_a0])
+    b = _vmobj_with_subpaths([sub_b0, sub_b1])
+    a.interpolate(b, 1.0)
+    assert len(a.subpaths) == 2
+    np.testing.assert_allclose(a.subpaths[0], sub_b0)
+    np.testing.assert_allclose(a.subpaths[1], sub_b1)
+
+
+def test_interpolate_unequal_curve_counts_per_subpath():
+    """Subdivides within matched subpath pairs."""
+    sub_a0 = np.zeros((4, 2))   # 1 curve
+    sub_b0 = np.zeros((8, 2))   # 2 curves
+    a = _vmobj_with_subpaths([sub_a0])
+    b = _vmobj_with_subpaths([sub_b0])
+    a.interpolate(b, 0.5)
+    assert len(a.subpaths[0]) == 8
+
+
+def test_transform_propagates_to_subpaths():
+    """Transform snapshots/restores subpaths so repeated interpolate is stable."""
+    sub_a0 = np.array([[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]])
+    sub_a1 = np.array([[2.0, 2.0], [2.0, 3.0], [3.0, 3.0], [3.0, 2.0]])
+    sub_b0 = np.array([[5.0, 5.0], [5.0, 6.0], [6.0, 6.0], [6.0, 5.0]])
+    sub_b1 = np.array([[7.0, 7.0], [7.0, 8.0], [8.0, 8.0], [8.0, 7.0]])
+    a = _vmobj_with_subpaths([sub_a0, sub_a1])
+    b = _vmobj_with_subpaths([sub_b0, sub_b1])
+    t = Transform(a, b)
+    t.begin()
+    t.interpolate(0.3)
+    t.interpolate(0.7)
+    t.finish()
+    np.testing.assert_allclose(a.subpaths[0], sub_b0)
+    np.testing.assert_allclose(a.subpaths[1], sub_b1)
