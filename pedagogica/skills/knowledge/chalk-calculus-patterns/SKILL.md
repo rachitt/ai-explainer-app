@@ -4,7 +4,6 @@ version: 0.1.0
 category: chalk
 triggers:
   - domain:calculus
-  - stage:visual-planner
   - stage:chalk-code
   - stage:chalk-repair
 requires:
@@ -169,6 +168,66 @@ See `examples/pattern_05_epsilon_delta.py`.
 - `TransformMatchingTex` for the derivative step: output label morphs from `f(g(x))` to `f'(g(x))\cdot g'(x)\cdot dx`.
 
 **Run-time budget.** ~12s.
+
+**Canonical composition skeleton.** Every chain-rule scene that needs an f(g(x)) diagram should start from this layout — do NOT improvise with raw `\Box` placeholders inside MathTex. Boxes are built from `labeled_box()`; arrows from `arrow_between()`.
+
+```python
+from chalk import (
+    Scene, MathTex,
+    FadeIn, ShiftAnim,
+    PRIMARY, BLUE, YELLOW, GREY,
+    SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL,
+    ZONE_TOP, ZONE_CENTER,
+    labeled_box, arrow_between, next_to, place_in_zone,
+)
+
+class ChainRuleComposition(Scene):
+    def construct(self):
+        # ── Beat 1: title ───────────────────────────────────────────
+        title = MathTex(r"\text{Chain Rule: } (f \circ g)'(x)", color=GREY, scale=SCALE_LABEL)
+        place_in_zone(title, ZONE_TOP)
+        self.add(title)
+        self.play(FadeIn(title, run_time=0.6))
+        self.wait(0.6)
+
+        # ── Beat 2: the three labels x, g, f as boxed pipeline ──────
+        # All three boxes centered on y=0, then shifted to fixed x-stops.
+        x_box, x_lbl = labeled_box(r"x", color=BLUE, label_color=PRIMARY, scale=SCALE_BODY)
+        g_box, g_lbl = labeled_box(r"g", color=PRIMARY, label_color=PRIMARY, scale=SCALE_DISPLAY)
+        f_box, f_lbl = labeled_box(r"f", color=PRIMARY, label_color=PRIMARY, scale=SCALE_DISPLAY)
+
+        # Horizontal pipeline: x at -4.0, g at -1.0, f at +2.0. All on y=0 (ZONE_CENTER).
+        for box, lbl, x_stop in ((x_box, x_lbl, -4.0), (g_box, g_lbl, -1.0), (f_box, f_lbl, 2.0)):
+            box.shift(x_stop, 0.0)
+            lbl.move_to(x_stop, 0.0)  # y=0 is inside ZONE_CENTER — OK per R9
+        self.add(x_box, x_lbl, g_box, g_lbl, f_box, f_lbl)
+        self.play(
+            FadeIn(x_box, run_time=0.5), FadeIn(x_lbl, run_time=0.5),
+            FadeIn(g_box, run_time=0.5), FadeIn(g_lbl, run_time=0.5),
+            FadeIn(f_box, run_time=0.5), FadeIn(f_lbl, run_time=0.5),
+        )
+
+        # ── Beat 3: arrows x → g → f with labels ────────────────────
+        arr_xg = arrow_between(x_box, g_box, buff=0.15, color=PRIMARY)
+        arr_gf = arrow_between(g_box, f_box, buff=0.15, color=PRIMARY)
+        self.add(arr_xg, arr_gf)
+        self.play(FadeIn(arr_xg, run_time=0.4), FadeIn(arr_gf, run_time=0.4))
+
+        # Intermediate label "g(x)" hovers above arr_gf; output "f(g(x))" exits f-box right.
+        gx_lbl = MathTex(r"g(x)", color=BLUE, scale=SCALE_LABEL)
+        next_to(gx_lbl, arr_gf, direction="UP", buff=0.15)
+        out_lbl = MathTex(r"f(g(x))", color=YELLOW, scale=SCALE_BODY)
+        next_to(out_lbl, f_box, direction="RIGHT", buff=0.3)
+        self.add(gx_lbl, out_lbl)
+        self.play(FadeIn(gx_lbl, run_time=0.5), FadeIn(out_lbl, run_time=0.5))
+        self.wait(1.5)
+```
+
+**Why the pipeline is horizontal with 3 fixed stops.** Readers trace composition left-to-right the same way they read math: `x`, then `g`, then `f(g)`. A vertical stack reads top-to-bottom and breaks the "input → output" intuition.
+
+**Anti-pattern.** `MathTex(r"f(\Box)", color=PRIMARY)` with a raw `\Box` LaTeX symbol as a visual placeholder — the `\Box` renders as a tiny outlined square the viewer cannot interpret. Always use `labeled_box()` so the placeholder IS the function box, and compose boxes + `MathTex` labels via `next_to`.
+
+**Anti-pattern.** Hand-picking arrow endpoints like `Arrow((-2.5, 0.0), (-1.7, 0.0))`. Use `arrow_between(src_mob, tgt_mob)`; label resizes or a box moves and the arrow tracks.
 
 See `examples/pattern_06_chain_rule_boxes.py`.
 
