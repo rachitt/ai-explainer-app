@@ -43,7 +43,7 @@ Never allocate a `job_id` yourself — the `/pedagogica` command does that befor
 | tts | `uv run pedagogica-tools elevenlabs-tts` (non-LLM) | `scenes/<scene_id>/audio/clip.mp3` + `scenes/<scene_id>/audio/clip.json` | `AudioClip` | once per scene |
 | sync | `agents/sync/SKILL.md` | `scenes/<scene_id>/sync.json` | `SyncPlan` | once per scene |
 | editor | `uv run pedagogica-tools ffmpeg-mux` (non-LLM) | `scenes/<scene_id>/synced.mp4` + `<job_dir>/final.mp4` | — (tool emits mp4 only; no JSON schema) | whole job |
-| subtitle | `uv run pedagogica-tools subtitle-gen` (non-LLM) | `scenes/<scene_id>/synced.vtt` + `.srt` + `<job_dir>/final.vtt` + `final.srt` | — (tool emits sidecars; no JSON schema) | whole job |
+| subtitle | `uv run pedagogica-tools subtitle-gen` (non-LLM) | `scenes/<scene_id>/synced.vtt` + `.srt` + `<job_dir>/captions.vtt` + `captions.srt` | — (tool emits sidecars; no JSON schema) | whole job |
 
 All nine stages ship in this tier. After `subtitle` completes, the orchestrator flips `terminal = true`. Critics and cost-cap enforcement are later tiers.
 
@@ -156,10 +156,10 @@ For each stage `S` with `status != complete`:
   ```
   uv run pedagogica-tools subtitle-gen artifacts/<job_id>
   ```
-  - Exit 0 → confirm `artifacts/<job_id>/final.vtt` and `final.srt` exist.
+  - Exit 0 → confirm `artifacts/<job_id>/captions.vtt` and `captions.srt` exist.
   - Exit 1 → one retry with `--force`; second failure halts.
 - No JSON schema to validate — sidecars only. Never burn captions into video (memory: captions opt-in sidecar).
-- `artifact_path = "final.vtt"`.
+- `artifact_path = "captions.vtt"`.
 
 ## Failure handling
 
@@ -175,10 +175,10 @@ When `subtitle` completes:
 - `terminal = true` (Phase 1 tier is the full pipeline — there is no later tier in this worktree).
 - `final_artifact_paths` is populated with at minimum:
   - `"video": "final.mp4"`
-  - `"captions_vtt": "final.vtt"`
-  - `"captions_srt": "final.srt"`
+  - `"captions_vtt": "captions.vtt"`
+  - `"captions_srt": "captions.srt"`
 - Rewrite and re-validate `job_state.json` a final time.
-- Print: job id, path to `03_storyboard.json`, per-scene `script.json` / `code.py` / `<scene_id>.mp4` / `audio/clip.json` / `sync.json` paths, job-level `final.mp4` + `final.vtt` + `final.srt` paths, scene count, total narrated duration (sum of per-scene `clip.total_duration_seconds`), and per-scene compile-attempt counts (1/2/3).
+- Print: job id, path to `03_storyboard.json`, per-scene `script.json` / `code.py` / `<scene_id>.mp4` / `audio/clip.json` / `sync.json` paths, job-level `final.mp4` + `captions.vtt` + `captions.srt` paths, scene count, total narrated duration (sum of per-scene `clip.total_duration_seconds`), and per-scene compile-attempt counts (1/2/3).
 
 If the stage halted earlier (failed), `terminal` stays `false`, `current_stage = null`, and the last non-complete stage carries `status = "failed"`. `/pedagogica resume` can re-enter from the failed stage once the upstream issue is fixed.
 

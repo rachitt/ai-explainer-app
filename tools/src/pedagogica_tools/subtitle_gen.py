@@ -138,8 +138,10 @@ def generate(job_dir: str | Path, options: SubtitleOptions) -> SubtitleResult:
     final_srt_path: Path | None = None
     if options.emit_job_final:
         _emit_stage(job_id, "subtitle_gen.final", "stage_enter")
-        final_vtt_path = job_path / "final.vtt"
-        final_srt_path = job_path / "final.srt"
+        # "captions.*" rather than "final.*" so video players don't auto-load
+        # them as subtitles alongside final.mp4 (captions are opt-in per spec).
+        final_vtt_path = job_path / "captions.vtt"
+        final_srt_path = job_path / "captions.srt"
         clip_paths = [scene_dir / "audio" / "clip.json" for scene_dir in scene_dirs]
         if (
             options.force
