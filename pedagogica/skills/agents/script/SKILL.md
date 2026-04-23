@@ -83,6 +83,12 @@ Use the scene's `narration_intent` from the storyboard as the **goal** of the be
 - **No throat-clearing.** Drop "so", "now let's", "basically", "essentially" at sentence starts unless they earn the beat.
 - **Numbers in words for small integers** (`two`, `three`), digits for anything larger or any coefficient (`x = 1`, `f'(2) = 4`).
 - **Never emit LaTeX or unicode math in `text`.** Say the math: `"f prime of x equals two x"`, not `"f'(x) = 2x"`. TTS garbles LaTeX.
+- **Never bare a single Latin letter.** `"P is the static pressure"` → `"the static pressure term, capital P,"`. ElevenLabs reads a lone letter in mid-sentence as a noise or abbreviation and it clanks. Rule: every letter-variable ("v", "A", "P", "G", "h") must sit inside a noun phrase that introduces it ("the velocity v", "the area A one", "the gauge G two"). After the introduction, you may refer back using the same noun phrase, not the bare letter.
+- **Greek letters: spell them the way you'd speak them.** Write `"rho"`, `"theta"`, `"phi"`, `"omega"`, `"pi"`, `"mu"`, `"sigma"`, `"epsilon"`. The TTS preprocessor respells `"rho"` → `"roe"` and similar at `pedagogica-tools elevenlabs-tts --pronounce` (default on); don't do the respelling yourself.
+- **Subscripts and superscripts read by position.** `"v_1"` → `"v one"`, `"x^2"` → `"x squared"`, `"A^{(2)}"` → `"A to the two"`, `"f'"` → `"f prime"`. Never write `"v subscript one"` — too robotic.
+- **Fractions spelled out.** `"1/2"` → `"one half"`, `"3/4"` → `"three quarters"`, `"1/n"` → `"one over n"`. Do not let digit-slash-digit through — TTS reads it as "one slash two".
+- **Proper names with tricky phonetics.** `"Bernoulli"`, `"Euler"`, `"Cauchy"`, `"Laplace"`, `"Eigen-"`. The pronunciation preprocessor handles the common ones; prefer writing the correct spelling and trust the preprocessor over respelling inline.
+- **Read the script aloud before emitting.** Listen for: back-to-back hard consonants, tongue-twister clusters, and any place where the audio would need to "spell" rather than "say". Rewrite those.
 
 ## Pacing markers (summary — see `pacing-rules`)
 
