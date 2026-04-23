@@ -307,11 +307,11 @@ def elevenlabs_tts(
     stability: float = typer.Option(0.5, "--stability"),
     similarity_boost: float = typer.Option(0.75, "--similarity-boost"),
     speed: float = typer.Option(
-        0.9,
+        0.75,
         "--speed",
         help=(
             "Speech rate multiplier (0.7-1.2). "
-            "Default 0.9 gives calmer explainer pacing than ElevenLabs's 1.0."
+            "Default 0.75 is the calm explainer pace; 0.9 or 1.0 for faster delivery."
         ),
     ),
     pronounce: bool = typer.Option(

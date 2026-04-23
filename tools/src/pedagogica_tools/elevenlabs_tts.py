@@ -31,9 +31,10 @@ class TtsOptions:
     style: float = 0.0
     use_speaker_boost: bool = True
     # Speech rate multiplier. 1.0 = default ElevenLabs pace. Lower = slower.
-    # Explainer-video default is 0.9: measurably calmer than 1.0, no artifacts.
+    # Explainer-video default is 0.75: noticeably calmer pace suited to math/physics
+    # narration where the viewer needs time to absorb each beat.
     # Acceptable range is roughly 0.7-1.2 per ElevenLabs.
-    speed: float = 0.9
+    speed: float = 0.75
     char_quota: int = DEFAULT_CHAR_QUOTA
     timeout_seconds: float = 90.0
     extra_voice_settings: dict = field(default_factory=dict)
