@@ -73,6 +73,34 @@ def view(job_id: str) -> None:
         raise typer.Exit(code=2) from e
 
 
+@app.command("audit-skills")
+def audit_skills_cmd(
+    skills_root: str = typer.Option(
+        "pedagogica/skills",
+        "--skills-root",
+        help="Root directory containing agents/ and knowledge/ subdirs.",
+    ),
+) -> None:
+    """Audit SKILL frontmatter for drift (name mismatch, dangling requires).
+
+    Exit codes: 0 = clean, 1 = issues found, 2 = usage/IO error.
+    """
+    from pedagogica_tools.audit_skills import audit_skills, format_report
+
+    root = Path(skills_root)
+    if not root.is_dir():
+        typer.echo(f"not a directory: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+    if not (root / "agents").is_dir() and not (root / "knowledge").is_dir():
+        typer.echo(f"missing agents/ and knowledge/ under: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+
+    report = audit_skills(root)
+    typer.echo(format_report(report))
+    if report.has_errors:
+        raise typer.Exit(code=1)
+
+
 @app.command("chalk-render")
 def chalk_render(
     code_path: str = typer.Argument(..., help="Path to the chalk scene .py file."),
