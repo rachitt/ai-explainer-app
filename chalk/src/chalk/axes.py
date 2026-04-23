@@ -11,7 +11,7 @@ from chalk.vgroup import VGroup
 
 
 class Axes(VGroup):
-    """2D axes.  Origin of the coordinate system is at world (0, 0) unless shifted.
+    """2D axes. Origin of the coordinate system is at world (0, 0) unless shifted.
 
     x_range and y_range are data ranges; width and height are world-unit extents.
     Call `to_point(x, y)` to map data coords to world coords.
@@ -34,6 +34,8 @@ class Axes(VGroup):
         self.y_range = y_range
         self._w = width
         self._h = height
+        self._offset_x = 0.0
+        self._offset_y = 0.0
         self._x_span = x_range[1] - x_range[0]
         self._y_span = y_range[1] - y_range[0]
 
@@ -75,17 +77,23 @@ class Axes(VGroup):
             self.submobjects.append(tick)
 
     # ── Coordinate helpers ──────────────────────────────────────
+    def shift(self, dx: float, dy: float) -> "Axes":
+        super().shift(dx, dy)
+        self._offset_x += dx
+        self._offset_y += dy
+        return self
+
     def _contains(self, x: float, y: float) -> bool:
         return self.x_range[0] <= x <= self.x_range[1] and \
                self.y_range[0] <= y <= self.y_range[1]
 
     def _data_x_to_world(self, x: float) -> float:
         t = (x - self.x_range[0]) / self._x_span
-        return -self._w / 2 + t * self._w
+        return -self._w / 2 + t * self._w + self._offset_x
 
     def _data_y_to_world(self, y: float) -> float:
         t = (y - self.y_range[0]) / self._y_span
-        return -self._h / 2 + t * self._h
+        return -self._h / 2 + t * self._h + self._offset_y
 
     def to_point(self, x: float, y: float) -> tuple[float, float]:
         return (self._data_x_to_world(x), self._data_y_to_world(y))
@@ -108,7 +116,7 @@ def plot_function(
     resolution:   int   = 60,
 ) -> VMobject:
     """Sample f over [x_start, x_end] and return a cubic-Bezier polyline VMobject
-    in world coords relative to the axes (caller is responsible for any shift).
+    in world coords mapped through the axes.
     """
     if x_start is None:
         x_start = axes.x_range[0]

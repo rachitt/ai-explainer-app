@@ -42,12 +42,32 @@ class VGroup:
             m.shift(delta_x, delta_y)
         return self
 
+    def _iter_leaves(self) -> Iterator[VMobject]:
+        """Recursively yield leaf VMobjects from nested VGroup/subclass tree.
+
+        Needed because subclasses like MathTex, Text, and domain composites wrap
+        their glyphs/children in nested VGroups. Leaf VMobjects have `.points`;
+        VGroup instances do not.
+        """
+        for sub in self.submobjects:
+            if isinstance(sub, VGroup):
+                yield from sub._iter_leaves()
+            else:
+                yield sub
+
     def bbox(self) -> "tuple[float, float, float, float]":
-        """Return (xmin, ymin, xmax, ymax) bounding box of all submobjects."""
+        """Return (xmin, ymin, xmax, ymax) bounding box of all leaf VMobjects.
+
+        Recurses through nested VGroup subclasses (MathTex, Text, composites).
+        Prior implementation iterated `self.submobjects` one level deep and
+        crashed with `AttributeError: '<subclass>' object has no attribute
+        'points'` on any nested VGroup.
+        """
         import numpy as np
-        if not self.submobjects:
+        arrays = [m.points for m in self._iter_leaves() if len(m.points) > 0]
+        if not arrays:
             return (0.0, 0.0, 0.0, 0.0)
-        all_pts = np.vstack([m.points for m in self.submobjects if len(m.points) > 0])
+        all_pts = np.vstack(arrays)
         return (float(all_pts[:, 0].min()), float(all_pts[:, 1].min()),
                 float(all_pts[:, 0].max()), float(all_pts[:, 1].max()))
 

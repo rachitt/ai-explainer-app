@@ -29,6 +29,14 @@ class LayoutOverlapError(ValueError):
     """Error raised when layout mobjects are closer than the requested gap."""
 
 
+class BboxOverlapWarning(UserWarning):
+    """Warning raised when two mobject bboxes intersect (with padding)."""
+
+
+class BboxOverlapError(ValueError):
+    """Error raised when two mobject bboxes intersect (with padding)."""
+
+
 def check_no_overlap(
     mobjects,
     min_sep: float,
@@ -67,6 +75,129 @@ def check_no_overlap(
         warnings.warn(msg, LayoutOverlapWarning, stacklevel=2)
 
     return overlaps
+
+
+def check_bbox_overlap(
+    mobjects,
+    padding: float = 0.0,
+    raise_on_fail: bool = False,
+    ignore_types: tuple[type, ...] = (),
+) -> list[tuple[int, int, tuple[float, float, float, float]]]:
+    """Flag pairs whose inflated AABBs intersect.
+
+    Each pair's bboxes are inflated by `padding` on all sides before the
+    intersection test, so `padding=0.1` flags pairs closer than 0.1 units.
+    Returns list of (i, j, intersection_rect). Items of `ignore_types` are
+    skipped entirely — use to exclude decorative lines, tracks, zone frames.
+    """
+    boxes: list[tuple[int, tuple[float, float, float, float]]] = []
+    for i, mob in enumerate(mobjects):
+        if type(mob) in ignore_types:
+            continue
+        xmin, ymin, xmax, ymax = _bbox(mob)
+        if xmin == 0.0 and ymin == 0.0 and xmax == 0.0 and ymax == 0.0:
+            continue
+        boxes.append((
+            i,
+            (
+                xmin - padding,
+                ymin - padding,
+                xmax + padding,
+                ymax + padding,
+            ),
+        ))
+
+    overlaps: list[tuple[int, int, tuple[float, float, float, float]]] = []
+    for a_idx, a_bbox in boxes:
+        axmin, aymin, axmax, aymax = a_bbox
+        for b_idx, b_bbox in boxes:
+            if b_idx <= a_idx:
+                continue
+            bxmin, bymin, bxmax, bymax = b_bbox
+            if (
+                axmin <= bxmax
+                and bxmin <= axmax
+                and aymin <= bymax
+                and bymin <= aymax
+            ):
+                rect = (
+                    max(axmin, bxmin),
+                    max(aymin, bymin),
+                    min(axmax, bxmax),
+                    min(aymax, bymax),
+                )
+                if rect[2] - rect[0] > 0 and rect[3] - rect[1] > 0:
+                    overlaps.append((a_idx, b_idx, rect))
+
+    if overlaps:
+        msg = (
+            f"{len(overlaps)} bbox overlap(s): "
+            + ", ".join(
+                f"{i}-{j} intersects {rect}"
+                for i, j, rect in overlaps
+            )
+        )
+        if raise_on_fail:
+            raise BboxOverlapError(msg)
+        warnings.warn(msg, BboxOverlapWarning, stacklevel=2)
+
+    return overlaps
+
+
+def multi_panel(
+    n: int,
+    *,
+    widths: list[float] | None = None,
+    gap: float = 0.4,
+    y: float = 0.0,
+    height: float = 3.0,
+    x_extent: tuple[float, float] = (-6.4, 6.4),
+) -> list[tuple[float, float, float, float]]:
+    """Return N non-overlapping (center_x, center_y, width, height) panel slots.
+
+    Authors pass these into Axes(width=w, height=h) and then shift(cx, cy). If
+    `widths` is None, split x_extent evenly among n panels. If `widths` is
+    given, scale uniformly to fit inside (x_extent, gap).
+    """
+    if n < 1:
+        raise ValueError("multi_panel requires n >= 1")
+    x0, x1 = x_extent
+    total_width = x1 - x0
+    if total_width <= 0:
+        raise ValueError("x_extent must have positive width")
+    if gap < 0:
+        raise ValueError("gap must be non-negative")
+
+    gap_total = (n - 1) * gap
+    usable = total_width - gap_total
+    if usable <= 0:
+        raise ValueError("x_extent too narrow for requested panels and gaps")
+
+    if widths is None:
+        panel_widths = [usable / n] * n
+    else:
+        if len(widths) != n:
+            raise ValueError("widths length must match n")
+        if any(w <= 0 for w in widths):
+            raise ValueError("widths must all be positive")
+        scale = usable / sum(widths)
+        panel_widths = [w * scale for w in widths]
+
+    if any(w < 1.0 for w in panel_widths):
+        raise ValueError("each panel width must be >= 1.0")
+
+    slots: list[tuple[float, float, float, float]] = []
+    cursor = x0
+    for width in panel_widths:
+        cx = cursor + width / 2
+        left = cx - width / 2
+        right = cx + width / 2
+        if left < x0 - 1e-9 or right > x1 + 1e-9:
+            raise ValueError("panel slot falls outside x_extent")
+        slots.append((cx, y, width, height))
+        cursor = right + gap
+
+    return slots
 
 
 def _bbox(target: Target) -> tuple[float, float, float, float]:

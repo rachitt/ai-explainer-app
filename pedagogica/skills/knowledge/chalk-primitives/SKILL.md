@@ -48,7 +48,7 @@ If an example fails to render in CI, the skill ships broken.
 
 ```python
 from chalk import (
-    Scene, MathTex, Circle, Rectangle, Line, Arrow,
+    Scene, MathTex, Table, Circle, Rectangle, Line, Arrow,
     Dot, Polygon, RegularPolygon, ArcBetweenPoints,
     Axes, plot_function, NumberLine, NumberPlane,
     VGroup,
@@ -82,6 +82,22 @@ eq    = MathTex(r"f'(x) = \lim_{h \to 0} \frac{f(x+h)-f(x)}{h}",
 lbl   = MathTex(r"\Delta x", color=YELLOW, scale=SCALE_LABEL)
 ```
 
+**Single string, not variadic.** chalk's `MathTex(tex_string, color=..., stroke_width=..., fill_opacity=..., scale=...)` takes **one** LaTeX string. Unlike manim, there is **no** `MathTex(r"\sin", r"(", r"x^2", r")")` variadic form for indexed substrings; calling it that way binds the second positional arg to `color` and raises `TypeError: got multiple values for argument 'color'`. There is also no `tex[i]` substring accessor — the whole LaTeX renders as one VGroup of glyphs.
+
+If you need to highlight a sub-expression, compose multiple MathTex objects with `next_to()` and animate the one you want:
+
+```python
+outer = MathTex(r"\sin", color=PRIMARY, scale=SCALE_DISPLAY)
+inner = MathTex(r"x^2", color=YELLOW, scale=SCALE_DISPLAY)
+close = MathTex(r")", color=PRIMARY, scale=SCALE_DISPLAY)
+lparen = MathTex(r"(", color=PRIMARY, scale=SCALE_DISPLAY)
+# compose: sin ( x^2 )
+next_to(lparen, outer, direction="RIGHT", buff=0.05)
+next_to(inner, lparen, direction="RIGHT", buff=0.05)
+next_to(close, inner, direction="RIGHT", buff=0.05)
+self.play(Circumscribe(inner, color=YELLOW, run_time=1.2))  # highlight the inner
+```
+
 **`tex_string` attribute** — MathTex stores the LaTeX source in `.tex_string`. `TransformMatchingTex` reads this for token matching.
 
 **Scale tiers:** `SCALE_DISPLAY` for the one main equation per beat; `SCALE_BODY` for secondary equations; `SCALE_LABEL` for object labels; `SCALE_ANNOT` for small annotations.
@@ -112,6 +128,28 @@ arc  = ArcBetweenPoints((-2.0,0.0),(2.0,0.0), angle=1.57, color=YELLOW, stroke_w
 **`shift(dx, dy)` vs `move_to(x, y)`:** use `shift` for relative displacement, `move_to` for absolute placement (both take 2D args in chalk, unlike Manim's 3D vectors).
 
 See `examples/example_03_shapes.py` and `examples/example_04_dot_polygon.py`.
+
+---
+
+## 3a. Table — compact comparison grids
+
+`Table(rows, ...)` renders a centered grid of `MathTex` cells. Use it for small,
+explicit comparisons where each row and column is intentionally authored.
+
+```python
+table = Table(
+    [
+        [r"\text{Regime}", r"\zeta", r"\text{Behavior}"],
+        [r"\text{Underdamped}", r"0 < \zeta < 1", r"\text{oscillates}"],
+        [r"\text{Critical}", r"\zeta = 1", r"\text{fast return}"],
+        [r"\text{Overdamped}", r"\zeta > 1", r"\text{slow return}"],
+    ],
+    header_row=True,
+    col_align=["left", "center", "left"],
+    scale=SCALE_LABEL,
+)
+place_in_zone(table, ZONE_CENTER)
+```
 
 ---
 
@@ -257,6 +295,20 @@ self.play(
 
 **`Succession(*anims)`** runs animations strictly one after another (`lag_ratio=1`).
 
+**Estimating play() wall-clock duration with lag_ratio:** the total time a `self.play(AnimationGroup(...))` takes is **not** `sum(run_times)`. The last animation starts `(N−1) × lag_ratio × mean(run_time)` into the group, then runs for its own `run_time`. Approximate:
+
+```
+play_duration ≈ max(run_time) + (N - 1) × lag_ratio × mean(run_time)
+```
+
+Examples:
+- `AnimationGroup(3 × FadeIn(run_time=1.0), lag_ratio=0.3)` → play ≈ `1.0 + 2 × 0.3 × 1.0` = `1.6s`. (Not `3.0s`.)
+- `AnimationGroup(4 × FadeIn(run_time=1.2), lag_ratio=0.25)` → play ≈ `1.2 + 3 × 0.25 × 1.2` = `2.1s`.
+- `Succession(3 × FadeIn(run_time=1.0))` (lag_ratio=1.0) → play ≈ `3.0s`.
+- `AnimationGroup(3 × FadeIn(run_time=1.0), lag_ratio=0.0)` → play ≈ `1.0s`. Fully parallel.
+
+Budget `self.wait(x)` values against this, not against the naive sum. Under-estimating play duration is fine (wait absorbs it); over-estimating means the scene runs short of its `target_duration_seconds`.
+
 ---
 
 ## 9. Emphasis animations — Indicate, Flash, Circumscribe
@@ -285,15 +337,27 @@ self.play(f)
 **Frame:** 14.2 × 8.0 world units. Safe area: x ∈ [−6.6, 6.6], y ∈ [−3.5, 3.5].
 
 **Zones:**
-- `ZONE_TOP = (2.0, 3.5)` — beat title, law statement
-- `ZONE_CENTER = (−2.0, 2.0)` — main visual
-- `ZONE_BOTTOM = (−3.5, −2.0)` — running step, result caption
+- `ZONE_TOP = (2.0, 3.5)` — beat title, law statement (y-center ≈ 2.75)
+- `ZONE_CENTER = (−2.0, 2.0)` — main visual (y-center ≈ 0.0)
+- `ZONE_BOTTOM = (−3.5, −2.0)` — running step, result caption (y-center ≈ −2.75)
 
 ```python
 place_in_zone(mob, ZONE_TOP)     # centers mob horizontally inside the zone's y band
 place_in_zone(mob, ZONE_CENTER)  # most-used
 place_in_zone(mob, ZONE_BOTTOM)
 ```
+
+**Zone-collision rule — critical.** After `place_in_zone(title, ZONE_TOP)`, do NOT then `move_to(0.0, 2.2)` a second element: `y = 2.2` is still inside ZONE_TOP's band (2.0, 3.5) and collides with the title. Same mistake patterns:
+
+| Mistake | Why it fails |
+|---|---|
+| Title at ZONE_TOP + second element at `y=2.2` | `2.2` is inside ZONE_TOP (2.0, 3.5) — overlap |
+| Formula at ZONE_CENTER + mantra at `y=−0.8` | Both inside ZONE_CENTER (−2.0, 2.0) — vertical overlap unless explicitly offset by bbox-height + buff |
+| Payoff at ZONE_BOTTOM + caption at `y=−2.2` | `−2.2` is inside ZONE_BOTTOM (−3.5, −2.0) — overlap |
+
+Safe pattern: within a single zone, the **first** placement uses `place_in_zone`; any **additional** elements in that zone use `next_to(second, first, direction="DOWN"|"UP", buff=0.35)`. That way the second element's position is computed from the first element's bbox, not a magic y-number that may fall inside a neighbouring zone.
+
+If you need two elements stacked vertically in the same semantic band, use `next_to(..., direction="DOWN", buff=0.35)` — never two `move_to`s with hand-picked ys.
 
 **`next_to(mob, anchor, direction, buff)`** — position `mob` relative to `anchor`'s bounding box.
 
@@ -302,14 +366,29 @@ next_to(label, circle, direction="UP", buff=0.3)
 next_to(caption, eq, direction="DOWN", buff=0.4)
 ```
 
-**`labeled_box(tex, ...)`** — auto-sizes a Rectangle around a MathTex label. Never hand-size.
+**`labeled_box(label_latex, color, scale=0.55, pad_x=0.5, pad_y=0.35, ...)`** — auto-sizes a Rectangle around the rendered LaTeX label. Never hand-size.
+
+Signature returns a **tuple** `(box, label)` — you must unpack it. Both are centered at origin; the caller shifts them together (or wraps them in a VGroup and shifts the group). The first arg is a **raw LaTeX string**, not a MathTex object.
 
 ```python
 box, lbl = labeled_box(r"\mathrm{Agent}", color=GREY, scale=SCALE_LABEL)
-box.shift(2.0, 0.0); lbl.move_to(2.0, 0.0)
+# Move them together:
+box.shift(2.0, 0.0)
+lbl.move_to(2.0, 0.0)
+self.add(box, lbl)
+
+# Or group them for single-shift movement:
+group = VGroup(box, lbl)
+group.shift(2.0, 0.0)
+self.add(group)
 ```
 
-**`arrow_between(src, tgt, buff, color)`** — anchors Arrow at bbox edges. Never hand-pick start/end coords.
+**Anti-patterns:**
+- `labeled_box(MathTex(r"..."), ...)` — first arg is a string, not a MathTex. Passing a MathTex raises TypeError.
+- `box = labeled_box(...)` (single-var unpack) — returns tuple; you lose the label.
+- Shifting only one of `(box, lbl)` — they decouple and the label slides off.
+
+**`arrow_between(src, tgt, buff, color)`** — anchors Arrow at bbox edges. Never hand-pick start/end coords. Accepts any VMobject (Circle/Rectangle/Line/Arrow/Dot) or VGroup (MathTex, nested composites) on either side — bbox computation recurses through nested VGroups.
 
 **`brace_label(mob, tex, direction, color, scale)`** — Brace + label positioned at tip.
 

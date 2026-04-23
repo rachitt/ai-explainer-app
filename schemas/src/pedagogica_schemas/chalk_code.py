@@ -7,15 +7,19 @@ from pedagogica_schemas.base import BaseMessage
 ErrorClassification = Literal[
     "import_error",
     "latex_error",
+    "api_error",
     "geometry_error",
+    "layout_overlap",
+    "syntax_error",
     "timing_error",
     "memory_error",
+    "sandbox_violation",
     "timeout",
     "other",
 ]
 
 
-class ManimCode(BaseMessage):
+class ChalkCode(BaseMessage):
     schema_version: str = "0.1.0"
     scene_id: str
     code: str
@@ -31,6 +35,8 @@ class CompileResult(BaseMessage):
     video_path: str | None = None
     frame_count: int | None = None
     duration_seconds: float | None = None
+    video_duration_seconds: float | None = None
+    target_duration_seconds: float | None = None
     stderr: str | None = None
     stdout_tail: str | None = None
     error_classification: ErrorClassification | None = None

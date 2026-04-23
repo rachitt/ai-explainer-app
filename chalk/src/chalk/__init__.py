@@ -14,6 +14,7 @@ from chalk.animation import (
 from chalk.scene import Scene
 from chalk.vgroup import VGroup
 from chalk.tex import MathTex
+from chalk.tables import Table
 from chalk.text import Text
 from chalk.axes import Axes, plot_function
 from chalk.coord import NumberLine, NumberPlane
@@ -25,7 +26,10 @@ from chalk.style import (
     FRAME_WIDTH, FRAME_HEIGHT, SAFE_X, SAFE_Y,
     ZONE_TOP, ZONE_CENTER, ZONE_BOTTOM,
 )
-from chalk.layout import next_to, place_in_zone, labeled_box, arrow_between, brace_label
+from chalk.layout import (
+    next_to, place_in_zone, labeled_box, arrow_between, brace_label,
+    check_bbox_overlap, multi_panel,
+)
 from chalk.rate_funcs import linear, smooth, ease_in_out, there_and_back
 from chalk.brace import Brace
 from chalk.tex_morph import TransformMatchingTex
@@ -35,7 +39,7 @@ __all__ = [
     "Mobject", "VMobject",
     "Circle", "Square", "Rectangle", "Line", "Arrow",
     "Dot", "Polygon", "RegularPolygon", "ArcBetweenPoints", "ParametricFunction",
-    "VGroup", "MathTex", "Text",
+    "VGroup", "MathTex", "Table", "Text",
     "Axes", "plot_function",
     "NumberLine", "NumberPlane",
     # Animations
@@ -60,4 +64,5 @@ __all__ = [
     "TransformMatchingTex",
     # Layout helpers
     "next_to", "place_in_zone", "labeled_box", "arrow_between", "brace_label",
+    "check_bbox_overlap", "multi_panel",
 ]

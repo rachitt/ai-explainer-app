@@ -73,6 +73,172 @@ def view(job_id: str) -> None:
         raise typer.Exit(code=2) from e
 
 
+@app.command("audit-skills")
+def audit_skills_cmd(
+    skills_root: str = typer.Option(
+        "pedagogica/skills",
+        "--skills-root",
+        help="Root directory containing agents/ and knowledge/ subdirs.",
+    ),
+    strict_body: bool = typer.Option(
+        False,
+        "--strict-body",
+        help="Promote body-ref warnings to errors (exit 1 if any).",
+    ),
+) -> None:
+    """Audit SKILL frontmatter for drift (name mismatch, dangling requires).
+
+    Exit codes: 0 = clean or warnings-only, 1 = errors or strict-body warnings,
+    2 = usage/IO error.
+    """
+    from pedagogica_tools.audit_skills import audit_skills, format_report
+
+    root = Path(skills_root)
+    if not root.is_dir():
+        typer.echo(f"not a directory: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+    if not (root / "agents").is_dir() and not (root / "knowledge").is_dir():
+        typer.echo(f"missing agents/ and knowledge/ under: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+
+    report = audit_skills(root)
+    typer.echo(format_report(report))
+    if report.has_errors or (report.has_warnings and strict_body):
+        raise typer.Exit(code=1)
+
+
+def format_audit_summary(
+    skill_report,
+    artifact_issues: list | None,
+    artifact_scanned_count: int | None,
+    artifact_skipped_count: int | None,
+) -> str:
+    from pedagogica_tools.audit_skills import format_report
+
+    lines = ["SKILL audit", format_report(skill_report), "", "artifact audit"]
+    if artifact_issues is None:
+        lines.append("skipped (no job_dir)")
+    else:
+        for issue in artifact_issues:
+            lines.append(str(issue.path))
+            lines.append(f"  [{issue.schema}] {issue.message}")
+        lines.append(
+            f"{artifact_scanned_count} artifacts scanned, "
+            f"{len(artifact_issues)} issues, skipped count={artifact_skipped_count}."
+        )
+
+    issue_count = sum(
+        1
+        for issue in skill_report.issues
+        if issue.severity in {"error", "warning"}
+    )
+    issue_count += len(artifact_issues or [])
+    lines.append("")
+    if issue_count:
+        lines.append(f"overall: {issue_count} issues")
+    else:
+        lines.append("overall: clean")
+    return "\n".join(lines)
+
+
+@app.command("audit")
+def audit_cmd(
+    job_dir: str | None = typer.Argument(None, help="Artifact job directory to audit."),
+    skills_root: str = typer.Option(
+        "pedagogica/skills",
+        "--skills-root",
+        help="Root directory containing agents/ and knowledge/ subdirs.",
+    ),
+    strict_body: bool = typer.Option(
+        True,
+        "--strict-body/--no-strict-body",
+        help="Promote body-ref warnings to errors.",
+    ),
+) -> None:
+    """Run the SKILL audit and, optionally, schema-validate job artifacts.
+
+    Exit codes: 0 = clean, 1 = audit issues, 2 = usage/IO error.
+    """
+    from pedagogica_tools.audit_artifacts import audit_artifacts, count_unknown_artifacts
+    from pedagogica_tools.audit_skills import audit_skills
+
+    root = Path(skills_root)
+    if not root.is_dir():
+        typer.echo(f"not a directory: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+    if not (root / "agents").is_dir() and not (root / "knowledge").is_dir():
+        typer.echo(f"missing agents/ and knowledge/ under: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+
+    artifact_issues = None
+    artifact_scanned_count = None
+    artifact_skipped_count = None
+    if job_dir is not None:
+        artifact_root = Path(job_dir)
+        if not artifact_root.is_dir():
+            typer.echo(f"not a directory: {job_dir}", err=True)
+            raise typer.Exit(code=2)
+        artifact_issues, artifact_scanned_count = audit_artifacts(artifact_root)
+        artifact_skipped_count = count_unknown_artifacts(artifact_root)
+
+    skill_report = audit_skills(root)
+    typer.echo(
+        format_audit_summary(
+            skill_report,
+            artifact_issues,
+            artifact_scanned_count,
+            artifact_skipped_count,
+        )
+    )
+    if (
+        skill_report.has_errors
+        or (strict_body and skill_report.has_warnings)
+        or bool(artifact_issues)
+    ):
+        raise typer.Exit(code=1)
+
+
+@app.command("list-skills")
+def list_skills_cmd(
+    skills_root: str = typer.Option(
+        "pedagogica/skills",
+        "--skills-root",
+        help="Root directory containing agents/ and knowledge/ subdirs.",
+    ),
+    category: str | None = typer.Option(
+        None,
+        "--category",
+        help="Filter by category: 'agents' or 'knowledge'.",
+    ),
+) -> None:
+    """Print the SKILL roster as a table. Exit codes: 0 = ok, 2 = usage/IO error."""
+    from pedagogica_tools.audit_skills import format_roster, iter_skill_files, parse_skill
+
+    root = Path(skills_root)
+    if not root.is_dir():
+        typer.echo(f"not a directory: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+
+    if category is not None and category not in {"agents", "knowledge"}:
+        typer.echo("invalid category: expected 'agents' or 'knowledge'", err=True)
+        raise typer.Exit(code=2)
+
+    skills = []
+    for path in iter_skill_files(root):
+        skill, issues = parse_skill(path)
+        if issues:
+            for issue in issues:
+                typer.echo(f"{issue.skill_path}: {issue.message}", err=True)
+            raise typer.Exit(code=2)
+        if skill is not None:
+            skills.append(skill)
+
+    if category is not None:
+        skills = [skill for skill in skills if skill.category == category]
+
+    typer.echo(format_roster(skills))
+
+
 @app.command("chalk-render")
 def chalk_render(
     code_path: str = typer.Argument(..., help="Path to the chalk scene .py file."),
@@ -140,17 +306,67 @@ def elevenlabs_tts(
     ),
     stability: float = typer.Option(0.5, "--stability"),
     similarity_boost: float = typer.Option(0.75, "--similarity-boost"),
+    pronounce: bool = typer.Option(
+        True,
+        "--pronounce/--no-pronounce",
+        help=(
+            "Apply default pronunciation-hint dict before calling ElevenLabs "
+            "(default on). Pass --no-pronounce for old behaviour."
+        ),
+    ),
 ) -> None:
     """Call ElevenLabs Speech-Synthesis-with-Timestamps; save mp3 + AudioClip JSON.
 
     Exit codes: 0 = ok, 1 = API / IO error, 2 = usage error.
     """
     from pedagogica_tools.elevenlabs_tts import TtsOptions, synthesize
+    from pedagogica_tools.tts_preproc import apply_rules
 
-    text = Path(text_path).read_text(encoding="utf-8").strip()
+    path = Path(text_path)
+    text = path.read_text(encoding="utf-8").strip()
     if not text:
         typer.echo(f"empty text file: {text_path}", err=True)
         raise typer.Exit(code=2)
+
+    if pronounce:
+        try:
+            rewritten, fired_rules = apply_rules(text)
+        except ValueError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=2) from e
+
+        original_word_count = len(text.split())
+        rewritten_word_count = len(rewritten.split())
+        if rewritten_word_count != original_word_count:
+            alignment_breakers = []
+            for rule in fired_rules:
+                probe, _ = apply_rules(text, [rule])
+                if len(probe.split()) != original_word_count:
+                    alignment_breakers.append(rule)
+            broken_rules = alignment_breakers or fired_rules
+            fired = ", ".join(
+                f"{rule.pattern} -> {rule.replacement} ({rule.reason})"
+                for rule in broken_rules
+            )
+            typer.echo(
+                "pronunciation preprocessing changed word count "
+                f"from {original_word_count} to {rewritten_word_count}; "
+                f"rules that broke alignment: {fired or 'none'}",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+
+        rewritten_path = path.with_name(f"{path.name}.rewritten.txt")
+        rewritten_path.write_text(rewritten, encoding="utf-8")
+        if fired_rules:
+            fired = ", ".join(
+                f"{rule.pattern} -> {rule.replacement} ({rule.reason})"
+                for rule in fired_rules
+            )
+        else:
+            fired = "none"
+        typer.echo(f"pronunciation rules fired: {fired}", err=True)
+        text = rewritten
 
     try:
         clip = synthesize(
@@ -177,17 +393,103 @@ def elevenlabs_tts(
 
 
 @app.command("ffmpeg-mux")
-def ffmpeg_mux(job_dir: str) -> None:
+def ffmpeg_mux(
+    job_dir: str = typer.Argument(..., help="Artifact job directory to mux."),
+    crossfade_seconds: float = typer.Option(0.0, "--crossfade-seconds"),
+    output: str = typer.Option("final.mp4", "--output", help="Final output filename."),
+    force: bool = typer.Option(False, "--force", help="Rebuild even when outputs are fresh."),
+    scenes_only: bool = typer.Option(
+        False, "--scenes-only", help="Only build per-scene synced.mp4."
+    ),
+    concat_only: bool = typer.Option(
+        False, "--concat-only", help="Only concat existing synced.mp4."
+    ),
+) -> None:
     """Concat per-scene renders + audio into final.mp4 with crossfades."""
-    typer.echo(f"[stub] ffmpeg-mux {job_dir}")
+    if scenes_only and concat_only:
+        typer.echo("--scenes-only and --concat-only are mutually exclusive", err=True)
+        raise typer.Exit(code=2)
+
+    from pedagogica_tools.ffmpeg_mux import MuxOptions, mux
+
+    try:
+        result = mux(
+            job_dir,
+            MuxOptions(
+                crossfade_seconds=crossfade_seconds,
+                output_name=output,
+                force=force,
+                scenes_only=scenes_only,
+                concat_only=concat_only,
+            ),
+        )
+    except NotImplementedError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
+
+    if result.ok:
+        summary = "ok"
+        if result.output_path:
+            summary += f": {result.output_path}"
+        if result.duration_seconds is not None:
+            summary += f" ({result.duration_seconds:.3f}s)"
+        typer.echo(summary)
+        raise typer.Exit(code=0)
+
+    typer.echo(f"fail: {result.error}", err=True)
+    if result.error and (
+        result.error == "ffmpeg not found on PATH" or result.error.startswith("ffmpeg failed")
+    ):
+        raise typer.Exit(code=1)
     raise typer.Exit(code=2)
 
 
 @app.command("subtitle-gen")
-def subtitle_gen(job_dir: str) -> None:
+def subtitle_gen(
+    job_dir: str = typer.Argument(..., help="Artifact job directory to subtitle."),
+    max_chars_per_line: int = typer.Option(42, "--max-chars-per-line"),
+    max_lines: int = typer.Option(2, "--max-lines"),
+    min_cue_seconds: float = typer.Option(1.0, "--min-cue-seconds"),
+    max_cue_seconds: float = typer.Option(6.0, "--max-cue-seconds"),
+    force: bool = typer.Option(False, "--force", help="Rebuild even when outputs are fresh."),
+    no_final: bool = typer.Option(False, "--no-final", help="Skip job-level final.vtt/final.srt."),
+) -> None:
     """Generate VTT and SRT files from per-scene word timings."""
-    typer.echo(f"[stub] subtitle-gen {job_dir}")
-    raise typer.Exit(code=2)
+    from pedagogica_tools.subtitle_gen import SubtitleOptions, generate
+
+    result = generate(
+        job_dir,
+        SubtitleOptions(
+            max_chars_per_line=max_chars_per_line,
+            max_lines_per_cue=max_lines,
+            min_cue_seconds=min_cue_seconds,
+            max_cue_seconds=max_cue_seconds,
+            force=force,
+            emit_job_final=not no_final,
+        ),
+    )
+
+    if result.ok:
+        typer.echo(
+            f"ok: {len(result.scene_vtt_paths)} scene VTT, "
+            f"{len(result.scene_srt_paths)} scene SRT"
+        )
+        if result.final_vtt_path:
+            typer.echo(f"final vtt: {result.final_vtt_path}")
+        if result.final_srt_path:
+            typer.echo(f"final srt: {result.final_srt_path}")
+        raise typer.Exit(code=0)
+
+    typer.echo(f"fail: {result.error}", err=True)
+    if result.error and (
+        result.error.startswith("missing")
+        or result.error.startswith("invalid clip.json")
+        or result.error.startswith("job dir does not exist")
+        or result.error.startswith("scenes dir does not exist")
+        or result.error.startswith("no scene dirs found")
+    ):
+        raise typer.Exit(code=2)
+    raise typer.Exit(code=1)
 
 
 @app.command("measure-drift")
@@ -195,6 +497,43 @@ def measure_drift(scene_dir: str) -> None:
     """Measure observed audio-visual drift against sync.json predictions."""
     typer.echo(f"[stub] measure-drift {scene_dir}")
     raise typer.Exit(code=2)
+
+
+@app.command("check-duration")
+def check_duration(
+    job_dir: str = typer.Argument(..., help="Artifact job directory."),
+    threshold: float = typer.Option(
+        0.15, help="Drift fraction beyond which a scene is flagged (default 0.15 = 15%)."
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help=(
+            "Exit 1 if any scene is over threshold or has a broken render "
+            "(default: warn-only exit 0)."
+        ),
+    ),
+) -> None:
+    """Report per-scene |video_duration - target_duration| drift from latest CompileResult.
+
+    Exit codes: 0 = ok, 1 = over threshold or broken render under --strict, 2 = usage/IO error.
+    """
+    from pedagogica_tools.check_duration import check_job_duration, format_report
+
+    job_path = Path(job_dir)
+    if not job_path.is_dir():
+        typer.echo(f"not a directory: {job_dir}", err=True)
+        raise typer.Exit(code=2)
+
+    scenes_dir = job_path / "scenes"
+    if not scenes_dir.is_dir():
+        typer.echo(f"no scenes/ in {job_dir}", err=True)
+        raise typer.Exit(code=2)
+
+    report = check_job_duration(job_path, threshold=threshold)
+    typer.echo(format_report(report))
+    if strict and (report.any_over_threshold or report.any_broken_render):
+        raise typer.Exit(code=1)
 
 
 @app.command()

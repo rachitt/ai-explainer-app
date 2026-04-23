@@ -74,6 +74,71 @@ Pick one pattern per beat and fill its slots. Never mix patterns inside one scen
 
 Use the scene's `narration_intent` from the storyboard as the **goal** of the beat, not as a sentence to paraphrase. Your narration realises the intent; it doesn't recite it.
 
+## Explain, don't recite
+
+A script that reads the symbols on screen aloud is a script that teaches nothing. The narration has to explain **why** each piece is there, not just name it. This is the single biggest pedagogical failure mode.
+
+**Recitation (bad):**
+> "Degree three adds minus x cubed over six. Degree five adds x to the fifth over one hundred twenty."
+
+**Explanation (good):**
+> "The third term matches how the curve bends. Sine curves downward past zero, so we subtract a cubic. The fifth term matches how that bending turns around — the curve comes back up, so we add a smaller term, x to the fifth."
+
+Concrete rules:
+
+- **Every new symbol on screen earns one *because* sentence.** When a term, coefficient, or piece appears, the narrator names what it does and why — not what it says.
+  - BAD: `"Add minus b times x dot."` (recitation)
+  - GOOD: `"We add a drag force. It opposes motion, so it's negative. It's proportional to velocity, because faster motion hits more air."`
+- **Name the role before the symbol.** "The restoring force — the thing that pulls the spring back" — *then* the symbol. The viewer needs the concept before the glyph.
+- **When the equation has multiple terms, give each a short role name.** "Three parts: the inertia term, the damping term, the spring term. Sum them and the total is zero." The viewer hears *structure*, not *tokens*.
+- **Reading a derivation out loud is not teaching.** If the narration says "multiply both sides by X, divide both sides by Y", the viewer has a watchable derivation — not an understandable idea. Rewrite: "We want a form where Y drops out, so we normalize."
+- **Ask the viewer's question before answering it.** "Why that specific coefficient?" "What happens if we stop after one term?" "Does this work everywhere?" Posing the question primes the viewer to receive the answer. Answering unasked questions is noise.
+- **Pass the sanity check.** Read the whole script aloud. If more than half the sentences could be deleted without changing what the viewer *understands* about the topic, the script is reciting, not explaining.
+
+## Opening: ease the viewer in
+
+A video is not a lecture notes dump. The first 5–10 seconds decide whether the viewer keeps watching.
+
+**Hook-scene opening rules (scene_01):**
+
+- **Open with a familiar phenomenon, not a technical setup.** Start from something the viewer has seen outside a textbook — a swing, a garden hose, tapping a bell, stretching a slinky. The technical object is *inside* that phenomenon but not named yet.
+- **No jargon in the first sentence.** No `\rho`, no "cross-sectional area", no "restoring force", no "natural frequency". Those names arrive in scene_02 at the earliest.
+- **Second sentence narrows the frame.** Zoom from the phenomenon to the specific thing the video is about. Still in everyday language.
+- **Third sentence is the question, not the answer.** End the hook on a hook: a puzzle or a contrast the rest of the video will resolve.
+- **Name the topic *after* the question, if at all.** The viewer should feel they want to know the answer before they are told what it is called.
+
+Concrete before/after:
+
+```
+BAD (bluntly technical):
+  "Pull the mass to the right and let it go. It swings, and swings again,
+   a little shorter each time. Something is eating the amplitude."
+GOOD (familiar → narrow → question):
+  "Push a kid on a swing. Let go. They swing back, and back again, but
+   each swing is a little smaller. Eventually the swing stops. What is
+   taking the energy out — and can we write down how fast it happens?"
+
+BAD:
+  "Here is the wide section, with cross-sectional area capital A one."
+GOOD:
+  "Turn on a garden hose. Pinch the end. The water shoots out faster. Why
+   does the flow speed up the moment the opening gets smaller? The answer
+   is simple, and it sits in two laws."
+```
+
+**Define-scene opening rules (scene_02, first "define" beat):**
+
+- **Bridge in one half-sentence from the hook.** "Back to the swing" or "So — what is eating the amplitude". Never restart.
+- **Introduce one symbol at a time, framed by its noun phrase.** "The force the spring pulls with, which we'll call the restoring force" — then *after* the viewer has the concept, write the symbol. Symbol follows noun, not the reverse.
+
+**Later beats** may assume the hook has done its job — no re-warming. But every beat should begin with a phrase that tells the viewer *where we are in the argument*, not a cold equation.
+
+**Anti-patterns** (see the Anti-patterns section below for the full list):
+
+- Starting scene_01 with an imperative ("Pull the mass…", "Consider a wire…") — treats the viewer like a lab partner, not a curious person.
+- Starting with the formal definition. Formal names belong after the motivation, not before.
+- Starting with "In this video we will…" — classroom frame; 3blue1brown-style explainers don't announce themselves.
+
 ## Spoken-narration style (summary — see `spoken-narration-style` for the full rules)
 
 - **Sentences ≤ 15 words on average, hard cap 22.** Read it aloud; if it feels clotted, cut.
@@ -83,6 +148,21 @@ Use the scene's `narration_intent` from the storyboard as the **goal** of the be
 - **No throat-clearing.** Drop "so", "now let's", "basically", "essentially" at sentence starts unless they earn the beat.
 - **Numbers in words for small integers** (`two`, `three`), digits for anything larger or any coefficient (`x = 1`, `f'(2) = 4`).
 - **Never emit LaTeX or unicode math in `text`.** Say the math: `"f prime of x equals two x"`, not `"f'(x) = 2x"`. TTS garbles LaTeX.
+- **Never bare a single Latin letter.** `"P is the static pressure"` → `"the static pressure term, capital P,"`. ElevenLabs reads a lone letter in mid-sentence as a noise or abbreviation and it clanks. Rule: every letter-variable ("v", "A", "P", "G", "h") must sit inside a noun phrase that introduces it ("the velocity v", "the area A one", "the gauge G two"). After the introduction, you may refer back using the same noun phrase, not the bare letter.
+- **Greek letters: spell them the way you'd speak them.** Write `"rho"`, `"theta"`, `"phi"`, `"omega"`, `"pi"`, `"mu"`, `"sigma"`, `"epsilon"`. The TTS preprocessor respells `"rho"` → `"roe"` and similar at `pedagogica-tools elevenlabs-tts --pronounce` (default on); don't do the respelling yourself.
+- **Subscripts and superscripts read by position.** `"v_1"` → `"v one"`, `"x^2"` → `"x squared"`, `"A^{(2)}"` → `"A to the two"`, `"f'"` → `"f prime"`. Never write `"v subscript one"` — too robotic.
+- **Never narrate derivative operator names.** TTS says `"x double dot"` and `"x dot"` literally, and they sound like gibberish. Use the SEMANTIC name of the quantity instead:
+  - `\ddot{x}` → `"the acceleration"` (or just `"acceleration"` after first mention)
+  - `\dot{x}` → `"the velocity"` (or `"the rate of change of x"` when x is abstract, not a position)
+  - `\frac{d}{dx}` → `"the derivative with respect to x"` or just `"the derivative"`
+  - `\frac{dA}{dt}` → `"the rate of change of A"`
+  - `f'(x)` → `"f prime of x"` (this one is conventional and fine)
+  - `x'(t)` → `"the velocity"` (if x is position)
+  - **Pair it with the visual.** When the EQUATION on screen shows `m\,\ddot{x} = -k\,x`, the narration says `"mass times acceleration equals minus k times x"`. The viewer sees the operator; the narrator names the concept.
+- **Never dictate the equation form.** Don't read the LaTeX out loud. Don't say `"x dot dot plus two gamma x dot plus omega nought squared x equals zero"`. Say `"acceleration plus damping term plus restoring term equals zero"` or `"the equation has three parts: inertia, damping, and spring"`. The visual carries the symbols; narration carries the meaning.
+- **Fractions spelled out.** `"1/2"` → `"one half"`, `"3/4"` → `"three quarters"`, `"1/n"` → `"one over n"`. Do not let digit-slash-digit through — TTS reads it as "one slash two".
+- **Proper names with tricky phonetics.** `"Bernoulli"`, `"Euler"`, `"Cauchy"`, `"Laplace"`, `"Eigen-"`. The pronunciation preprocessor handles the common ones; prefer writing the correct spelling and trust the preprocessor over respelling inline.
+- **Read the script aloud before emitting.** Listen for: back-to-back hard consonants, tongue-twister clusters, and any place where the audio would need to "spell" rather than "say". Rewrite those.
 
 ## Pacing markers (summary — see `pacing-rules`)
 
@@ -173,3 +253,6 @@ Word count is 38 → `38 / 2.5 ≈ 15.2 s`. The scene is a `define` beat with a 
 - Do **not** emit more than 5 markers per scene without a reason you can defend.
 - Do **not** re-tokenize creatively — `words` is strict whitespace split of `text`.
 - Do **not** re-teach the LO across scenes. Each scene adds one increment; the viewer accumulates the rest.
+- Do **not** open scene_01 with an imperative or a formal definition. Open with a familiar phenomenon (see "Opening: ease the viewer in").
+- Do **not** use technical terms before they are motivated. "The damping coefficient gamma" in sentence 1 lands as noise; motivate the concept first, name it second.
+- Do **not** start a define scene with a cold equation. Bridge from the hook in one half-sentence, then introduce the symbol inside a noun phrase.

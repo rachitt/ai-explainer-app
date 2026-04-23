@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
 
-from pedagogica_schemas.manim_code import CompileResult, ErrorClassification
+from pedagogica_schemas.chalk_code import CompileResult, ErrorClassification
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_SANDBOX_PROFILE = _REPO_ROOT / "sandbox" / "chalk.sb"
@@ -46,6 +46,7 @@ class RenderOptions:
     fps: int = 30
     sandbox_profile: Path | None = None
     extra_chalk_args: list[str] = field(default_factory=list)
+    target_duration_seconds: float | None = None
 
 
 _CLASSIFIERS: tuple[tuple[re.Pattern[str], ErrorClassification], ...] = (
@@ -145,6 +146,8 @@ def _compile_result(
     video_path: str | None = None,
     frame_count: int | None = None,
     duration_seconds: float | None = None,
+    video_duration_seconds: float | None = None,
+    target_duration_seconds: float | None = None,
     stderr: str | None = None,
     stdout_tail: str | None = None,
     classification: ErrorClassification | None = None,
@@ -159,10 +162,40 @@ def _compile_result(
         video_path=video_path,
         frame_count=frame_count,
         duration_seconds=duration_seconds,
+        video_duration_seconds=video_duration_seconds,
+        target_duration_seconds=target_duration_seconds,
         stderr=stderr,
         stdout_tail=stdout_tail,
         error_classification=classification,
     )
+
+
+def _probe_video_duration(path: Path) -> float | None:
+    """ffprobe the output mp4 for content duration. Returns None on any failure."""
+    ffprobe = shutil.which("ffprobe")
+    if ffprobe is None:
+        return None
+    proc = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "quiet",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    try:
+        return float(proc.stdout.strip())
+    except ValueError:
+        return None
 
 
 def _write_result(result: CompileResult, json_path: Path | str | None) -> CompileResult:
@@ -234,8 +267,9 @@ def render(
     # land in the sandboxed write region.
     tmp_dir = artifact_dir / f"_chalk_tmp_{uuid4().hex[:8]}"
     tmp_dir.mkdir(parents=True, exist_ok=True)
+    preflight_json = tmp_dir / "preflight.json"
 
-    cmd = [
+    base_cmd = [
         SANDBOX_EXEC,
         "-D",
         f"ARTIFACT_DIR={artifact_dir}",
@@ -244,10 +278,19 @@ def render(
         str(chalk_bin),
         str(code_path),
         "-s", scene_class,
-        "-o", str(output_path),
         "--width", str(opts.width),
         "--height", str(opts.height),
         "--fps", str(opts.fps),
+    ]
+    preflight_cmd = [
+        *base_cmd,
+        "--preflight",
+        "--preflight-json", str(preflight_json),
+        *opts.extra_chalk_args,
+    ]
+    cmd = [
+        *base_cmd,
+        "-o", str(output_path),
         *opts.extra_chalk_args,
     ]
 
@@ -256,6 +299,65 @@ def render(
     tex_bin = "/Library/TeX/texbin"
     if tex_bin not in env.get("PATH", ""):
         env["PATH"] = tex_bin + ":" + env.get("PATH", "")
+
+    preflight_stderr = ""
+    try:
+        preflight_proc = subprocess.Popen(
+            preflight_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            preexec_fn=_make_preexec(
+                opts.cpu_limit, opts.memory_limit_mb, opts.output_size_limit_mb
+            ),
+            start_new_session=True,
+            text=True,
+        )
+    except FileNotFoundError as e:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        return _write_result(
+            _compile_result(
+                scene_id=scene_id,
+                attempt_number=attempt_number,
+                success=False,
+                stderr=f"failed to invoke sandbox-exec: {e}",
+                classification="other",
+            ),
+            result_json_path,
+        )
+
+    preflight_timed_out = False
+    try:
+        _preflight_stdout, preflight_stderr = preflight_proc.communicate(
+            timeout=opts.wall_limit
+        )
+    except subprocess.TimeoutExpired:
+        preflight_timed_out = True
+        try:
+            os.killpg(preflight_proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            _preflight_stdout, preflight_stderr = preflight_proc.communicate(
+                timeout=10
+            )
+        except subprocess.TimeoutExpired:
+            preflight_proc.kill()
+            _preflight_stdout, preflight_stderr = preflight_proc.communicate()
+
+    if preflight_proc.returncode != 0 or preflight_timed_out:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        return _write_result(
+            _compile_result(
+                scene_id=scene_id,
+                attempt_number=attempt_number,
+                success=False,
+                stderr=_tail_bytes(preflight_stderr or "", _STDERR_TAIL_BYTES) or None,
+                stdout_tail=None,
+                classification="layout_overlap",
+            ),
+            result_json_path,
+        )
 
     start = time.monotonic()
     timed_out = False
@@ -311,10 +413,12 @@ def render(
     success = returncode == 0 and not timed_out and output_path.is_file()
     video_path: str | None = None
     duration_seconds: float | None = None
+    video_duration_seconds: float | None = None
 
     if success:
         video_path = str(output_path)
         duration_seconds = elapsed
+        video_duration_seconds = _probe_video_duration(output_path)
     elif returncode == 0 and not output_path.is_file():
         success = False
         stderr_tail = (stderr_tail + "\n[exit 0 but no output file produced]").strip()
@@ -334,6 +438,8 @@ def render(
             success=success,
             video_path=video_path,
             duration_seconds=duration_seconds,
+            video_duration_seconds=video_duration_seconds,
+            target_duration_seconds=opts.target_duration_seconds,
             stderr=stderr_tail or None,
             stdout_tail=stdout_tail or None,
             classification=classification,

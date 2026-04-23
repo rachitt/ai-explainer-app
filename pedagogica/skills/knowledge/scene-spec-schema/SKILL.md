@@ -1,14 +1,11 @@
 ---
 name: scene-spec-schema
 version: 0.1.0
-category: manim
+category: chalk
 triggers:
-  - stage:visual-planner
-  - stage:layout
-  - stage:manim-code
-  - stage:manim-repair
+  - stage:chalk-code
+  - stage:chalk-repair
   - stage:sync
-  - any_agent_touching_scene_spec
 requires: []
 token_estimate: 1800
 tested_against_model: claude-opus-4-7

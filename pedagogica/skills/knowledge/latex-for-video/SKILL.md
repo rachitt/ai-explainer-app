@@ -1,185 +1,192 @@
 ---
 name: latex-for-video
-version: 0.1.0
-category: manim
+version: 0.2.0
+category: chalk
 triggers:
-  - stage:manim-code
-  - stage:manim-repair
+  - stage:chalk-code
+  - stage:chalk-repair
   - element_type:math
 requires:
-  - manim-primitives@^0.1.0
-  - color-and-typography@^0.1.0
-token_estimate: 3800
+  - chalk-primitives@^0.1.0
+token_estimate: 2800
 tested_against_model: claude-opus-4-7
 owner: rachit
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 description: >
-  How to write LaTeX inside Manim scenes so equations read at video scale —
-  font-size and scale conventions; indexed substrings and colour coding that
-  survive a transform; \underbrace and \overbrace for annotated steps;
-  aligned multi-line derivations morphed with TransformMatchingTex. Loaded by
-  the Manim-code agent any time a scene contains math, and by Manim-repair
-  on any LaTeX-classified error.
+  How to write LaTeX inside chalk scenes so equations read at video scale —
+  scale tier conventions; composing equations out of multiple MathTex objects
+  via next_to; \underbrace / \overbrace annotations; multi-line derivations;
+  TransformMatchingTex for equation-edit animations. Loaded by chalk-code any
+  time a scene contains math, and by chalk-repair on any LaTeX-classified
+  error.
 ---
 
 # latex-for-video
 
 ## Purpose
 
-Manim can render any valid LaTeX. That's not the skill — the skill is picking the *right* LaTeX for a 720p video where equations share the frame with a graph, and editing equations in a way the viewer's eye can follow.
+chalk renders LaTeX via `MathTex(tex_string, color=..., scale=...)`. That's not the skill — the skill is picking the *right* LaTeX for a 720p video where equations share the frame with a graph, and editing equations in a way the viewer's eye can follow.
 
 Four craft problems keep showing up:
 
-1. **Sizing.** Default LaTeX at Manim's default `font_size=48` is slightly too big for an equation that shares the frame with a graph, and way too small for a hero equation. Use explicit size conventions.
-2. **Colour-coded terms.** A viewer can read a three-term sum and track one term through a transformation *only* if that term is coloured distinctly. Indexed substrings are how you do this reliably.
-3. **`\underbrace` annotations.** Showing which piece of an equation *is* something ("this part is the derivative"). Manim handles `\underbrace` natively, but the animation needs care.
-4. **Aligned transformations.** Morphing `(x+1)^2` → `x^2 + 2x + 1` so shared parts sit still and only the change moves. `TransformMatchingTex` carries this, but only if the substrings are indexed consistently.
+1. **Sizing.** The default LaTeX glyph size is wrong for most roles. Use the named scale tiers (`SCALE_DISPLAY` / `SCALE_BODY` / `SCALE_LABEL` / `SCALE_ANNOT`) from `chalk.style`.
+2. **Colour-coded terms.** A viewer tracks a term through a transformation only if it's coloured distinctly. chalk's `MathTex` takes a *single* `tex_string` with no `mobj[i]` indexing — compose multi-colour equations by placing multiple `MathTex` objects side-by-side via `next_to`.
+3. **`\underbrace` annotations.** Showing which piece of an equation *is* something. Two paths: inline LaTeX `\underbrace` (one mobject, all at once) vs chalk's `Brace` primitive (animated in as a separate beat).
+4. **Morphing equations.** `TransformMatchingTex` tweens source→target by matching identical LaTeX tokens.
 
 ## When to load
 
-- **Manim-code — any scene with math.** Which for calculus is every scene.
-- **Manim-repair — on LaTeX-classified errors.** Most LaTeX errors are configuration (missing package) and live in `manim-debugging`. The ones that are *content* errors — ambiguous bracing, bad substring indexing — get fixed here.
-- **Visual planner — no.** The planner decides *that* math appears, not *how* it's rendered.
+- **chalk-code — any scene with math.** For calculus, every scene.
+- **chalk-repair — on LaTeX-classified errors.** Most LaTeX errors are configuration (missing package) and live in `chalk-debugging`. Content errors — bad brace matching, raw `\color` inside MathTex, unescaped `%` — get fixed here.
 
 ## Core content
 
-### 1. Font size conventions
+### 1. Scale tier conventions
 
-Manim's `font_size` arg to `MathTex` / `Tex` sets the LaTeX point size in scene units. At 720p:
+chalk's `MathTex` takes `scale=` (a multiplier on a glyph baseline size), NOT `font_size`. Pick from the named tiers:
 
-| Role | `font_size` | Scene behaviour |
+| Role | Tier | Scene behaviour |
 |---|---|---|
-| **Hero equation** (single-focus, dominates frame) | `72` | The thing the scene is about. Occupies the CENTER zone. |
-| **Running step / annotation** (under a graph, beside an axis) | `36` | Readable, doesn't compete with the visual. |
-| **Graph / axis label** (curve name, axis tick labels) | `28`–`32` | Small enough to sit near what it labels without dominating it. |
-| **Inline caption** (micro-label in a corner) | `24` | Legend-level; viewer isn't expected to read while narration runs. |
+| **Hero equation** (single focus, dominates frame) | `SCALE_DISPLAY` | The thing the scene is about. Occupies ZONE_CENTER. |
+| **Running step / body equation** (derivation line, substituted form) | `SCALE_BODY` | Readable, doesn't compete with the hero. |
+| **Object label** (variable name, axis label, point label) | `SCALE_LABEL` | Small enough to hug what it labels. |
+| **Annotation / caption** (tiny remark, unit, legend) | `SCALE_ANNOT` | Legend-level; viewer isn't expected to read while narration runs. |
 
-**Rule of thumb**: if you find yourself wanting a `font_size` between tier values (e.g., 42), go *down*. The in-between sizes read as "this is sort of important" and the viewer's eye doesn't know where to land.
+`SCALE_MIN = 0.40` is the floor. If a layout wants smaller text, the layout is wrong — drop an element, don't shrink.
 
-**Scaling vs font_size.** `MathTex(..., font_size=72)` is preferred over `MathTex(...).scale(1.5)`. `scale` scales the whole mobject including stroke widths; LaTeX glyph strokes at 1.5× scale get unpleasantly thick. Use `font_size` to size, `scale` only for temporary emphasis beats (scale up 1.2× during a "behold" moment, then back to 1.0×).
+**Rule of thumb.** If a size seems "between tiers", go *down*. In-between sizes read as "sort of important" and the viewer's eye doesn't know where to land.
 
-### 2. Indexed substrings
+**Never.** `MathTex(r"...", scale=0.37)` or any literal number — the chalk-lint rule **R2-magic-scale** trips on non-tier values. Update `style.py` if a new tier is genuinely needed.
 
-Passing a list of strings to `MathTex` makes each one an indexable sub-mobject:
+### 2. Colour-coded terms (composition, not indexing)
 
-```python
-eq = MathTex(r"\frac{d}{dx}", r"\left(", r"x^2", r"+", r"3x", r"\right)",
-             r"=", r"2x", r"+", r"3", font_size=60)
-eq[2].set_color(YELLOW)   # "x^2" in yellow
-eq[4].set_color(BLUE)     # "3x" in blue
-```
+chalk's `MathTex` is **one LaTeX string → one VGroup of glyphs**. There is no `eq[i]` substring accessor — the manim idiom `MathTex(r"\frac{d}{dx}", r"x^2", ...)[1].set_color(YELLOW)` crashes (see lint rule **R8-mathtex-variadic**).
 
-Why index the `\left(`, `\right)`, `=` as their own entries: so a later `TransformMatchingTex` can match them as anchors — they stay put while `x^2` morphs into `x^3`.
-
-**Indexing rules:**
-- Each substring must compile as a LaTeX fragment on its own. A stray `\frac{d}{dx}` without its argument compiles fine (Manim wraps each one), but `\left(` alone does not — you need `r"\left("` and `r"\right)"` as *separate* strings (Manim handles the unmatched `\left`/`\right` specially in `MathTex`).
-- For operators like `=`, `+`, `-`, always make them standalone substrings. Colour them `GRAY` to de-emphasize.
-- Never break a single token: `r"\frac"`, `r"{d}"`, `r"{dx}"` as separate strings will compile but won't index the way you expect — `\frac` needs its two args inside the *same* string.
-
-**Colour by semantic role:**
+Compose coloured terms by placing multiple `MathTex` objects with `next_to`:
 
 ```python
-CURVE_COLOR   = BLUE
-VARIABLE      = YELLOW
-PARAMETER     = GREEN
-DERIVATIVE    = RED
+from chalk import MathTex, next_to, PRIMARY, YELLOW, BLUE, GREY, SCALE_BODY
+
+# Build: d/dx ( x^2 + 3x ) = 2x + 3
+# Each semantic piece is its own MathTex.
+lhs   = MathTex(r"\frac{d}{dx}",     color=PRIMARY, scale=SCALE_BODY)
+lp    = MathTex(r"(",                color=GREY,    scale=SCALE_BODY); next_to(lp,    lhs,  direction="RIGHT", buff=0.08)
+t_sq  = MathTex(r"x^2",              color=YELLOW,  scale=SCALE_BODY); next_to(t_sq,  lp,   direction="RIGHT", buff=0.05)
+plus1 = MathTex(r"+",                color=GREY,    scale=SCALE_BODY); next_to(plus1, t_sq, direction="RIGHT", buff=0.08)
+t_3x  = MathTex(r"3x",               color=BLUE,    scale=SCALE_BODY); next_to(t_3x,  plus1, direction="RIGHT", buff=0.08)
+rp    = MathTex(r")",                color=GREY,    scale=SCALE_BODY); next_to(rp,    t_3x, direction="RIGHT", buff=0.05)
+eq    = MathTex(r"=",                color=GREY,    scale=SCALE_BODY); next_to(eq,    rp,   direction="RIGHT", buff=0.12)
+r_2x  = MathTex(r"2x",               color=YELLOW,  scale=SCALE_BODY); next_to(r_2x,  eq,   direction="RIGHT", buff=0.08)
+plus2 = MathTex(r"+",                color=GREY,    scale=SCALE_BODY); next_to(plus2, r_2x, direction="RIGHT", buff=0.08)
+r_3   = MathTex(r"3",                color=BLUE,    scale=SCALE_BODY); next_to(r_3,   plus2, direction="RIGHT", buff=0.08)
 ```
 
-Hold these consistent across scenes in a job. `color-and-typography` has the full palette.
+Then `self.add(lhs, lp, t_sq, plus1, t_3x, rp, eq, r_2x, plus2, r_3)` and `self.play(FadeIn(lhs, run_time=0.4), ...)` etc.
+
+**Consistency across a job.** Pick a palette role per variable and hold it:
+
+| Colour | Role |
+|---|---|
+| `PRIMARY` | operators, LHS identifiers, "the thing" |
+| `YELLOW` | payoff quantity, the hero term being transformed |
+| `BLUE` | input variable, free parameter |
+| `GREEN` | correct / target value |
+| `GREY` | brackets, commas, equals — visual connectives |
+
+See `chalk/CLAUDE.md` "Palette semantics" for hard rules (e.g., never `RED_FILL` on text).
 
 ### 3. `\underbrace` and `\overbrace` annotations
 
-Use case: in the equation `f'(x) = lim_{h→0} (f(x+h) - f(x))/h`, you want to annotate `(f(x+h) - f(x))/h` as "difference quotient" and `h → 0` as "limit direction".
+Use case: annotate a sub-expression as "this part is the derivative" or "this factor is small".
 
-Two implementation paths, with different trade-offs:
-
-**Path A — LaTeX-native `\underbrace`:**
+**Path A — inline LaTeX `\underbrace`** (one mobject, renders from frame 1):
 
 ```python
 eq = MathTex(
-    r"f'(x) = \underbrace{\lim_{h \to 0}}_{\text{limit}}"
+    r"f'(x) = \underbrace{\lim_{h \to 0}}_{\text{limit}} "
     r"\underbrace{\frac{f(x+h) - f(x)}{h}}_{\text{difference quotient}}",
-    font_size=56,
+    color=PRIMARY, scale=SCALE_BODY,
 )
 ```
 
-Simple, cheap to render. Drawback: the whole equation is one mobject, so you can't animate the underbrace in separately after the equation appears — it's there from frame 1.
+Simple. Drawback: the underbrace is baked in — you can't reveal it as its own beat.
 
-**Path B — Manim's `Brace` + label (preferred for stepped reveals):**
-
-```python
-eq = MathTex(r"f'(x)", r"=", r"\lim_{h \to 0}", r"\frac{f(x+h) - f(x)}{h}", font_size=60)
-self.play(Write(eq))
-brace = Brace(eq[3], DOWN, buff=0.1)
-brace_label = Text("difference quotient", font_size=28).next_to(brace, DOWN, buff=0.1)
-self.play(GrowFromCenter(brace), Write(brace_label))
-```
-
-More code, more control: the brace can come in after the equation has been read, then fade out when the annotation has landed. Use this when the annotation is *pedagogically* separate from the equation — the viewer reads the equation, then the narrator says "notice this is just …" and the brace appears.
-
-**Rule of thumb**: if the annotation is part of the mental model ("this factor is `x`"), use Path A — it shouldn't feel optional. If the annotation is a didactic callout ("notice that this is the derivative definition"), use Path B — the appearance itself is the lesson.
-
-### 4. Aligned transformations
-
-The cleanest equation-edit animation is one where shared substrings don't move. `TransformMatchingTex` does this by default, matching substrings by their rendered TeX string.
-
-**Canonical use — reveal a simplification:**
+**Path B — chalk's `Brace` primitive** (animated in as a separate beat):
 
 ```python
-src = MathTex(r"\frac{d}{dx}", r"(", r"3x^2", r")", font_size=60)
-tgt = MathTex(r"\frac{d}{dx}", r"(", r"3x^2", r")", r"=", r"6x", font_size=60)
-self.play(Write(src))
-self.play(TransformMatchingTex(src, tgt))
+from chalk import Brace, MathTex, Text, FadeIn, next_to, PRIMARY, GREY, SCALE_BODY, SCALE_ANNOT
+
+eq = MathTex(r"f'(x) = \lim_{h \to 0} \frac{f(x+h) - f(x)}{h}", color=PRIMARY, scale=SCALE_BODY)
+self.add(eq)
+self.play(FadeIn(eq, run_time=0.8))
+self.wait(0.8)
+
+# Brace under the difference-quotient half. Anchor by the whole eq mobject's right half
+# via a dummy reference mobject, or use Brace(target_mob, direction="DOWN") if your
+# chalk version supports it.
+brace = Brace(eq, direction="DOWN", buff=0.12, color=GREY)
+brace_lbl = Text("difference quotient", color=GREY, scale=SCALE_ANNOT)
+next_to(brace_lbl, brace, direction="DOWN", buff=0.1)
+self.add(brace, brace_lbl)
+self.play(FadeIn(brace, run_time=0.4), FadeIn(brace_lbl, run_time=0.4))
 ```
 
-The `\frac{d}{dx}`, `(`, `3x^2`, `)` parts stay put; `= 6x` appears.
+More code, more control: the brace lands *after* the equation is read.
 
-**Canonical use — replace a term:**
+**Rule of thumb.** If the annotation is part of the mental model ("this factor is x"), use Path A — it shouldn't feel optional. If the annotation is a didactic callout ("notice this is the derivative definition"), use Path B — the appearance itself is the lesson.
+
+### 4. Equation morphs with `TransformMatchingTex`
+
+`TransformMatchingTex(src, tgt, run_time=1.5)` tweens source → target by matching identical LaTeX token sequences. Shared tokens Transform between positions; source-only tokens FadeOut; target-only tokens FadeIn.
 
 ```python
-src = MathTex(r"\frac{d}{dx}", r"x^2", r"=", r"2x", font_size=60)
-tgt = MathTex(r"\frac{d}{dx}", r"x^3", r"=", r"3x^2", font_size=60)
-self.play(TransformMatchingTex(src, tgt))
+from chalk import MathTex, TransformMatchingTex, PRIMARY, SCALE_BODY
+
+src = MathTex(r"\frac{d}{dx} x^2 = 2x",   color=PRIMARY, scale=SCALE_BODY)
+tgt = MathTex(r"\frac{d}{dx} x^3 = 3x^2", color=PRIMARY, scale=SCALE_BODY)
+self.add(src)
+self.play(FadeIn(src, run_time=0.6))
+self.wait(0.6)
+self.play(TransformMatchingTex(src, tgt, run_time=1.5))
 ```
 
-`\frac{d}{dx}` and `=` anchor; `x^2` morphs to `x^3`, `2x` morphs to `3x^2`.
+`\frac{d}{dx}` and `=` tokens anchor; `x^2` morphs toward `x^3`; `2x` morphs toward `3x^2`.
 
-**Gotcha: matching by string can surprise you.** `MathTex(r"2x")` and `MathTex(r"2", "x")` both produce a mobject with `2x` written on screen, but `TransformMatchingTex` treats them differently — the first has one substring `"2x"`, the second has two substrings `"2"` and `"x"`. If a transform looks right in one direction but weird in the other, mismatched indexing is almost always why.
+**chalk has no `key_map` override.** Manim's `key_map={r"x^2": r"x^3"}` override is NOT supported in chalk's `TransformMatchingTex`. If automatic matching picks the wrong pairing, split the equation into multiple `MathTex` objects composed via `next_to` (§2 above) and animate the changing piece with a plain `Transform` or `FadeOut`+`FadeIn`.
 
-**Fix when TransformMatchingTex is surprising:** Use `key_map` to make the match explicit.
+**Gotcha.** Identical source and target → no animation. Use a direct `FadeIn` on new content instead of `TransformMatchingTex` if the transform is a no-op.
+
+### 5. Multi-line derivations
+
+For a step-by-step derivation, write each line as its own `MathTex` stacked via `next_to(line_i, line_i-1, direction="DOWN", buff=0.3)`:
 
 ```python
-TransformMatchingTex(src, tgt, key_map={r"x^2": r"x^3", r"2x": r"3x^2"})
+from chalk import MathTex, FadeIn, next_to, PRIMARY, SCALE_BODY
+
+l1 = MathTex(r"(x+1)^2 = (x+1)(x+1)",     color=PRIMARY, scale=SCALE_BODY)
+l2 = MathTex(r"\;= x^2 + x + x + 1",      color=PRIMARY, scale=SCALE_BODY); next_to(l2, l1, direction="DOWN", buff=0.3)
+l3 = MathTex(r"\;= x^2 + 2x + 1",         color=PRIMARY, scale=SCALE_BODY); next_to(l3, l2, direction="DOWN", buff=0.3)
+
+self.add(l1); self.play(FadeIn(l1, run_time=0.6)); self.wait(0.5)
+self.add(l2); self.play(FadeIn(l2, run_time=0.6)); self.wait(0.5)
+self.add(l3); self.play(FadeIn(l3, run_time=0.6)); self.wait(1.2)
 ```
 
-### 5. Multi-line derivations with `align`
+Anchor the first line near the top of the zone so later lines flow *down* rather than pushing earlier lines off-frame.
 
-For a step-by-step derivation, use `MathTex` with LaTeX `aligned` environment and step in new lines via `add_line_to`:
+**Don't** try `TransformMatchingTex` between a partial derivation and the full one — the partial has different glyph coverage; matching gets confused. Reveal line-by-line with `FadeIn`.
 
-```python
-derivation = MathTex(
-    r"(x+1)^2 &= (x+1)(x+1) \\",
-    r"        &= x^2 + x + x + 1 \\",
-    r"        &= x^2 + 2x + 1",
-    font_size=48,
-)
-```
+### 6. The LaTeX install
 
-Each line is one substring; `Write(derivation[0])`, then `Write(derivation[1])`, etc., reveals one line at a time. Anchor the equation top-left on screen so new lines appear *below* earlier lines rather than pushing them around.
+chalk calls out to `pdflatex` (or `latex`) + `dvisvgm` behind the scenes for `MathTex` / `Text`. Phase 1 packages:
 
-**Don't** animate derivation-line reveals with `TransformMatchingTex` between the partial equation and the full equation — the partial equation is a different mobject every step; the transform matching gets confused. Separate `Write` calls on the target indices read better.
-
-### 6. The LaTeX install itself
-
-Manim calls out to `pdflatex` (or `latex`) + `dvisvgm` behind the scenes. Packages required for Phase 1:
-
-- `standalone` (document class Manim uses).
+- `standalone` (document class).
 - `preview` (dependency).
 - `doublestroke` (for `\mathbb`).
-- `relsize` (for relative sizing commands).
-- `everysel`, `ms`, `rsfs`, `setspace`, `tipa`, `wasy`, `wasysym`, `xcolor`, `jknapltx` (Manim transitive deps).
+- `relsize` (relative sizing commands).
+- `everysel`, `ms`, `rsfs`, `setspace`, `tipa`, `wasy`, `wasysym`, `xcolor`, `jknapltx` (transitive deps).
 
-macOS install path:
+macOS install:
 
 ```
 brew install --cask basictex
@@ -189,34 +196,23 @@ sudo tlmgr install standalone preview doublestroke relsize everysel ms \
     rsfs setspace tipa wasy wasysym xcolor jknapltx
 ```
 
-If `manim-render` fails with `LaTeX Error: File 'XXX.sty' not found`, the fix is `sudo tlmgr install <package-containing-XXX>`. The error catalog in `manim-debugging` lists the ten most common missing-package errors and the exact `tlmgr` command that fixes each.
+If `chalk-render` fails with `LaTeX Error: File 'XXX.sty' not found`, run `sudo tlmgr install <package-containing-XXX>`. The ten most common missing-package errors and exact `tlmgr` fixes are in `chalk-debugging`'s error catalog.
 
-## Examples
-
-Six scenes under `examples/`. Every one requires a LaTeX install.
-
-| # | File | Demonstrates |
-|---|---|---|
-| 01 | `example_01_sizing_hierarchy.py` | Hero/running/label font_size tiers side-by-side. |
-| 02 | `example_02_color_coded_substrings.py` | Indexed `MathTex` with per-term colours. |
-| 03 | `example_03_underbrace_annotation.py` | Path A and Path B annotations on the same equation. |
-| 04 | `example_04_aligned_transformation.py` | `TransformMatchingTex` on `x^2 → x^3` with shared anchors. |
-| 05 | `example_05_derivation_stepped.py` | Three-line `aligned` derivation revealed one step at a time. |
-| 06 | `example_06_key_map_transform.py` | Explicit `key_map` on a transform where default matching picks the wrong pairing. |
-
-Expected visual behaviour for each is documented in the file's docstring. Since these can't be CI-rendered without a LaTeX install, each file includes an `# expected frame` comment describing the final frame — useful for reviewers without a LaTeX machine.
+`pedagogica-tools chalk-render` injects `/Library/TeX/texbin` into the subprocess PATH (see `workflows/lessons.md` 2026-04-21 entry). Contributors on fresh macOS boxes still need basictex + the tlmgr packages above.
 
 ## Gotchas / anti-patterns
 
 - **Forgetting `r"..."` raw strings.** `"\\frac"` works, `"\frac"` produces `\x0crac`. Always raw.
-- **Breaking a LaTeX token across substrings.** `r"\frac"`, `r"{d}"`, `r"{dx}"` as three strings is not the same as `r"\frac{d}{dx}"` as one. The former may render fine and then break your TransformMatchingTex six months later.
-- **`Tex` when you wanted `MathTex`.** `Tex(r"x^2")` renders as literal `x^2`. Use `MathTex` for anything math.
-- **Scaling LaTeX with `.scale()` beyond 1.2×.** Strokes thicken visibly. Re-create with a larger `font_size` instead.
-- **Coloring by `set_color_by_tex`.** Works but is brittle against substring boundaries; prefer indexed colouring (`eq[i].set_color(...)`).
-- **`TransformMatchingTex` with identical source and target.** Will warn, won't animate. Use `ReplacementTransform` instead if the transform is semantically a no-op.
-- **Underbrace label too long.** If the Text below a `Brace` exceeds the brace width, the label should be shrunk with `font_size`, not the brace widened — the brace should hug what it annotates.
-- **Mid-scene font_size change.** Moving from `font_size=36` on an equation to `font_size=60` as it becomes the focus produces a jarring growth. Fade the old, fade in the new at the new size, if the size change is semantically meaningful.
+- **`MathTex` with multiple positional strings.** `MathTex(r"\sin", r"(", r"x^2", ...)` → `TypeError: got multiple values for argument 'color'`. chalk takes one `tex_string`. Enforced by **R8-mathtex-variadic**.
+- **`\color{}` inside the LaTeX string.** Crashes chalk's LaTeX pipeline. Pass `color=` as a kwarg to `MathTex` instead.
+- **`.set_color()` method call.** chalk has no `set_color` method on MathTex. Set colour at construction.
+- **`Write(eq)` animation.** chalk has no `Write` — use `FadeIn(eq, run_time=0.6)`.
+- **`mob[i]` substring indexing.** Crashes at runtime. Compose equations from multiple `MathTex` objects (§2).
+- **`.scale(1.5)` on MathTex after construction.** Works but thickens glyph strokes unpleasantly. Build with the right `scale=SCALE_*` from the start; reserve runtime `.scale()` for short emphasis beats (1.1×–1.2×, then back).
+- **Identical source and target to `TransformMatchingTex`.** No animation. Use `FadeIn` on new content.
+- **`key_map=` argument.** Not supported — see §4. Split the equation into composable `MathTex` pieces.
 
 ## Changelog
 
-- **0.1.0** (2026-04-21) — initial Phase 1 ship. Font-size tiers, indexed substrings + colour semantics, underbrace with both LaTeX-native and Manim-Brace paths, `TransformMatchingTex` canonical uses and `key_map` override, multi-line derivations via `aligned`, install notes for macOS. Six runnable examples covering each core pattern. Paired with `manim-primitives` and `color-and-typography`.
+- **0.2.0** (2026-04-22) — rewrote body for chalk. Dropped manim-specific API (indexed substrings, `font_size`, `Write`, `GrowFromCenter`, `key_map`). Added composition-via-next_to pattern for coloured terms, chalk-specific anti-patterns (R8 / no `\color`), chalk `Brace` primitive reference, chalk `TransformMatchingTex` without `key_map`. Requires updated from `manim-primitives` + `color-and-typography` to `chalk-primitives` only.
+- **0.1.0** (2026-04-21) — initial ship (manim-native; deprecated).

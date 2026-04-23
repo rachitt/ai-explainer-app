@@ -1,4 +1,10 @@
-"""AST linter for chalk scene files. Enforces palette + scale discipline."""
+"""AST linter for chalk scene files.
+
+Rules:
+R1 raw hex literals, R2 magic scales, R3 no motion, R4 too many beats,
+R5 hand-sized boxes, R6 long beats, R7 unpositioned always_redraw,
+R8 variadic MathTex, R9 move_to zone collision, R10 no animate.
+"""
 from __future__ import annotations
 
 import ast
@@ -19,6 +25,10 @@ _HEX_RE = re.compile(r"^#[0-9A-Fa-f]{3,8}$")
 _ALLOWLIST_PATH = Path(__file__).with_name("_lint_allowlist.txt")
 _MAX_BEAT_SECONDS = 10.0
 _DEFAULT_PLAY_SECONDS = 1.0
+_ZONE_BANDS = (
+    ("ZONE_TOP", (2.0, 3.5)),
+    ("ZONE_BOTTOM", (-3.5, -2.0)),
+)
 _POSITION_LESS_CONSTRUCTORS = {
     "MathTex",
     "Text",
@@ -98,8 +108,29 @@ class _Visitor(ast.NodeVisitor):
                 )
             )
 
+    def visit_Attribute(self, node):
+        """R10: chalk has no Manim-style .animate property."""
+        if isinstance(node.value, ast.Attribute) and node.value.attr == "animate":
+            animate_node = node.value
+            qualified = _qualified_animate_target(animate_node)
+            method = node.attr
+            self.errors.append(
+                LintError(
+                    self.path,
+                    animate_node.lineno,
+                    animate_node.col_offset,
+                    "R10-no-animate",
+                    f"R10-no-animate: '{qualified}.animate.{method}' — chalk has no .animate property. "
+                    "Use ChangeValue/ShiftAnim/FadeIn/FadeOut instead (see chalk-repair SKILL).",
+                )
+            )
+        self.generic_visit(node)
+
     def visit_Call(self, node):
-        """R2: scale=<numeric literal> anywhere a kwarg is passed."""
+        """R2: scale=<numeric literal> anywhere a kwarg is passed.
+
+        R9: .move_to(x, y) absolute placement inside reserved zone bands.
+        """
         for kw in node.keywords:
             if (
                 kw.arg == "scale"
@@ -115,6 +146,23 @@ class _Visitor(ast.NodeVisitor):
                         f"scale={kw.value.value} - use SCALE_DISPLAY/BODY/LABEL/ANNOT/MIN",
                     )
                 )
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "move_to" and len(node.args) >= 2:
+            y = _constant_number(node.args[1])
+            if y is not None:
+                for zone_name, band in _ZONE_BANDS:
+                    if band[0] < y < band[1]:
+                        self.errors.append(
+                            LintError(
+                                self.path,
+                                node.args[1].lineno,
+                                node.args[1].col_offset,
+                                "R9-zone-collision",
+                                f"R9-zone-collision: move_to(..., y={y}) lands inside "
+                                f"{zone_name} band {band}. Use place_in_zone(mob, {zone_name}) "
+                                "or next_to(mob, anchor).",
+                            )
+                        )
+                        break
         self.generic_visit(node)
 
     def visit_ClassDef(self, node):
@@ -185,6 +233,19 @@ class _Visitor(ast.NodeVisitor):
                         "R6-long-beat",
                         f"scene runs ~{est:.1f}s without self.clear(); split every 5-8s "
                         "so the frame changes (use self.clear(keep=[...]) to preserve anchors)",
+                    )
+                )
+        for scene in scenes:
+            for lineno in _find_mathtex_variadic(scene.statements):
+                self.errors.append(
+                    LintError(
+                        self.path,
+                        lineno,
+                        0,
+                        "R8-mathtex-variadic",
+                        "MathTex takes a single tex_string; second positional arg "
+                        "binds to color and raises TypeError. Compose multiple "
+                        "MathTex with next_to() for sub-expression highlighting.",
                     )
                 )
 
@@ -417,12 +478,47 @@ def _find_hand_sized_boxes(
     return hits
 
 
+def _find_mathtex_variadic(
+    statements: list[ast.stmt],
+) -> list[int]:
+    """Return lineno for each `MathTex(str, str, ...)` call with ≥2 positional
+    string args — the manim variadic pattern that crashes chalk with
+    `TypeError: got multiple values for argument 'color'` because the second
+    positional arg binds to `color`.
+    """
+    hits: list[int] = []
+    for stmt in statements:
+        for node in ast.walk(stmt):
+            if not isinstance(node, ast.Call):
+                continue
+            if _name_of(node.func) != "MathTex":
+                continue
+            if len(node.args) < 2:
+                continue
+            # Require first two args to be strings (filter out e.g. MathTex(var, scale) cases)
+            if not all(
+                isinstance(a, ast.Constant) and isinstance(a.value, str)
+                for a in node.args[:2]
+            ):
+                continue
+            hits.append(node.lineno)
+    return hits
+
+
 def _name_of(node: ast.AST) -> str | None:
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
         return node.attr
     return None
+
+
+def _qualified_animate_target(animate_node: ast.Attribute) -> str:
+    try:
+        return ast.unparse(animate_node.value)
+    except Exception:
+        fallback = _name_of(animate_node.value)
+        return fallback or "<unknown>"
 
 
 def lint_file(path: Path) -> list[LintError]:

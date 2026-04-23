@@ -27,17 +27,23 @@ Fresh pipeline run for a learning objective.
    - `job_id = <the UUID>`, `created_at = <now>`, `user_prompt = "<prompt joined>"`.
    - `skills_pinned = {}`, `models_default = {}`, `final_artifact_paths = {}`, `terminal = false`.
    - `current_stage = "intake"`.
-   - `stages`: exactly these three `StageStatus` entries for the Phase-1 planning tier, all `status = "pending"`:
+   - `stages`: exactly these nine `StageStatus` entries for the Phase-1 tier, all `status = "pending"`:
      - `{"name": "intake", "status": "pending"}`
      - `{"name": "curriculum", "status": "pending"}`
      - `{"name": "storyboard", "status": "pending"}`
+     - `{"name": "script", "status": "pending"}`
+     - `{"name": "chalk-code", "status": "pending"}`
+     - `{"name": "tts", "status": "pending"}`
+     - `{"name": "sync", "status": "pending"}`
+     - `{"name": "editor", "status": "pending"}`
+     - `{"name": "subtitle", "status": "pending"}`
 4. Validate the initial job state:
    ```
    uv run pedagogica-tools validate JobState artifacts/<job_id>/job_state.json
    ```
    Non-zero exit = abort without touching anything else.
-5. Load the `orchestrator` skill (`pedagogica/skills/agents/orchestrator/SKILL.md`) in mode `start` with `job_id`. The orchestrator walks `intake → curriculum → storyboard`, invoking each agent skill and validating every emitted artifact.
-6. On success, report: job id, path to `03_storyboard.json`, scene count, total duration. Note that script/visual/audio/assembly tiers are not wired yet (subsequent worktrees).
+5. Load the `orchestrator` skill (`pedagogica/skills/agents/orchestrator/SKILL.md`) in mode `start` with `job_id`. The orchestrator walks `intake → curriculum → storyboard → script → chalk-code → tts → sync → editor → subtitle`, invoking each agent skill or non-LLM helper and validating every emitted artifact. `script`, `chalk-code`, `tts`, and `sync` are per-scene fan-out stages. `editor` and `subtitle` are whole-job stages. The `chalk-code` stage includes render via `pedagogica-tools chalk-render` with up to 3 compile attempts (chalk-repair takes attempts 2 and 3). `tts` invokes `pedagogica-tools elevenlabs-tts` per scene, `editor` invokes `pedagogica-tools ffmpeg-mux` once, `subtitle` invokes `pedagogica-tools subtitle-gen` once.
+6. On success, report: job id, path to `03_storyboard.json`, per-scene script / render / audio / sync paths, path to `final.mp4` + `final.vtt` + `final.srt`, scene count, total narrated duration, and per-scene compile-attempt counts.
 
 ### `resume <job_id>`
 
@@ -71,5 +77,5 @@ uv run pedagogica-tools validate <Schema> <path>
 
 - Never hand-edit `artifacts/`. The orchestrator is the only writer inside a job directory, and it writes only per the protocol in its `SKILL.md`.
 - Every stage transition ends with a `pedagogica-tools validate <Schema> <path>` call. Non-zero exit is a hard failure; the orchestrator persists `job_state.json` consistently and halts.
-- LLM-generated Python code (Manim) is out of scope for this tier. If you encounter it, you are in the wrong worktree.
+- LLM-generated Python code is chalk only (see `docs/adr/0001-chalk-replaces-manim.md`). Never emit manim imports.
 - Do not invent schema names; the registry lives at `schemas/src/pedagogica_schemas/registry.py`. Run `uv run pedagogica-tools list-schemas` to see what's available.

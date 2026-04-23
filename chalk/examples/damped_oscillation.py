@@ -64,9 +64,6 @@ class DampedOscillation(Scene):
                               color=RED_FILL, stroke_width=1.8)
         env_a.stroke_opacity = 0.55
         env_b.stroke_opacity = 0.55
-        # shift to match axes (which are shifted by (0, -0.2))
-        env_a.shift(0, -0.2)
-        env_b.shift(0, -0.2)
         self.add(env_a, env_b)
         self.play(FadeIn(env_a, run_time=0.7), FadeIn(env_b, run_time=0.7),
                   run_time=0.8)
@@ -74,7 +71,6 @@ class DampedOscillation(Scene):
 
         curve = plot_function(axes, signal, resolution=160,
                               color=BLUE, stroke_width=3.0)
-        curve.shift(0, -0.2)
         self.add(curve)
         self.play(FadeIn(curve, run_time=1.2))
         self.wait(2.0)
@@ -95,7 +91,7 @@ class DampedOscillation(Scene):
         # Anchor the arrow from the caption's bottom to a point on the envelope
         # envelope at t=4  →  world x = axes.to_point(4, 0)[0] = 4*11.5/10 - 5.75
         tx = axes.to_point(4.0, 0.0)[0]
-        ty = axes.to_point(0.0, env_plus(4.0))[1] + (-0.2)  # +axes shift
+        ty = axes.to_point(0.0, env_plus(4.0))[1]
 
         cx0, cy0, cx1, cy1 = caption.bbox()
         arr = Arrow(
