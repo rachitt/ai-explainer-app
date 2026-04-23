@@ -306,17 +306,67 @@ def elevenlabs_tts(
     ),
     stability: float = typer.Option(0.5, "--stability"),
     similarity_boost: float = typer.Option(0.75, "--similarity-boost"),
+    pronounce: bool = typer.Option(
+        True,
+        "--pronounce/--no-pronounce",
+        help=(
+            "Apply default pronunciation-hint dict before calling ElevenLabs "
+            "(default on). Pass --no-pronounce for old behaviour."
+        ),
+    ),
 ) -> None:
     """Call ElevenLabs Speech-Synthesis-with-Timestamps; save mp3 + AudioClip JSON.
 
     Exit codes: 0 = ok, 1 = API / IO error, 2 = usage error.
     """
     from pedagogica_tools.elevenlabs_tts import TtsOptions, synthesize
+    from pedagogica_tools.tts_preproc import apply_rules
 
-    text = Path(text_path).read_text(encoding="utf-8").strip()
+    path = Path(text_path)
+    text = path.read_text(encoding="utf-8").strip()
     if not text:
         typer.echo(f"empty text file: {text_path}", err=True)
         raise typer.Exit(code=2)
+
+    if pronounce:
+        try:
+            rewritten, fired_rules = apply_rules(text)
+        except ValueError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=2) from e
+
+        original_word_count = len(text.split())
+        rewritten_word_count = len(rewritten.split())
+        if rewritten_word_count != original_word_count:
+            alignment_breakers = []
+            for rule in fired_rules:
+                probe, _ = apply_rules(text, [rule])
+                if len(probe.split()) != original_word_count:
+                    alignment_breakers.append(rule)
+            broken_rules = alignment_breakers or fired_rules
+            fired = ", ".join(
+                f"{rule.pattern} -> {rule.replacement} ({rule.reason})"
+                for rule in broken_rules
+            )
+            typer.echo(
+                "pronunciation preprocessing changed word count "
+                f"from {original_word_count} to {rewritten_word_count}; "
+                f"rules that broke alignment: {fired or 'none'}",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+
+        rewritten_path = path.with_name(f"{path.name}.rewritten.txt")
+        rewritten_path.write_text(rewritten, encoding="utf-8")
+        if fired_rules:
+            fired = ", ".join(
+                f"{rule.pattern} -> {rule.replacement} ({rule.reason})"
+                for rule in fired_rules
+            )
+        else:
+            fired = "none"
+        typer.echo(f"pronunciation rules fired: {fired}", err=True)
+        text = rewritten
 
     try:
         clip = synthesize(
