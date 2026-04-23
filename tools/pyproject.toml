@@ -23,3 +23,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pedagogica_tools"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow",
+]
