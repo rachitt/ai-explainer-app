@@ -488,7 +488,8 @@ class Indicate:
         self._mobs: list[VMobject] = []
         self._snap_points: list[np.ndarray] = []
         self._snap_subpaths: list[list[np.ndarray]] = []
-        self._orig_colors: list[str] = []
+        self._orig_fill: list[str] = []
+        self._orig_stroke: list[str] = []
         self._centers: list[np.ndarray] = []
 
     @property
@@ -499,7 +500,8 @@ class Indicate:
         self._mobs = _iter_vmobjects(self.mob)
         self._snap_points = [m.points.copy() for m in self._mobs]
         self._snap_subpaths = [[s.copy() for s in m.subpaths] for m in self._mobs]
-        self._orig_colors = [m.fill_color for m in self._mobs]
+        self._orig_fill = [m.fill_color for m in self._mobs]
+        self._orig_stroke = [m.stroke_color for m in self._mobs]
         self._centers = [
             np.mean(pts, axis=0) if len(pts) > 0 else np.zeros(2)
             for pts in self._snap_points
@@ -508,28 +510,28 @@ class Indicate:
     def interpolate(self, alpha: float) -> None:
         eased = self.rate_func(alpha)
         s = 1.0 + (self.scale_factor - 1.0) * eased
-        for m, pts, subs, orig_c, center in zip(
+        for m, pts, subs, orig_fill, orig_stroke, center in zip(
             self._mobs, self._snap_points, self._snap_subpaths,
-            self._orig_colors, self._centers
+            self._orig_fill, self._orig_stroke, self._centers
         ):
-            # Scale around center
             m.points = (pts - center) * s + center
             m.subpaths = [(sp - center) * s + center for sp in subs]
-            # Lerp color toward indicated color
             if eased > 0.01:
                 m.fill_color = self.color
                 m.stroke_color = self.color
             else:
-                m.fill_color = orig_c
+                m.fill_color = orig_fill
+                m.stroke_color = orig_stroke
 
     def finish(self) -> None:
-        for m, pts, subs, orig_c in zip(
-            self._mobs, self._snap_points, self._snap_subpaths, self._orig_colors
+        for m, pts, subs, orig_fill, orig_stroke in zip(
+            self._mobs, self._snap_points, self._snap_subpaths,
+            self._orig_fill, self._orig_stroke
         ):
             m.points = pts.copy()
             m.subpaths = [s.copy() for s in subs]
-            m.fill_color = orig_c
-            m.stroke_color = orig_c
+            m.fill_color = orig_fill
+            m.stroke_color = orig_stroke
 
 
 class Flash:

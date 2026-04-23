@@ -143,4 +143,5 @@ def plot_function(
         stroke_opacity=1.0,
     )
     m.points = np.array(chain, dtype=float)
+    m.closed = False  # plot curves are open polylines, not filled shapes
     return m
