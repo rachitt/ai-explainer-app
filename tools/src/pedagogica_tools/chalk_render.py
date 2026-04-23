@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
 
-from pedagogica_schemas.manim_code import CompileResult, ErrorClassification
+from pedagogica_schemas.chalk_code import CompileResult, ErrorClassification
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_SANDBOX_PROFILE = _REPO_ROOT / "sandbox" / "chalk.sb"
@@ -46,6 +46,7 @@ class RenderOptions:
     fps: int = 30
     sandbox_profile: Path | None = None
     extra_chalk_args: list[str] = field(default_factory=list)
+    target_duration_seconds: float | None = None
 
 
 _CLASSIFIERS: tuple[tuple[re.Pattern[str], ErrorClassification], ...] = (
@@ -145,6 +146,8 @@ def _compile_result(
     video_path: str | None = None,
     frame_count: int | None = None,
     duration_seconds: float | None = None,
+    video_duration_seconds: float | None = None,
+    target_duration_seconds: float | None = None,
     stderr: str | None = None,
     stdout_tail: str | None = None,
     classification: ErrorClassification | None = None,
@@ -159,10 +162,40 @@ def _compile_result(
         video_path=video_path,
         frame_count=frame_count,
         duration_seconds=duration_seconds,
+        video_duration_seconds=video_duration_seconds,
+        target_duration_seconds=target_duration_seconds,
         stderr=stderr,
         stdout_tail=stdout_tail,
         error_classification=classification,
     )
+
+
+def _probe_video_duration(path: Path) -> float | None:
+    """ffprobe the output mp4 for content duration. Returns None on any failure."""
+    ffprobe = shutil.which("ffprobe")
+    if ffprobe is None:
+        return None
+    proc = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "quiet",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    try:
+        return float(proc.stdout.strip())
+    except ValueError:
+        return None
 
 
 def _write_result(result: CompileResult, json_path: Path | str | None) -> CompileResult:
@@ -311,10 +344,12 @@ def render(
     success = returncode == 0 and not timed_out and output_path.is_file()
     video_path: str | None = None
     duration_seconds: float | None = None
+    video_duration_seconds: float | None = None
 
     if success:
         video_path = str(output_path)
         duration_seconds = elapsed
+        video_duration_seconds = _probe_video_duration(output_path)
     elif returncode == 0 and not output_path.is_file():
         success = False
         stderr_tail = (stderr_tail + "\n[exit 0 but no output file produced]").strip()
@@ -334,6 +369,8 @@ def render(
             success=success,
             video_path=video_path,
             duration_seconds=duration_seconds,
+            video_duration_seconds=video_duration_seconds,
+            target_duration_seconds=opts.target_duration_seconds,
             stderr=stderr_tail or None,
             stdout_tail=stdout_tail or None,
             classification=classification,

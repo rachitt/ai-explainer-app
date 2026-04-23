@@ -7,7 +7,7 @@ from pedagogica_schemas.curriculum import CurriculumPlan, LearningObjective, Mis
 from pedagogica_schemas.intake import IntakeResult
 from pedagogica_schemas.job import JobState, StageStatus
 from pedagogica_schemas.layout import ElementPlacement, LayoutResult
-from pedagogica_schemas.manim_code import CompileResult, ManimCode
+from pedagogica_schemas.chalk_code import ChalkCode, CompileResult
 from pedagogica_schemas.registry import SCHEMA_REGISTRY
 from pedagogica_schemas.scene_spec import SceneAnimation, SceneElement, SceneSpec
 from pedagogica_schemas.script import Script, ScriptMarker
@@ -27,7 +27,7 @@ __all__ = [
     "JobState",
     "LayoutResult",
     "LearningObjective",
-    "ManimCode",
+    "ChalkCode",
     "Misconception",
     "SceneAnimation",
     "SceneBeat",

@@ -152,7 +152,7 @@ ai-blackboard/                          # repo root (project colloquially "Pedag
 │   │   ├── storyboard.py
 │   │   ├── script.py
 │   │   ├── scene_spec.py
-│   │   ├── manim_code.py
+│   │   ├── chalk_code.py
 │   │   ├── audio.py
 │   │   ├── timing.py
 │   │   ├── trace.py
@@ -383,10 +383,10 @@ class LayoutResult(BaseMessage):
     frame_bounds_ok: bool                # everything visible
 ```
 
-### 5.7 `ManimCode` / `CompileResult` — agents 8 & 9
+### 5.7 `ChalkCode` / `CompileResult` — agents 8 & 9
 
 ```python
-class ManimCode(BaseMessage):
+class ChalkCode(BaseMessage):
     scene_id: str
     code: str                            # full .py file content
     scene_class_name: str                # entrypoint class

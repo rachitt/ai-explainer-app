@@ -39,7 +39,7 @@ Never allocate a `job_id` yourself — the `/pedagogica` command does that befor
 | curriculum | `agents/curriculum/SKILL.md` | `02_curriculum.json` | `CurriculumPlan` | once per job |
 | storyboard | `agents/storyboard/SKILL.md` | `03_storyboard.json` | `Storyboard` | once per job |
 | script | `agents/script/SKILL.md` | `scenes/<scene_id>/script.json` | `Script` | once per scene in `storyboard.scenes` |
-| chalk-code | `agents/chalk-code/SKILL.md` (+ `agents/chalk-repair/SKILL.md` on failure) | `scenes/<scene_id>/code.py` + `code.json` + `scene_<N>.mp4` | `ManimCode` (for `code.json`); `CompileResult` (for each `compile_attempt_<N>.json`) | once per scene; includes render + up to 3 repair attempts |
+| chalk-code | `agents/chalk-code/SKILL.md` (+ `agents/chalk-repair/SKILL.md` on failure) | `scenes/<scene_id>/code.py` + `code.json` + `scene_<N>.mp4` | `ChalkCode` (for `code.json`); `CompileResult` (for each `compile_attempt_<N>.json`) | once per scene; includes render + up to 3 repair attempts |
 
 Stages beyond `chalk-code` (sync, editor, subtitle, critics) are **not** delivered in this worktree. If `job_state.stages` lists them, leave them `pending` and exit cleanly after `chalk-code`.
 
@@ -77,7 +77,7 @@ For each stage `S` with `status != complete`:
 - Pre-flight: validate `03_storyboard.json` once; validate each scene's `scenes/<scene_id>/script.json` before working on it.
 - For each `scene_id` in storyboard order:
   1. **Codegen (attempt 1).** Invoke the `chalk-code` agent. The agent writes `scenes/<scene_id>/code.py` and `scenes/<scene_id>/code.json`. Validate the `code.json`:
-     `uv run pedagogica-tools validate ManimCode artifacts/<job_id>/scenes/<scene_id>/code.json`. On validation failure: one re-prompt with stderr; second failure halts the stage.
+     `uv run pedagogica-tools validate ChalkCode artifacts/<job_id>/scenes/<scene_id>/code.json`. On validation failure: one re-prompt with stderr; second failure halts the stage.
   2. **Compile.** Run:
      ```
      uv run pedagogica-tools chalk-render \

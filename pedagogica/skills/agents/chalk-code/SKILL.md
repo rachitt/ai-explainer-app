@@ -25,7 +25,7 @@ description: >
 
 ## Purpose
 
-Read the scene's `SceneBeat` from `03_storyboard.json` and its `scenes/<scene_id>/script.json` (`Script`), and emit `scenes/<scene_id>/code.py` — the Python file the render sandbox will execute via `pedagogica-tools chalk-render`. Also emit `scenes/<scene_id>/code.json` (`ManimCode`) carrying the code as a string, the Scene class name, and the list of skills loaded.
+Read the scene's `SceneBeat` from `03_storyboard.json` and its `scenes/<scene_id>/script.json` (`Script`), and emit `scenes/<scene_id>/code.py` — the Python file the render sandbox will execute via `pedagogica-tools chalk-render`. Also emit `scenes/<scene_id>/code.json` (`ChalkCode`) carrying the code as a string, the Scene class name, and the list of skills loaded.
 
 Visual planning (which elements exist, which animations fire in which order) and layout (world-coord placement per element) are **folded inline** into this stage — there is no separate `SceneSpec` or `LayoutResult` artifact on disk in Phase 1. You are the visual planner, the layout solver, and the code generator, in one pass.
 
@@ -45,7 +45,7 @@ You **do not** read `spec.json` or `placements.json` — they do not exist in Ph
 Write two sibling files:
 
 1. `artifacts/<job_id>/scenes/<scene_id>/code.py` — the runnable Python. Executed verbatim by `pedagogica-tools chalk-render` inside `sandbox-exec`. Must import from `chalk` only; no filesystem or network access.
-2. `artifacts/<job_id>/scenes/<scene_id>/code.json` — `ManimCode` (schema reused for chalk):
+2. `artifacts/<job_id>/scenes/<scene_id>/code.json` — `ChalkCode` (schema reused for chalk):
    - Trace metadata: `trace_id`, fresh `span_id`, `parent_span_id = script.span_id` (from `scenes/<scene_id>/script.json`), `timestamp`, `producer = "chalk-code"`, `schema_version = "0.1.0"`.
    - `scene_id`, `scene_class_name`, `code` (byte-identical to `.py`), `skills_loaded`.
 
@@ -299,7 +299,7 @@ The `Dot(point=...)` and `DecimalNumber(tracker)` cases work because they accept
 
 After writing, orchestrator runs:
 ```
-uv run pedagogica-tools validate ManimCode artifacts/<job_id>/scenes/<scene_id>/code.json
+uv run pedagogica-tools validate ChalkCode artifacts/<job_id>/scenes/<scene_id>/code.json
 ```
 
 Exit 1 → one re-prompt with stderr; second failure is a hard fail. Schema rejects missing `scene_class_name`, missing `code`, non-string `skills_loaded` entries.

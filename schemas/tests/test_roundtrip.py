@@ -15,7 +15,7 @@ from pedagogica_schemas import (
     JobState,
     LayoutResult,
     LearningObjective,
-    ManimCode,
+    ChalkCode,
     Misconception,
     SceneAnimation,
     SceneBeat,
@@ -140,13 +140,13 @@ def _layout() -> LayoutResult:
     )
 
 
-def _manim_code() -> ManimCode:
-    return ManimCode(
+def _chalk_code() -> ChalkCode:
+    return ChalkCode(
         **_base(),
         scene_id="scene_01",
-        code="from manim import *\n\nclass S(Scene):\n    def construct(self): pass\n",
+        code="from chalk import Scene\n\nclass S(Scene):\n    def construct(self): pass\n",
         scene_class_name="S",
-        skills_loaded=["manim-primitives"],
+        skills_loaded=["chalk-primitives"],
     )
 
 
@@ -228,7 +228,7 @@ FACTORIES: list[tuple[type[BaseMessage], Callable[[], BaseMessage]]] = [
     (Script, _script),
     (SceneSpec, _scene_spec),
     (LayoutResult, _layout),
-    (ManimCode, _manim_code),
+    (ChalkCode, _chalk_code),
     (CompileResult, _compile_result),
     (AudioClip, _audio_clip),
     (SyncPlan, _sync_plan),

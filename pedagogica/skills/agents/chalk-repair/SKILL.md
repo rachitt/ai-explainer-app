@@ -45,7 +45,7 @@ Phase 1 has no `spec.json` or `placements.json` — visual planning and layout l
 
 Write (overwriting prior versions):
 1. `artifacts/<job_id>/scenes/<scene_id>/code.py` — repaired Python.
-2. `artifacts/<job_id>/scenes/<scene_id>/code.json` — new `ManimCode`:
+2. `artifacts/<job_id>/scenes/<scene_id>/code.json` — new `ChalkCode`:
    - `producer = "chalk-repair"`, fresh `span_id`, `parent_span_id` = prior `code.json`'s `span_id`.
    - `scene_class_name`: **unchanged from prior `code.json`**.
    - `skills_loaded`: union of prior + this attempt, appending `chalk-debugging@<version>`.
@@ -186,7 +186,7 @@ This is a known scene.py bug **fixed in 2026-04-21** — if you see it, the chal
 
 After writing, orchestrator runs:
 ```
-uv run pedagogica-tools validate ManimCode artifacts/<job_id>/scenes/<scene_id>/code.json
+uv run pedagogica-tools validate ChalkCode artifacts/<job_id>/scenes/<scene_id>/code.json
 ```
 
 Self-check before emitting:
