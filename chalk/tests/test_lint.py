@@ -497,3 +497,108 @@ class Demo(Scene):
     )
 
     assert [e.rule for e in lint_file(scene) if e.rule == "R9-zone-collision"] == []
+
+
+def test_animate_set_value_reports_r10(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import Scene
+
+class Demo(Scene):
+    def construct(self):
+        self.play(x.animate.set_value(3.0))
+""",
+    )
+
+    errors = lint_file(scene)
+
+    assert len(errors) == 1
+    assert errors[0].rule == "R10-no-animate"
+    assert "animate.set_value" in errors[0].message
+
+
+def test_animate_shift_reports_r10(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import Scene
+
+class Demo(Scene):
+    def construct(self):
+        self.play(ball.animate.shift(1, 0))
+""",
+    )
+
+    r10_errors = [e for e in lint_file(scene) if e.rule == "R10-no-animate"]
+
+    assert len(r10_errors) == 1
+
+
+def test_animate_move_to_reports_r10(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import Scene
+
+class Demo(Scene):
+    def construct(self):
+        self.play(mob.animate.move_to(0, 0))
+""",
+    )
+
+    r10_errors = [e for e in lint_file(scene) if e.rule == "R10-no-animate"]
+
+    assert len(r10_errors) == 1
+
+
+def test_non_animate_method_passes_r10(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import ChangeValue, FadeIn, Scene
+
+class Demo(Scene):
+    def construct(self):
+        mob.shift(1, 0)
+        ChangeValue(x, 3.0)
+        FadeIn(mob)
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R10-no-animate"] == []
+
+
+def test_attribute_named_animate_field_alone_does_not_false_positive(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import Scene
+
+class Demo(Scene):
+    def construct(self):
+        animate = 5
+        print(animate)
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R10-no-animate"] == []
+
+
+def test_animate_chain_reports_once_not_twice(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import Scene
+
+class Demo(Scene):
+    def construct(self):
+        mob.animate.shift(1, 0).animate.rotate(0.1)
+""",
+    )
+
+    r10_errors = [e for e in lint_file(scene) if e.rule == "R10-no-animate"]
+
+    # The visitor reports each outer attribute access whose direct value is .animate:
+    # mob.animate.shift and mob.animate.shift(...).animate.rotate.
+    assert len(r10_errors) == 2

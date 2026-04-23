@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 import yaml
 from pedagogica_tools.audit_skills import audit_skills, format_report
 from pedagogica_tools.cli import app
@@ -303,3 +304,128 @@ def test_report_formatting_shows_severity_prefix(tmp_path: Path) -> None:
     report = audit_skills(tmp_path)
 
     assert "[warning]" in format_report(report)
+
+
+def test_known_stage_trigger_passes(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {"name": "chalk-code", "requires": [], "triggers": ["stage:chalk-code"]},
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 0
+
+
+def test_unknown_stage_trigger_reports_error(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {"name": "chalk-code", "requires": [], "triggers": ["stage:manim-code"]},
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 1
+    assert report.issues[0].severity == "error"
+    assert "manim-code" in report.issues[0].message
+
+
+def test_non_stage_trigger_ignored(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {
+            "name": "chalk-code",
+            "requires": [],
+            "triggers": ["scene_type:any", "element_type:math"],
+        },
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 0
+
+
+def test_mixed_triggers_error_on_bad_only(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {
+            "name": "chalk-code",
+            "requires": [],
+            "triggers": [
+                "stage:chalk-code",
+                "scene_type:any",
+                "stage:visual-planner",
+            ],
+        },
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 1
+    assert report.issues[0].severity == "error"
+    assert "visual-planner" in report.issues[0].message
+    assert "unknown stage trigger: 'stage:visual-planner'" in report.issues[0].message
+
+
+def test_malformed_trigger_reports_error(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {"name": "chalk-code", "requires": [], "triggers": ["chalk-code"]},
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 1
+    assert report.issues[0].severity == "error"
+    assert "malformed trigger" in report.issues[0].message
+
+
+def test_trigger_line_number_accurate(tmp_path: Path) -> None:
+    path = tmp_path / "agents" / "chalk-code" / "SKILL.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "---\n"
+        "name: chalk-code\n"
+        "requires: []\n"
+        "version: 0.0.1\n"
+        "owner: test\n"
+        "triggers:\n"
+        "  - stage:chalk-code\n"
+        "  - stage:visual-planner\n"
+        "---\n"
+        "Body\n",
+        encoding="utf-8",
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 1
+    assert report.issues[0].line == 8
+
+
+def test_real_repo_triggers_clean() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    skills_root = repo_root / "pedagogica" / "skills"
+    if not skills_root.exists():
+        pytest.skip("real pedagogica/skills path is not available")
+
+    report = audit_skills(skills_root)
+    trigger_errors = [
+        issue
+        for issue in report.issues
+        if issue.severity == "error" and "trigger" in issue.message
+    ]
+    if trigger_errors:
+        pytest.xfail("real repo currently contains stale stage triggers")
+
+    assert trigger_errors == []

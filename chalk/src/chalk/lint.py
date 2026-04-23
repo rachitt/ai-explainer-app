@@ -3,7 +3,7 @@
 Rules:
 R1 raw hex literals, R2 magic scales, R3 no motion, R4 too many beats,
 R5 hand-sized boxes, R6 long beats, R7 unpositioned always_redraw,
-R8 variadic MathTex, R9 move_to zone collision.
+R8 variadic MathTex, R9 move_to zone collision, R10 no animate.
 """
 from __future__ import annotations
 
@@ -107,6 +107,24 @@ class _Visitor(ast.NodeVisitor):
                     f"raw hex {node.value!r} - use palette constant from chalk.style",
                 )
             )
+
+    def visit_Attribute(self, node):
+        """R10: chalk has no Manim-style .animate property."""
+        if isinstance(node.value, ast.Attribute) and node.value.attr == "animate":
+            animate_node = node.value
+            qualified = _qualified_animate_target(animate_node)
+            method = node.attr
+            self.errors.append(
+                LintError(
+                    self.path,
+                    animate_node.lineno,
+                    animate_node.col_offset,
+                    "R10-no-animate",
+                    f"R10-no-animate: '{qualified}.animate.{method}' — chalk has no .animate property. "
+                    "Use ChangeValue/ShiftAnim/FadeIn/FadeOut instead (see chalk-repair SKILL).",
+                )
+            )
+        self.generic_visit(node)
 
     def visit_Call(self, node):
         """R2: scale=<numeric literal> anywhere a kwarg is passed.
@@ -493,6 +511,14 @@ def _name_of(node: ast.AST) -> str | None:
     if isinstance(node, ast.Attribute):
         return node.attr
     return None
+
+
+def _qualified_animate_target(animate_node: ast.Attribute) -> str:
+    try:
+        return ast.unparse(animate_node.value)
+    except Exception:
+        fallback = _name_of(animate_node.value)
+        return fallback or "<unknown>"
 
 
 def lint_file(path: Path) -> list[LintError]:
