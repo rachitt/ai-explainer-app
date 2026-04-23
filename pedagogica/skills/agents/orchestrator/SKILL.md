@@ -33,15 +33,19 @@ Never allocate a `job_id` yourself — the `/pedagogica` command does that befor
 
 ## Stage table (Phase 1)
 
-| Stage | Agent skill | Output artifact | Output schema | Fan-out |
+| Stage | Agent skill / tool | Output artifact | Output schema | Fan-out |
 |---|---|---|---|---|
 | intake | `agents/intake/SKILL.md` | `01_intake.json` | `IntakeResult` | once per job |
 | curriculum | `agents/curriculum/SKILL.md` | `02_curriculum.json` | `CurriculumPlan` | once per job |
 | storyboard | `agents/storyboard/SKILL.md` | `03_storyboard.json` | `Storyboard` | once per job |
 | script | `agents/script/SKILL.md` | `scenes/<scene_id>/script.json` | `Script` | once per scene in `storyboard.scenes` |
-| chalk-code | `agents/chalk-code/SKILL.md` (+ `agents/chalk-repair/SKILL.md` on failure) | `scenes/<scene_id>/code.py` + `code.json` + `scene_<N>.mp4` | `ChalkCode` (for `code.json`); `CompileResult` (for each `compile_attempt_<N>.json`) | once per scene; includes render + up to 3 repair attempts |
+| chalk-code | `agents/chalk-code/SKILL.md` (+ `agents/chalk-repair/SKILL.md` on failure) | `scenes/<scene_id>/code.py` + `code.json` + `<scene_id>.mp4` | `ChalkCode` (for `code.json`); `CompileResult` (for each `compile_attempt_<N>.json`) | once per scene; includes render + up to 3 repair attempts |
+| tts | `uv run pedagogica-tools elevenlabs-tts` (non-LLM) | `scenes/<scene_id>/audio/clip.mp3` + `scenes/<scene_id>/audio/clip.json` | `AudioClip` | once per scene |
+| sync | `agents/sync/SKILL.md` | `scenes/<scene_id>/sync.json` | `SyncPlan` | once per scene |
+| editor | `uv run pedagogica-tools ffmpeg-mux` (non-LLM) | `scenes/<scene_id>/synced.mp4` + `<job_dir>/final.mp4` | — (tool emits mp4 only; no JSON schema) | whole job |
+| subtitle | `uv run pedagogica-tools subtitle-gen` (non-LLM) | `scenes/<scene_id>/synced.vtt` + `.srt` + `<job_dir>/final.vtt` + `final.srt` | — (tool emits sidecars; no JSON schema) | whole job |
 
-Stages beyond `chalk-code` (sync, editor, subtitle, critics) are **not** delivered in this worktree. If `job_state.stages` lists them, leave them `pending` and exit cleanly after `chalk-code`.
+All nine stages ship in this tier. After `subtitle` completes, the orchestrator flips `terminal = true`. Critics and cost-cap enforcement are later tiers.
 
 ## Per-stage protocol
 
@@ -96,6 +100,62 @@ For each stage `S` with `status != complete`:
 - Mark the stage `complete` only after every scene has a successful render.
 - `artifact_path = "scenes/"` (directory, same convention as `script`).
 
+**`tts` fan-out (per-scene, non-LLM):**
+
+- Pre-flight: validate each scene's `scenes/<scene_id>/script.json` before working on it. Validate `03_storyboard.json` once up front to read `voice_id`.
+- `voice_id` comes from `03_storyboard.json.voice_id` (storyboard agent pins it; Rachel = `21m00Tcm4TlvDq8ikWAM` by default).
+- For each `scene_id` in storyboard order:
+  1. `mkdir -p artifacts/<job_id>/scenes/<scene_id>/audio/`.
+  2. Write `script.text` verbatim to `artifacts/<job_id>/scenes/<scene_id>/audio/narration.txt` (the TTS tool takes a file path, not a string).
+  3. Invoke:
+     ```
+     uv run pedagogica-tools elevenlabs-tts \
+       artifacts/<job_id>/scenes/<scene_id>/audio/narration.txt \
+       <voice_id> \
+       artifacts/<job_id>/scenes/<scene_id>/audio/clip.mp3 \
+       --scene-id <scene_id> \
+       --result-json artifacts/<job_id>/scenes/<scene_id>/audio/clip.json
+     ```
+     - Exit 0 → continue.
+     - Exit 1 (API / IO error) → retry once; second failure halts the stage.
+     - Exit 2 (usage error) → hard fail.
+  4. Validate: `uv run pedagogica-tools validate AudioClip artifacts/<job_id>/scenes/<scene_id>/audio/clip.json`. One retry on validation failure; second failure halts.
+- Mark stage `complete` only after every scene has a validated `clip.json`. `artifact_path = "scenes/"`.
+- Do not override `--model-id` or voice params unless the storyboard's `style_hints` demand it — Rachel + `eleven_multilingual_v2` is the locked default.
+
+**`sync` fan-out (per-scene agent):**
+
+- Pre-flight: validate `scenes/<scene_id>/script.json` and `scenes/<scene_id>/audio/clip.json` for every scene before entering the loop.
+- For each `scene_id` in storyboard order:
+  - Invoke the `sync` agent. The agent writes only `scenes/<scene_id>/sync.json`.
+  - Validate: `uv run pedagogica-tools validate SyncPlan artifacts/<job_id>/scenes/<scene_id>/sync.json`. One retry with stderr; second failure halts the stage.
+- Mark stage `complete` only after every scene has a validated `sync.json`. `artifact_path = "scenes/"`.
+
+### `editor` (whole-job, non-LLM)
+
+- Pre-flight: confirm every scene has `<scene_id>.mp4` (from chalk-code) and `audio/clip.mp3` and `sync.json`. Missing inputs → halt with the scene id.
+- Invoke once for the whole job:
+  ```
+  uv run pedagogica-tools ffmpeg-mux artifacts/<job_id> --output final.mp4
+  ```
+  - Default crossfade `0.0` seconds (no crossfades in Phase 1 unless a storyboard hint asks for one).
+  - Exit 0 → confirm `artifacts/<job_id>/final.mp4` exists and is non-empty.
+  - Exit 1 → one retry with `--force`; second failure halts the stage.
+- No JSON schema to validate — the tool emits mp4 only. Orchestrator only checks `final.mp4` was written and `ffprobe` reports a non-zero duration (done inside the mux tool; orchestrator just checks exit code).
+- `artifact_path = "final.mp4"`.
+
+### `subtitle` (whole-job, non-LLM)
+
+- Pre-flight: confirm every scene has `audio/clip.json` (word_timings source). Missing → halt.
+- Invoke once for the whole job:
+  ```
+  uv run pedagogica-tools subtitle-gen artifacts/<job_id>
+  ```
+  - Exit 0 → confirm `artifacts/<job_id>/final.vtt` and `final.srt` exist.
+  - Exit 1 → one retry with `--force`; second failure halts.
+- No JSON schema to validate — sidecars only. Never burn captions into video (memory: captions opt-in sidecar).
+- `artifact_path = "final.vtt"`.
+
 ## Failure handling
 
 - **Validation failure (after 1 retry):** mark the stage `failed`, set `current_stage = null`, persist `job_state.json`, halt. Do not advance. Do not delete the bad artifact — leave it so the user can inspect.
@@ -104,16 +164,23 @@ For each stage `S` with `status != complete`:
 
 ## End-of-tier handoff
 
-When `chalk-code` completes:
+When `subtitle` completes:
 
-- `current_stage` is set to `null` (Phase 1 planning + script + render tier end).
-- `terminal` stays `false` — later tiers (sync, editor, subtitle) will flip it.
-- Print: path to `03_storyboard.json`, the per-scene `scenes/<scene_id>/script.json` paths, the per-scene `scenes/<scene_id>/<scene_id>.mp4` renders, scene count, total duration, and a per-scene compile-attempt count (1/2/3).
+- `current_stage = null`.
+- `terminal = true` (Phase 1 tier is the full pipeline — there is no later tier in this worktree).
+- `final_artifact_paths` is populated with at minimum:
+  - `"video": "final.mp4"`
+  - `"captions_vtt": "final.vtt"`
+  - `"captions_srt": "final.srt"`
+- Rewrite and re-validate `job_state.json` a final time.
+- Print: job id, path to `03_storyboard.json`, per-scene `script.json` / `code.py` / `<scene_id>.mp4` / `audio/clip.json` / `sync.json` paths, job-level `final.mp4` + `final.vtt` + `final.srt` paths, scene count, total narrated duration (sum of per-scene `clip.total_duration_seconds`), and per-scene compile-attempt counts (1/2/3).
+
+If the stage halted earlier (failed), `terminal` stays `false`, `current_stage = null`, and the last non-complete stage carries `status = "failed"`. `/pedagogica resume` can re-enter from the failed stage once the upstream issue is fixed.
 
 ## Hard rules
 
 - Non-LLM work is always `uv run pedagogica-tools <sub>`; never reimplement.
 - Never hand-edit `artifacts/` outside the protocol above.
 - Never parse JSON for validation purposes — always shell to `pedagogica-tools validate`.
-- Never skip a stage. Phase-1 tiers beyond `chalk-code` are inactive, not skippable.
+- Never skip a stage. All nine Phase-1 stages are active; each must reach `complete` before the next starts.
 - Never invent a `job_id`; it comes from `/pedagogica`.
