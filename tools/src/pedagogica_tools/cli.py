@@ -107,6 +107,47 @@ def audit_skills_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command("list-skills")
+def list_skills_cmd(
+    skills_root: str = typer.Option(
+        "pedagogica/skills",
+        "--skills-root",
+        help="Root directory containing agents/ and knowledge/ subdirs.",
+    ),
+    category: str | None = typer.Option(
+        None,
+        "--category",
+        help="Filter by category: 'agents' or 'knowledge'.",
+    ),
+) -> None:
+    """Print the SKILL roster as a table. Exit codes: 0 = ok, 2 = usage/IO error."""
+    from pedagogica_tools.audit_skills import format_roster, iter_skill_files, parse_skill
+
+    root = Path(skills_root)
+    if not root.is_dir():
+        typer.echo(f"not a directory: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+
+    if category is not None and category not in {"agents", "knowledge"}:
+        typer.echo("invalid category: expected 'agents' or 'knowledge'", err=True)
+        raise typer.Exit(code=2)
+
+    skills = []
+    for path in iter_skill_files(root):
+        skill, issues = parse_skill(path)
+        if issues:
+            for issue in issues:
+                typer.echo(f"{issue.skill_path}: {issue.message}", err=True)
+            raise typer.Exit(code=2)
+        if skill is not None:
+            skills.append(skill)
+
+    if category is not None:
+        skills = [skill for skill in skills if skill.category == category]
+
+    typer.echo(format_roster(skills))
+
+
 @app.command("chalk-render")
 def chalk_render(
     code_path: str = typer.Argument(..., help="Path to the chalk scene .py file."),

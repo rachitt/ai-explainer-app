@@ -51,6 +51,7 @@ class SkillInfo:
     dir_name: str
     frontmatter_name: str | None
     requires: list[str]
+    version: str | None = None
     triggers: list[str] = field(default_factory=list)
     body_text: str = ""
     body_start_line: int = 1
@@ -143,6 +144,10 @@ def parse_skill(path: Path) -> tuple[SkillInfo | None, list[SkillIssue]]:
     if frontmatter_name is not None:
         frontmatter_name = str(frontmatter_name).strip()
 
+    version = frontmatter.get("version")
+    if version is not None:
+        version = str(version).strip()
+
     raw_triggers = frontmatter.get("triggers") or []
     if isinstance(raw_triggers, (str, bytes)):
         trigger_entries = [raw_triggers]
@@ -164,6 +169,7 @@ def parse_skill(path: Path) -> tuple[SkillInfo | None, list[SkillIssue]]:
             category=path.parent.parent.name,
             dir_name=path.parent.name,
             frontmatter_name=frontmatter_name,
+            version=version,
             requires=requires,
             triggers=triggers,
             body_text=body_text,
@@ -304,6 +310,39 @@ def audit_skills(skills_root: Path) -> AuditReport:
         issues.extend(scan_body_refs(skill, skill.body_text, known_names))
 
     return AuditReport(skills=skills, issues=issues)
+
+
+def format_roster(skills: list[SkillInfo]) -> str:
+    headers = ["category", "name", "version", "requires_count", "triggers_count"]
+    rows = [
+        [
+            skill.category,
+            skill.frontmatter_name or skill.dir_name,
+            skill.version or "",
+            str(len(skill.requires)),
+            str(len(skill.triggers)),
+        ]
+        for skill in sorted(skills, key=lambda skill: (skill.category, skill.dir_name))
+    ]
+    widths = [
+        max(len(row[index]) for row in [headers, *rows])
+        for index in range(len(headers))
+    ]
+
+    def format_row(row: list[str]) -> str:
+        return " | ".join(
+            value.ljust(widths[index]) for index, value in enumerate(row)
+        )
+
+    agent_count = sum(skill.category == "agents" for skill in skills)
+    knowledge_count = sum(skill.category == "knowledge" for skill in skills)
+    lines = [
+        format_row(headers),
+        "-+-".join("-" * width for width in widths),
+        *(format_row(row) for row in rows),
+        f"{len(skills)} skills ({agent_count} agents, {knowledge_count} knowledge)",
+    ]
+    return "\n".join(lines)
 
 
 def format_report(report: AuditReport) -> str:

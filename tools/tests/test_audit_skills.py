@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from pedagogica_tools.audit_skills import audit_skills, format_report
+from pedagogica_tools.audit_skills import SkillInfo, audit_skills, format_report, format_roster
 from pedagogica_tools.cli import app
 from typer.testing import CliRunner
 
@@ -429,3 +429,89 @@ def test_real_repo_triggers_clean() -> None:
         pytest.xfail("real repo currently contains stale stage triggers")
 
     assert trigger_errors == []
+
+
+def test_format_roster_sorts_and_tabulates(tmp_path: Path) -> None:
+    skills = [
+        SkillInfo(
+            path=tmp_path / "knowledge" / "zeta" / "SKILL.md",
+            category="knowledge",
+            dir_name="zeta",
+            frontmatter_name="zeta",
+            version="0.3.0",
+            requires=["alpha", "beta"],
+            triggers=["stage:script"],
+        ),
+        SkillInfo(
+            path=tmp_path / "agents" / "script" / "SKILL.md",
+            category="agents",
+            dir_name="script",
+            frontmatter_name="script",
+            requires=[],
+            triggers=["stage:script", "scene_type:any"],
+        ),
+        SkillInfo(
+            path=tmp_path / "agents" / "intake" / "SKILL.md",
+            category="agents",
+            dir_name="intake",
+            frontmatter_name="intake",
+            version="0.1.0",
+            requires=["latex-for-video"],
+            triggers=[],
+        ),
+    ]
+
+    roster = format_roster(skills)
+
+    assert roster.startswith("category")
+    assert "requires_count" in roster
+    assert roster.index("intake") < roster.index("script") < roster.index("zeta")
+    assert "0.1.0" in roster
+    assert "3 skills (2 agents, 1 knowledge)" in roster
+
+
+def test_list_skills_cli_prints_table(tmp_path: Path) -> None:
+    write_clean_tree(tmp_path)
+
+    result = runner.invoke(app, ["list-skills", "--skills-root", str(tmp_path)])
+
+    assert result.exit_code == 0, result.stderr
+    assert result.stdout.startswith("category")
+    assert "requires_count" in result.stdout
+    assert "chalk-code" in result.stdout
+
+
+def test_list_skills_filter_agents_only(tmp_path: Path) -> None:
+    write_clean_tree(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["list-skills", "--skills-root", str(tmp_path), "--category", "agents"],
+    )
+
+    assert result.exit_code == 0, result.stderr
+    assert "chalk-code" in result.stdout
+    assert "chalk-primitives" not in result.stdout
+    assert "2 skills (2 agents, 0 knowledge)" in result.stdout
+
+
+def test_list_skills_invalid_category_exits_2(tmp_path: Path) -> None:
+    write_clean_tree(tmp_path)
+
+    result = runner.invoke(
+        app,
+        ["list-skills", "--skills-root", str(tmp_path), "--category", "bogus"],
+    )
+
+    assert result.exit_code == 2
+    assert "invalid category" in result.stderr
+
+
+def test_list_skills_missing_root_exits_2(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["list-skills", "--skills-root", str(tmp_path / "nope")],
+    )
+
+    assert result.exit_code == 2
+    assert "not a directory" in result.stderr
