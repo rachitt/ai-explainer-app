@@ -461,7 +461,7 @@ def subtitle_gen(
     min_cue_seconds: float = typer.Option(1.0, "--min-cue-seconds"),
     max_cue_seconds: float = typer.Option(6.0, "--max-cue-seconds"),
     force: bool = typer.Option(False, "--force", help="Rebuild even when outputs are fresh."),
-    no_final: bool = typer.Option(False, "--no-final", help="Skip job-level final.vtt/final.srt."),
+    no_final: bool = typer.Option(False, "--no-final", help="Skip job-level captions.vtt/captions.srt."),
 ) -> None:
     """Generate VTT and SRT files from per-scene word timings."""
     from pedagogica_tools.subtitle_gen import SubtitleOptions, generate
