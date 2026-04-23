@@ -69,6 +69,21 @@ Three bands:
 Use **at most 3 zones active** at any rest frame. Empty zones aren't waste —
 they are breathing room. Reading order is top → center → bottom.
 
+**Zone collision rule.** After `place_in_zone(title, ZONE_TOP)`, do NOT then
+`move_to(0.0, 2.2)` a second element: `y = 2.2` is inside ZONE_TOP's band and
+collides with the title. Same for every zone — `y = -0.8` lands inside
+ZONE_CENTER; `y = -2.2` lands inside ZONE_BOTTOM. The second element in any
+zone must be anchored relatively:
+
+```python
+title = MathTex(r"\text{The Chain Rule}", color=GREY, scale=SCALE_ANNOT)
+place_in_zone(title, ZONE_TOP)
+# WRONG — 1.5 is inside ZONE_TOP's (2.0, 3.5) band... wait, it isn't; but
+# picking a hand-chosen y is still fragile if the title grows. Anchor instead:
+formula = MathTex(r"...", color=PRIMARY, scale=SCALE_BODY)
+next_to(formula, title, direction="DOWN", buff=0.5)
+```
+
 ## Placement
 
 Prefer `next_to(mob, anchor, direction="UP"|"DOWN"|"LEFT"|"RIGHT", buff=0.3)`
@@ -165,6 +180,34 @@ so the text always fits. Optional args: `pad_x`, `pad_y`, `min_width`,
 **Anti-pattern:** `Rectangle(width=2.0, height=0.9)` + a separate
 `MathTex(r"\mathrm{README}")` placed at the same center.  One word change to
 the label and the text now extends past the box on either side.
+
+## MathTex takes a single string (not variadic)
+
+chalk's `MathTex(tex_string, color=..., stroke_width=..., fill_opacity=...,
+scale=...)` takes **one** LaTeX string. The manim variadic pattern is NOT
+supported and will crash:
+
+```python
+# WRONG — second positional arg binds to `color`; TypeError at construction
+expr = MathTex(r"\sin", r"(", r"x^2", r")", color=PRIMARY, scale=SCALE_BODY)
+
+# RIGHT — single string
+expr = MathTex(r"\sin(x^2)", color=PRIMARY, scale=SCALE_BODY)
+```
+
+There is also no `expr[i]` substring accessor. If you need to highlight a
+sub-expression, compose multiple MathTex objects with `next_to()` and
+animate the piece:
+
+```python
+lhs  = MathTex(r"\sin", color=PRIMARY, scale=SCALE_DISPLAY)
+lp   = MathTex(r"(",    color=PRIMARY, scale=SCALE_DISPLAY); next_to(lp,  lhs,  direction="RIGHT", buff=0.05)
+arg  = MathTex(r"x^2",  color=YELLOW,  scale=SCALE_DISPLAY); next_to(arg, lp,   direction="RIGHT", buff=0.05)
+rp   = MathTex(r")",    color=PRIMARY, scale=SCALE_DISPLAY); next_to(rp,  arg,  direction="RIGHT", buff=0.05)
+self.play(Circumscribe(arg, color=YELLOW, run_time=1.2))  # highlight just the inner
+```
+
+Enforced by chalk-lint rule R8.
 
 ## Circuit wires crossing components (always use `breaks=[...]`)
 
