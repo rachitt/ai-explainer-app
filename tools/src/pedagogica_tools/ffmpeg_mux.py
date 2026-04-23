@@ -173,6 +173,9 @@ def _concat(
             duration_seconds=_probe_duration(output_path, env),
         )
 
+    # Re-encode audio at concat so that audio packet boundaries don't get dropped
+    # at scene transitions (stream-copy concat occasionally loses the last
+    # 50-100 ms of each segment's audio, which reads as a cut).
     cmd = [
         ffmpeg,
         "-y",
@@ -182,8 +185,14 @@ def _concat(
         "0",
         "-i",
         str(concat_path),
-        "-c",
+        "-c:v",
         "copy",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-ar",
+        "44100",
         str(output_path),
     ]
     proc = subprocess.run(cmd, cwd=job_path, capture_output=True, env=env, text=True, check=False)
