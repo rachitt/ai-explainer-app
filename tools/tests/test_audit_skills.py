@@ -1,18 +1,24 @@
 from pathlib import Path
 
 import yaml
-from pedagogica_tools.audit_skills import audit_skills
+from pedagogica_tools.audit_skills import audit_skills, format_report
 from pedagogica_tools.cli import app
 from typer.testing import CliRunner
 
 runner = CliRunner()
 
 
-def write_skill(root: Path, category: str, name: str, frontmatter_dict: dict) -> Path:
+def write_skill(
+    root: Path,
+    category: str,
+    name: str,
+    frontmatter_dict: dict,
+    body: str = "Body\n",
+) -> Path:
     path = root / category / name / "SKILL.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     frontmatter = yaml.safe_dump(frontmatter_dict, sort_keys=False)
-    path.write_text(f"---\n{frontmatter}---\nBody\n", encoding="utf-8")
+    path.write_text(f"---\n{frontmatter}---\n{body}", encoding="utf-8")
     return path
 
 
@@ -146,7 +152,7 @@ def test_cli_clean_fake_root_exits_0(tmp_path: Path) -> None:
     result = runner.invoke(app, ["audit-skills", "--skills-root", str(tmp_path)])
 
     assert result.exit_code == 0, result.stderr
-    assert "audit: 4 skills scanned, 0 issues." in result.stdout
+    assert "audit: 4 skills scanned, 0 errors, 0 warnings." in result.stdout
 
 
 def test_cli_dirty_fake_root_exits_1(tmp_path: Path) -> None:
@@ -168,3 +174,132 @@ def test_cli_nonexistent_root_exits_2(tmp_path: Path) -> None:
 
     assert result.exit_code == 2
     assert "not a directory" in result.stderr
+
+
+def test_body_ref_to_existing_agent_is_clean(tmp_path: Path) -> None:
+    write_skill(tmp_path, "agents", "chalk-code", {"name": "chalk-code", "requires": []})
+    write_skill(
+        tmp_path,
+        "agents",
+        "script",
+        {"name": "script", "requires": []},
+        body="Read agents/chalk-code/SKILL.md first.\n",
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 0
+
+
+def test_body_ref_to_missing_agent_reports_warning(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {"name": "chalk-code", "requires": []},
+        body="Intro\nRead agents/manim-code/SKILL.md first.\n",
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 1
+    assert report.issues[0].severity == "warning"
+    assert report.issues[0].line == 6
+    assert "manim-code" in report.issues[0].message
+
+
+def test_body_ref_pedagogica_skills_path_form(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {"name": "chalk-code", "requires": []},
+        body="Use pedagogica/skills/knowledge/color-and-typography for palettes.\n",
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 1
+    assert report.issues[0].severity == "warning"
+    assert "color-and-typography" in report.issues[0].message
+
+
+def test_body_prose_mentioning_manim_without_path_not_flagged(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {"name": "chalk-code", "requires": []},
+        body="Avoid copying old manim examples unless ported to chalk.\n",
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 0
+
+
+def test_body_ref_multiple_dedups(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {"name": "chalk-code", "requires": []},
+        body=(
+            "Read agents/manim-code/SKILL.md before writing.\n"
+            "Read agents/manim-code/SKILL.md before repairing.\n"
+        ),
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 2
+    assert [issue.line for issue in report.issues] == [5, 6]
+
+
+def test_body_ref_line_number_accurate(tmp_path: Path) -> None:
+    path = tmp_path / "agents" / "chalk-code" / "SKILL.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body_lines = ["Body"] * 20
+    body_lines.append("Read agents/manim-code/SKILL.md.")
+    path.write_text(
+        "---\nname: chalk-code\nrequires: []\n---\n" + "\n".join(body_lines) + "\n",
+        encoding="utf-8",
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert len(report.issues) == 1
+    assert report.issues[0].line == 25
+
+
+def test_strict_body_flag_promotes_warnings_to_error_exit(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {"name": "chalk-code", "requires": []},
+        body="Read agents/manim-code/SKILL.md first.\n",
+    )
+
+    result = runner.invoke(app, ["audit-skills", "--skills-root", str(tmp_path)])
+    strict_result = runner.invoke(
+        app,
+        ["audit-skills", "--skills-root", str(tmp_path), "--strict-body"],
+    )
+
+    assert result.exit_code == 0
+    assert strict_result.exit_code == 1
+
+
+def test_report_formatting_shows_severity_prefix(tmp_path: Path) -> None:
+    write_skill(
+        tmp_path,
+        "agents",
+        "chalk-code",
+        {"name": "chalk-code", "requires": []},
+        body="Read agents/manim-code/SKILL.md first.\n",
+    )
+
+    report = audit_skills(tmp_path)
+
+    assert "[warning]" in format_report(report)

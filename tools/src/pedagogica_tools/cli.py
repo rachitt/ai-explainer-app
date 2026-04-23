@@ -80,10 +80,16 @@ def audit_skills_cmd(
         "--skills-root",
         help="Root directory containing agents/ and knowledge/ subdirs.",
     ),
+    strict_body: bool = typer.Option(
+        False,
+        "--strict-body",
+        help="Promote body-ref warnings to errors (exit 1 if any).",
+    ),
 ) -> None:
     """Audit SKILL frontmatter for drift (name mismatch, dangling requires).
 
-    Exit codes: 0 = clean, 1 = issues found, 2 = usage/IO error.
+    Exit codes: 0 = clean or warnings-only, 1 = errors or strict-body warnings,
+    2 = usage/IO error.
     """
     from pedagogica_tools.audit_skills import audit_skills, format_report
 
@@ -97,7 +103,7 @@ def audit_skills_cmd(
 
     report = audit_skills(root)
     typer.echo(format_report(report))
-    if report.has_errors:
+    if report.has_errors or (report.has_warnings and strict_body):
         raise typer.Exit(code=1)
 
 
