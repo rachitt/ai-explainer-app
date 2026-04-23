@@ -352,3 +352,148 @@ class Demo(Scene):
     )
 
     assert [e.rule for e in lint_file(scene) if e.rule == "R8-mathtex-variadic"] == []
+
+
+def test_move_to_inside_zone_top_reports_r9(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import MathTex, Scene
+
+class Demo(Scene):
+    def construct(self):
+        mob = MathTex("x")
+        mob.move_to(0.0, 2.2)
+""",
+    )
+
+    errors = [e for e in lint_file(scene) if e.rule == "R9-zone-collision"]
+
+    assert len(errors) == 1
+    assert (
+        errors[0].message
+        == "R9-zone-collision: move_to(..., y=2.2) lands inside ZONE_TOP band (2.0, 3.5). "
+        "Use place_in_zone(mob, ZONE_TOP) or next_to(mob, anchor)."
+    )
+
+
+def test_move_to_inside_zone_bottom_reports_r9(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import MathTex, Scene
+
+class Demo(Scene):
+    def construct(self):
+        mob = MathTex("x")
+        mob.move_to(0.0, -2.5)
+""",
+    )
+
+    errors = [e for e in lint_file(scene) if e.rule == "R9-zone-collision"]
+
+    assert len(errors) == 1
+    assert (
+        errors[0].message
+        == "R9-zone-collision: move_to(..., y=-2.5) lands inside ZONE_BOTTOM band (-3.5, -2.0). "
+        "Use place_in_zone(mob, ZONE_BOTTOM) or next_to(mob, anchor)."
+    )
+
+
+def test_move_to_inside_zone_center_passes_r9(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import MathTex, Scene
+
+class Demo(Scene):
+    def construct(self):
+        mob = MathTex("x")
+        mob.move_to(0.0, 0.4)
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R9-zone-collision"] == []
+
+
+def test_move_to_outside_frame_passes_r9(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import MathTex, Scene
+
+class Demo(Scene):
+    def construct(self):
+        mob = MathTex("x")
+        mob.move_to(0.0, 5.0)
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R9-zone-collision"] == []
+
+
+def test_move_to_on_zone_boundary_passes_r9(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import MathTex, Scene
+
+class Demo(Scene):
+    def construct(self):
+        top = MathTex("x")
+        bottom = MathTex("y")
+        top.move_to(0.0, 2.0)
+        bottom.move_to(0.0, -2.0)
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R9-zone-collision"] == []
+
+
+def test_shift_in_zone_band_passes_r9(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import MathTex, Scene
+
+class Demo(Scene):
+    def construct(self):
+        mob = MathTex("x")
+        mob.shift(0.0, 2.2)
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R9-zone-collision"] == []
+
+
+def test_move_to_variable_y_passes_r9(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import MathTex, Scene
+
+class Demo(Scene):
+    def construct(self):
+        mob = MathTex("x")
+        y_val = 2.2
+        mob.move_to(0.0, y_val)
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R9-zone-collision"] == []
+
+
+def test_move_to_single_arg_passes_r9(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import MathTex, Scene
+
+class Demo(Scene):
+    def construct(self):
+        mob = MathTex("x")
+        mob.move_to((0.0, 2.2))
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R9-zone-collision"] == []

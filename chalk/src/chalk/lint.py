@@ -1,4 +1,10 @@
-"""AST linter for chalk scene files. Enforces palette + scale discipline."""
+"""AST linter for chalk scene files.
+
+Rules:
+R1 raw hex literals, R2 magic scales, R3 no motion, R4 too many beats,
+R5 hand-sized boxes, R6 long beats, R7 unpositioned always_redraw,
+R8 variadic MathTex, R9 move_to zone collision.
+"""
 from __future__ import annotations
 
 import ast
@@ -19,6 +25,10 @@ _HEX_RE = re.compile(r"^#[0-9A-Fa-f]{3,8}$")
 _ALLOWLIST_PATH = Path(__file__).with_name("_lint_allowlist.txt")
 _MAX_BEAT_SECONDS = 10.0
 _DEFAULT_PLAY_SECONDS = 1.0
+_ZONE_BANDS = (
+    ("ZONE_TOP", (2.0, 3.5)),
+    ("ZONE_BOTTOM", (-3.5, -2.0)),
+)
 _POSITION_LESS_CONSTRUCTORS = {
     "MathTex",
     "Text",
@@ -99,7 +109,10 @@ class _Visitor(ast.NodeVisitor):
             )
 
     def visit_Call(self, node):
-        """R2: scale=<numeric literal> anywhere a kwarg is passed."""
+        """R2: scale=<numeric literal> anywhere a kwarg is passed.
+
+        R9: .move_to(x, y) absolute placement inside reserved zone bands.
+        """
         for kw in node.keywords:
             if (
                 kw.arg == "scale"
@@ -115,6 +128,23 @@ class _Visitor(ast.NodeVisitor):
                         f"scale={kw.value.value} - use SCALE_DISPLAY/BODY/LABEL/ANNOT/MIN",
                     )
                 )
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "move_to" and len(node.args) >= 2:
+            y = _constant_number(node.args[1])
+            if y is not None:
+                for zone_name, band in _ZONE_BANDS:
+                    if band[0] < y < band[1]:
+                        self.errors.append(
+                            LintError(
+                                self.path,
+                                node.args[1].lineno,
+                                node.args[1].col_offset,
+                                "R9-zone-collision",
+                                f"R9-zone-collision: move_to(..., y={y}) lands inside "
+                                f"{zone_name} band {band}. Use place_in_zone(mob, {zone_name}) "
+                                "or next_to(mob, anchor).",
+                            )
+                        )
+                        break
         self.generic_visit(node)
 
     def visit_ClassDef(self, node):
