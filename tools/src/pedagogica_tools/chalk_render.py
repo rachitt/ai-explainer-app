@@ -267,8 +267,9 @@ def render(
     # land in the sandboxed write region.
     tmp_dir = artifact_dir / f"_chalk_tmp_{uuid4().hex[:8]}"
     tmp_dir.mkdir(parents=True, exist_ok=True)
+    preflight_json = tmp_dir / "preflight.json"
 
-    cmd = [
+    base_cmd = [
         SANDBOX_EXEC,
         "-D",
         f"ARTIFACT_DIR={artifact_dir}",
@@ -277,10 +278,19 @@ def render(
         str(chalk_bin),
         str(code_path),
         "-s", scene_class,
-        "-o", str(output_path),
         "--width", str(opts.width),
         "--height", str(opts.height),
         "--fps", str(opts.fps),
+    ]
+    preflight_cmd = [
+        *base_cmd,
+        "--preflight",
+        "--preflight-json", str(preflight_json),
+        *opts.extra_chalk_args,
+    ]
+    cmd = [
+        *base_cmd,
+        "-o", str(output_path),
         *opts.extra_chalk_args,
     ]
 
@@ -289,6 +299,65 @@ def render(
     tex_bin = "/Library/TeX/texbin"
     if tex_bin not in env.get("PATH", ""):
         env["PATH"] = tex_bin + ":" + env.get("PATH", "")
+
+    preflight_stderr = ""
+    try:
+        preflight_proc = subprocess.Popen(
+            preflight_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            preexec_fn=_make_preexec(
+                opts.cpu_limit, opts.memory_limit_mb, opts.output_size_limit_mb
+            ),
+            start_new_session=True,
+            text=True,
+        )
+    except FileNotFoundError as e:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        return _write_result(
+            _compile_result(
+                scene_id=scene_id,
+                attempt_number=attempt_number,
+                success=False,
+                stderr=f"failed to invoke sandbox-exec: {e}",
+                classification="other",
+            ),
+            result_json_path,
+        )
+
+    preflight_timed_out = False
+    try:
+        _preflight_stdout, preflight_stderr = preflight_proc.communicate(
+            timeout=opts.wall_limit
+        )
+    except subprocess.TimeoutExpired:
+        preflight_timed_out = True
+        try:
+            os.killpg(preflight_proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            _preflight_stdout, preflight_stderr = preflight_proc.communicate(
+                timeout=10
+            )
+        except subprocess.TimeoutExpired:
+            preflight_proc.kill()
+            _preflight_stdout, preflight_stderr = preflight_proc.communicate()
+
+    if preflight_proc.returncode != 0 or preflight_timed_out:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        return _write_result(
+            _compile_result(
+                scene_id=scene_id,
+                attempt_number=attempt_number,
+                success=False,
+                stderr=_tail_bytes(preflight_stderr or "", _STDERR_TAIL_BYTES) or None,
+                stdout_tail=None,
+                classification="layout_overlap",
+            ),
+            result_json_path,
+        )
 
     start = time.monotonic()
     timed_out = False

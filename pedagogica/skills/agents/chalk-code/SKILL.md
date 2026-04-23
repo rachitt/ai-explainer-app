@@ -64,7 +64,7 @@ Write two sibling files:
       PRIMARY, BLUE, YELLOW, GREEN, GREY, RED_FILL,
       SCALE_DISPLAY, SCALE_BODY, SCALE_LABEL, SCALE_ANNOT,
       ZONE_TOP, ZONE_CENTER, ZONE_BOTTOM,
-      place_in_zone, next_to, labeled_box, arrow_between,
+      place_in_zone, next_to, labeled_box, arrow_between, multi_panel,
   )
   import numpy as np
   import math
@@ -319,9 +319,24 @@ Self-check before emitting:
 12. `labeled_box(...)` return is unpacked as `box, label = labeled_box(...)` — the function returns a tuple, not a single mobject.
 13. No `MathTex(r"\a", r"\b", ...)` variadic call — chalk's `MathTex` takes a single `tex_string`. A second positional arg binds to `color` and raises `TypeError`. For sub-expression highlighting, compose multiple MathTex with `next_to` and animate the target piece.
 14. Zone collision: after `place_in_zone(A, ZONE_X)`, any second element in ZONE_X must be positioned with `next_to(B, A, direction=..., buff=...)`, **never** `move_to(x, y)` with a hand-picked y inside that zone's band. Same applies across zones — do not `move_to(0.0, 2.2)` when a title sits at ZONE_TOP (2.0, 3.5); the two will overlap.
-15. **Bbox probe pre-emit.** Run `chalk.layout.check_bbox_overlap(self._mobjects, padding=0.05)` in a throwaway in-process instantiation before shipping. Ignore intentional co-location (Line-Line pipe joints, Rectangle+MathTex inside a `labeled_box`, Circle+Arrow at a FBD mass, Axes vs the `VMobject` plot curves it contains). Any remaining pair is a real overlap — tighten buffs or space elements further apart. See `chalk/src/chalk/layout.py:check_bbox_overlap` for signature.
-16. **Off-frame probe pre-emit.** For each mobject's `_bbox(mob)`, reject if `xmin < -7.1`, `xmax > 7.1`, `ymin < -4.0`, `ymax > 4.0` (frame 14.2 × 8.0). Common offender: a stack of equations via `next_to(eq_next, eq_prev, direction="DOWN")` where the final item's `ymin` drops below −4.0. Fix by reducing line count, shrinking `scale=`, or splitting across two beats with `self.clear()`.
+15. **Layout preflight is automatic.** `pedagogica-tools chalk-render` calls `chalk --preflight` before the real render. If it fails, the scene is rejected with `error_classification="layout_overlap"` and `chalk-repair` is invoked. You do not run the probe by hand — but you must still lay out scenes so the preflight passes on the first try. Common recipes: use `chalk.multi_panel(n, ...)` for any >=2-panel scene; never `move_to(x, y)` a label onto an `Axes` bbox — use `next_to(label, axes, direction="UP", buff=0.15)` or `place_in_zone(label, ZONE_TOP)`.
+16. **Multi-panel scenes use `multi_panel`.** Any scene with >=2 `Axes` objects must place them via `slots = multi_panel(n, ...)` and then `ax = Axes(width=slots[i][2], height=slots[i][3]); ax.shift(slots[i][0], slots[i][1])`. Hand-picked `shift(...)` math for multi-panel layouts is banned. See `chalk/src/chalk/layout.py:multi_panel`.
 17. **Axes kwarg is `color=`, not `axis_color=`.** Manim uses `axis_color`. chalk's `Axes(..., color=GREY)` sets both axis line and tick colour. Enforced by `chalk-debugging` catalog entry `axes-axis-color-renamed`.
+
+Before/after for a 3-panel triptych:
+
+```python
+# WRONG
+ax1 = Axes(width=3.8, height=2.4); ax1.shift(-4.0, 0.0)
+ax2 = Axes(width=3.8, height=2.4); ax2.shift(0.0, 0.0)
+ax3 = Axes(width=3.8, height=2.4); ax3.shift(4.0, 0.0)
+
+# RIGHT
+slots = multi_panel(3, height=2.4)
+ax1 = Axes(width=slots[0][2], height=slots[0][3]); ax1.shift(slots[0][0], slots[0][1])
+ax2 = Axes(width=slots[1][2], height=slots[1][3]); ax2.shift(slots[1][0], slots[1][1])
+ax3 = Axes(width=slots[2][2], height=slots[2][3]); ax3.shift(slots[2][0], slots[2][1])
+```
 
 ## Example
 

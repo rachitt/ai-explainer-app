@@ -134,6 +134,12 @@ self.clear()
 except those in `keep`.  Use `keep` when one element anchors multiple beats
 (e.g. an agent circle that stays while tools fan out around it).
 
+## Layout preflight
+
+`chalk --preflight` runs `Scene.construct()` with `play`/`wait` stubbed and
+checks each section snapshot for bbox overlaps and off-frame content. The
+Pedagogica render pipeline runs this gate before every real render.
+
 **Anti-pattern:** keep calling `self.add()` and `self.play(FadeIn(...))` across
 five beats without ever calling `self.clear()`.  By the end, the title is
 still visible underneath the payoff caption.  Don't do this.

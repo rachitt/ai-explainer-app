@@ -28,7 +28,7 @@ from chalk.style import (
 )
 from chalk.layout import (
     next_to, place_in_zone, labeled_box, arrow_between, brace_label,
-    check_bbox_overlap,
+    check_bbox_overlap, multi_panel,
 )
 from chalk.rate_funcs import linear, smooth, ease_in_out, there_and_back
 from chalk.brace import Brace
@@ -64,5 +64,5 @@ __all__ = [
     "TransformMatchingTex",
     # Layout helpers
     "next_to", "place_in_zone", "labeled_box", "arrow_between", "brace_label",
-    "check_bbox_overlap",
+    "check_bbox_overlap", "multi_panel",
 ]

@@ -144,6 +144,62 @@ def check_bbox_overlap(
     return overlaps
 
 
+def multi_panel(
+    n: int,
+    *,
+    widths: list[float] | None = None,
+    gap: float = 0.4,
+    y: float = 0.0,
+    height: float = 3.0,
+    x_extent: tuple[float, float] = (-6.4, 6.4),
+) -> list[tuple[float, float, float, float]]:
+    """Return N non-overlapping (center_x, center_y, width, height) panel slots.
+
+    Authors pass these into Axes(width=w, height=h) and then shift(cx, cy). If
+    `widths` is None, split x_extent evenly among n panels. If `widths` is
+    given, scale uniformly to fit inside (x_extent, gap).
+    """
+    if n < 1:
+        raise ValueError("multi_panel requires n >= 1")
+    x0, x1 = x_extent
+    total_width = x1 - x0
+    if total_width <= 0:
+        raise ValueError("x_extent must have positive width")
+    if gap < 0:
+        raise ValueError("gap must be non-negative")
+
+    gap_total = (n - 1) * gap
+    usable = total_width - gap_total
+    if usable <= 0:
+        raise ValueError("x_extent too narrow for requested panels and gaps")
+
+    if widths is None:
+        panel_widths = [usable / n] * n
+    else:
+        if len(widths) != n:
+            raise ValueError("widths length must match n")
+        if any(w <= 0 for w in widths):
+            raise ValueError("widths must all be positive")
+        scale = usable / sum(widths)
+        panel_widths = [w * scale for w in widths]
+
+    if any(w < 1.0 for w in panel_widths):
+        raise ValueError("each panel width must be >= 1.0")
+
+    slots: list[tuple[float, float, float, float]] = []
+    cursor = x0
+    for width in panel_widths:
+        cx = cursor + width / 2
+        left = cx - width / 2
+        right = cx + width / 2
+        if left < x0 - 1e-9 or right > x1 + 1e-9:
+            raise ValueError("panel slot falls outside x_extent")
+        slots.append((cx, y, width, height))
+        cursor = right + gap
+
+    return slots
+
+
 def _bbox(target: Target) -> tuple[float, float, float, float]:
     if isinstance(target, VGroup):
         return target.bbox()

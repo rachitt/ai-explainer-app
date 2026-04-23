@@ -172,3 +172,13 @@ entries:
           ZONE_TOP, ZONE_BOTTOM,
           place_in_zone,
       )
+
+  - id: layout-overlap-preflight
+    classification: layout_overlap
+    fingerprint: "preflight overlap|preflight offframe"
+    repair:
+      - Read the preflight JSON report: section, pair/mob, bbox rect.
+      - For panel overlaps: rebuild axes with chalk.multi_panel(n, ...); drop hand-picked shifts.
+      - For label-on-axes: replace move_to(x, y) with next_to(label, axes, direction="UP", buff=0.15).
+      - For off-frame text: reduce scale=, split into two sections via self.clear(), or move into ZONE_BOTTOM.
+      - Do NOT patch by shrinking buff below 0.1.

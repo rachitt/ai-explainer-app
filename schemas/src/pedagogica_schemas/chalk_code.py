@@ -9,6 +9,7 @@ ErrorClassification = Literal[
     "latex_error",
     "api_error",
     "geometry_error",
+    "layout_overlap",
     "syntax_error",
     "timing_error",
     "memory_error",
