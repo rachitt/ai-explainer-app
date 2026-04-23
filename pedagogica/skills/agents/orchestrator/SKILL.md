@@ -99,6 +99,11 @@ For each stage `S` with `status != complete`:
   4. Every `compile_attempt_<N>.json` must validate against `CompileResult` — the render helper writes it; don't hand-edit. No separate validation step is needed (the helper emits schema-conforming JSON).
 - Mark the stage `complete` only after every scene has a successful render.
 - `artifact_path = "scenes/"` (directory, same convention as `script`).
+- **Post-render duration-drift check (warn-only):** before marking the stage complete, run
+  ```
+  uv run pedagogica-tools check-duration artifacts/<job_id>
+  ```
+  (no `--strict`). The tool reads the latest `compile_attempt_<N>.json` per scene and reports `|video_duration - target_duration| / target` drift. Surface the stdout table in the stage's `trace` event so `pedagogica-tools view` shows which scenes are off-target. Do **not** halt the stage on drift in Phase 1 — drift is a quality signal, not a failure. If a scene is >15 % off, the fix belongs in `chalk-code` SKILL (AnimationGroup `lag_ratio` accounting, per `workflows/lessons.md`), not in per-scene hand-patches.
 
 **`tts` fan-out (per-scene, non-LLM):**
 

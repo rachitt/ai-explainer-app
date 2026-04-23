@@ -283,6 +283,40 @@ def measure_drift(scene_dir: str) -> None:
     raise typer.Exit(code=2)
 
 
+@app.command("check-duration")
+def check_duration(
+    job_dir: str = typer.Argument(..., help="Artifact job directory."),
+    threshold: float = typer.Option(
+        0.15, help="Drift fraction beyond which a scene is flagged (default 0.15 = 15%)."
+    ),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit 1 if any scene is over threshold (default: warn-only exit 0).",
+    ),
+) -> None:
+    """Report per-scene |video_duration - target_duration| drift from latest CompileResult.
+
+    Exit codes: 0 = ok, 1 = over threshold under --strict, 2 = usage/IO error.
+    """
+    from pedagogica_tools.check_duration import check_job_duration, format_report
+
+    job_path = Path(job_dir)
+    if not job_path.is_dir():
+        typer.echo(f"not a directory: {job_dir}", err=True)
+        raise typer.Exit(code=2)
+
+    scenes_dir = job_path / "scenes"
+    if not scenes_dir.is_dir():
+        typer.echo(f"no scenes/ in {job_dir}", err=True)
+        raise typer.Exit(code=2)
+
+    report = check_job_duration(job_path, threshold=threshold)
+    typer.echo(format_report(report))
+    if strict and report.any_over_threshold:
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def trace(job_id: str, event_json: str) -> None:
     """Append a single event line to a job's trace.jsonl."""
