@@ -60,6 +60,27 @@ Write `artifacts/<job_id>/03_storyboard.json`. Fields:
 
 These are guidelines; the only hard constraint is that the scene total is within ±0.5s of `total_duration_seconds`.
 
+## Depth budget — cap LOs per video
+
+Every extra learning objective turns a video from an explanation into a firehose. Cap aggressively:
+
+| `target_length_seconds` | Max LOs covered in depth | Extra LOs may be *named* only |
+|---|---|---|
+| 60–120 | 1 | 0 |
+| 120–240 (Phase-1 sweet spot) | 1 (sometimes 2 if tightly linked) | 1 more, as a teaser in the recap |
+| 240–360 | 2 | 1 |
+| 360–600 | 3 | 1 |
+
+"In depth" means: has its own `define` scene + its own `example` scene. A mentioned-but-not-taught LO does NOT count — if the curriculum lists 3 LOs but the video only covers 1, that's fine; drop the other two from the scene list or name them in the recap as "next video" hooks.
+
+If you receive a `CurriculumPlan` with more LOs than this budget allows, **pick the subset** that best serves the hook question. Don't try to fit all of them. Cramming LOs at the budget limit will produce dense narration that reads like a textbook summary, not an explainer.
+
+Pick-rule in priority order:
+1. The LO that directly answers the hook's question.
+2. The LO whose prerequisites are already carried by the audience level.
+3. The LO with the cleanest single visual (graph, diagram, animation).
+Skip the rest with a one-line recap mention: "We've only scratched the surface — next time: …".
+
 ## Sequencing rules
 
 - Every LO appears in at least one `define` or `motivate` beat before any `example` beat that depends on it (follow `curriculum.sequence` transitively).

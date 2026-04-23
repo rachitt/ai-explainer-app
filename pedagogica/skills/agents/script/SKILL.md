@@ -74,6 +74,27 @@ Pick one pattern per beat and fill its slots. Never mix patterns inside one scen
 
 Use the scene's `narration_intent` from the storyboard as the **goal** of the beat, not as a sentence to paraphrase. Your narration realises the intent; it doesn't recite it.
 
+## Explain, don't recite
+
+A script that reads the symbols on screen aloud is a script that teaches nothing. The narration has to explain **why** each piece is there, not just name it. This is the single biggest pedagogical failure mode.
+
+**Recitation (bad):**
+> "Degree three adds minus x cubed over six. Degree five adds x to the fifth over one hundred twenty."
+
+**Explanation (good):**
+> "The third term matches how the curve bends. Sine curves downward past zero, so we subtract a cubic. The fifth term matches how that bending turns around — the curve comes back up, so we add a smaller term, x to the fifth."
+
+Concrete rules:
+
+- **Every new symbol on screen earns one *because* sentence.** When a term, coefficient, or piece appears, the narrator names what it does and why — not what it says.
+  - BAD: `"Add minus b times x dot."` (recitation)
+  - GOOD: `"We add a drag force. It opposes motion, so it's negative. It's proportional to velocity, because faster motion hits more air."`
+- **Name the role before the symbol.** "The restoring force — the thing that pulls the spring back" — *then* the symbol. The viewer needs the concept before the glyph.
+- **When the equation has multiple terms, give each a short role name.** "Three parts: the inertia term, the damping term, the spring term. Sum them and the total is zero." The viewer hears *structure*, not *tokens*.
+- **Reading a derivation out loud is not teaching.** If the narration says "multiply both sides by X, divide both sides by Y", the viewer has a watchable derivation — not an understandable idea. Rewrite: "We want a form where Y drops out, so we normalize."
+- **Ask the viewer's question before answering it.** "Why that specific coefficient?" "What happens if we stop after one term?" "Does this work everywhere?" Posing the question primes the viewer to receive the answer. Answering unasked questions is noise.
+- **Pass the sanity check.** Read the whole script aloud. If more than half the sentences could be deleted without changing what the viewer *understands* about the topic, the script is reciting, not explaining.
+
 ## Opening: ease the viewer in
 
 A video is not a lecture notes dump. The first 5–10 seconds decide whether the viewer keeps watching.

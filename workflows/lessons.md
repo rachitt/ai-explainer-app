@@ -134,3 +134,15 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** script SKILL documented sentence-length + spoken-style rules but had no rule for *opening pacing*. Hook beat pattern in the table said "one-sentence motivate → one-sentence framing question" but didn't specify that the motivate sentence must be non-technical.
 **Fix:** added "Opening: ease the viewer in" section to `pedagogica/skills/agents/script/SKILL.md` with concrete hook-scene and define-scene rules: open with a familiar phenomenon, no jargon in the first sentence, technical names arrive after motivation. Includes before/after examples for both topics. Added three anti-pattern bullets (no imperative opening, no pre-motivation jargon, no cold-equation define-scene opening).
 **Applies to:** every new script, especially scene_01 and the first `define` beat. When drafting, read the first 10 seconds aloud — if it sounds like a problem set instruction or a textbook definition, rewrite from a familiar phenomenon instead.
+
+## 2026-04-23 — Taylor series video: three failure modes compounded
+**Mistake:** Taylor-series job had (1) narration that recited equations without explaining why each term is there ("degree three adds minus x cubed over six"), (2) scene_03 plot with 4 Taylor polynomials + sine on same axes clipped to ±1.75 — clipping produced ugly horizontal flat sections where curves diverged; viewer could not read any single polynomial, (3) scene_04 Table overflowed ZONE_TOP — table top at y=2.73 collided with title bottom at y=2.48, and my probe script ignored all Table overlaps so it never flagged.
+**Root cause:**
+- Pedagogy: script SKILL told authors to frame symbols, but did not require *why*-explanations. Narration became symbol-reading.
+- Visual density: storyboard packed 3 LOs into a 180 s video (motivation, formula, sine example). The "sine example" scene tried to plot four approximations at once; they blended and clipped.
+- Probe gap: my reusable probe filter blanket-ignored `Table` because Table *contains* MathTex cells by design. But that also masked *external* MathTex overlapping with a Table — exactly the title-vs-table collision here.
+**Fix:**
+- `script/SKILL.md` — added "Explain, don't recite" section with concrete recitation/explanation examples and 6 sub-rules.
+- `storyboard/SKILL.md` — added "Depth budget" section capping LOs by duration (180 s → max 1 LO in depth, maybe 2 if tightly linked). Plus a pick-rule for trimming the curriculum.
+- Probe filter corrected (in `/tmp/probe_*.py`): Table-vs-MathTex/Line only ignored when both are Table *children*; Table-vs-external-Table or Table-vs-other-MathTex are real overlaps.
+**Applies to:** every future video. Depth budget is a hard constraint on storyboard; explain-don't-recite is the script author's primary job. Probe must treat composite VGroups as opaque rectangles when checking against external objects.
