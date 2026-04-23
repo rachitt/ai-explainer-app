@@ -367,12 +367,15 @@ def check_duration(
     strict: bool = typer.Option(
         False,
         "--strict",
-        help="Exit 1 if any scene is over threshold (default: warn-only exit 0).",
+        help=(
+            "Exit 1 if any scene is over threshold or has a broken render "
+            "(default: warn-only exit 0)."
+        ),
     ),
 ) -> None:
     """Report per-scene |video_duration - target_duration| drift from latest CompileResult.
 
-    Exit codes: 0 = ok, 1 = over threshold under --strict, 2 = usage/IO error.
+    Exit codes: 0 = ok, 1 = over threshold or broken render under --strict, 2 = usage/IO error.
     """
     from pedagogica_tools.check_duration import check_job_duration, format_report
 
@@ -388,7 +391,7 @@ def check_duration(
 
     report = check_job_duration(job_path, threshold=threshold)
     typer.echo(format_report(report))
-    if strict and report.any_over_threshold:
+    if strict and (report.any_over_threshold or report.any_broken_render):
         raise typer.Exit(code=1)
 
 

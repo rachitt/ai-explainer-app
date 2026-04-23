@@ -5,7 +5,11 @@ from uuid import uuid4
 
 import pytest
 from pedagogica_schemas.chalk_code import CompileResult
-from pedagogica_tools.check_duration import check_job_duration, load_latest_compile_result
+from pedagogica_tools.check_duration import (
+    check_job_duration,
+    format_report,
+    load_latest_compile_result,
+)
 from pedagogica_tools.cli import app
 from typer.testing import CliRunner
 
@@ -19,14 +23,17 @@ def _compile_result(
     attempt_number: int = 1,
     video_duration_seconds: float | None,
     target_duration_seconds: float | None,
+    frame_count: int | None = None,
+    success: bool = True,
 ) -> CompileResult:
     return CompileResult(
         trace_id=uuid4(),
         span_id=uuid4(),
         producer="test",
         scene_id=scene_id,
-        success=True,
+        success=success,
         attempt_number=attempt_number,
+        frame_count=frame_count,
         video_duration_seconds=video_duration_seconds,
         target_duration_seconds=target_duration_seconds,
     )
@@ -39,6 +46,8 @@ def _write_attempt(
     attempt_number: int = 1,
     video_duration_seconds: float | None,
     target_duration_seconds: float | None,
+    frame_count: int | None = None,
+    success: bool = True,
 ) -> None:
     scene_dir = job_dir / "scenes" / scene_id
     scene_dir.mkdir(parents=True, exist_ok=True)
@@ -47,6 +56,8 @@ def _write_attempt(
         attempt_number=attempt_number,
         video_duration_seconds=video_duration_seconds,
         target_duration_seconds=target_duration_seconds,
+        frame_count=frame_count,
+        success=success,
     )
     (scene_dir / f"compile_attempt_{attempt_number}.json").write_text(
         result.model_dump_json(), encoding="utf-8"
@@ -164,3 +175,116 @@ def test_cli_missing_job_dir_exits_2(tmp_path: Path) -> None:
 
     assert result.exit_code == 2
     assert "not a directory" in result.stderr
+
+
+def test_broken_render_detected_frame_count_zero(tmp_path: Path) -> None:
+    job_dir = tmp_path / "job"
+    _write_attempt(
+        job_dir,
+        "scene_a",
+        frame_count=0,
+        video_duration_seconds=0.0,
+        target_duration_seconds=10.0,
+        success=True,
+    )
+
+    report = check_job_duration(job_dir)
+
+    assert report.scenes[0].is_broken_render
+    assert report.any_broken_render
+
+
+def test_broken_render_detected_duration_zero_frames_nonzero(tmp_path: Path) -> None:
+    job_dir = tmp_path / "job"
+    _write_attempt(
+        job_dir,
+        "scene_a",
+        frame_count=5,
+        video_duration_seconds=0.0,
+        target_duration_seconds=10.0,
+    )
+
+    report = check_job_duration(job_dir)
+
+    assert report.scenes[0].is_broken_render
+    assert report.any_broken_render
+
+
+def test_healthy_render_not_flagged_as_broken(tmp_path: Path) -> None:
+    job_dir = tmp_path / "job"
+    _write_attempt(
+        job_dir,
+        "scene_a",
+        frame_count=450,
+        video_duration_seconds=15.0,
+        target_duration_seconds=15.0,
+    )
+
+    report = check_job_duration(job_dir)
+
+    assert not report.scenes[0].is_broken_render
+    assert not report.any_broken_render
+
+
+def test_failed_compile_not_flagged_as_broken(tmp_path: Path) -> None:
+    job_dir = tmp_path / "job"
+    _write_attempt(
+        job_dir,
+        "scene_a",
+        frame_count=0,
+        video_duration_seconds=0.0,
+        target_duration_seconds=10.0,
+        success=False,
+    )
+
+    report = check_job_duration(job_dir)
+
+    assert not report.scenes[0].is_broken_render
+    assert not report.any_broken_render
+
+
+def test_strict_flag_exits_1_on_broken_render(tmp_path: Path) -> None:
+    job_dir = tmp_path / "job"
+    _write_attempt(
+        job_dir,
+        "scene_a",
+        frame_count=0,
+        video_duration_seconds=9.9,
+        target_duration_seconds=10.0,
+    )
+
+    result = runner.invoke(app, ["check-duration", str(job_dir), "--strict"])
+
+    assert result.exit_code == 1
+
+
+def test_non_strict_exits_0_on_broken_render(tmp_path: Path) -> None:
+    job_dir = tmp_path / "job"
+    _write_attempt(
+        job_dir,
+        "scene_a",
+        frame_count=0,
+        video_duration_seconds=9.9,
+        target_duration_seconds=10.0,
+    )
+
+    result = runner.invoke(app, ["check-duration", str(job_dir)])
+
+    assert result.exit_code == 0, result.stderr
+
+
+def test_format_report_shows_broken_column(tmp_path: Path) -> None:
+    job_dir = tmp_path / "job"
+    _write_attempt(
+        job_dir,
+        "scene_a",
+        frame_count=0,
+        video_duration_seconds=9.9,
+        target_duration_seconds=10.0,
+    )
+
+    output = format_report(check_job_duration(job_dir))
+
+    assert "broken" in output
+    assert "YES" in output
+    assert "1 broken" in output

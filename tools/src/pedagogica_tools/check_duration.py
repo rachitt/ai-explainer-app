@@ -17,6 +17,12 @@ class SceneDurationDrift:
     drift_seconds: float | None
     drift_fraction: float | None
     over_threshold: bool
+    frame_count: int | None = None
+    success: bool = True
+
+    @property
+    def is_broken_render(self) -> bool:
+        return self.success and (self.frame_count == 0 or self.video_duration_seconds == 0.0)
 
 
 @dataclass(frozen=True)
@@ -28,6 +34,10 @@ class DurationReport:
     @property
     def any_over_threshold(self) -> bool:
         return any(s.over_threshold for s in self.scenes)
+
+    @property
+    def any_broken_render(self) -> bool:
+        return any(s.is_broken_render for s in self.scenes)
 
 
 def load_latest_compile_result(scene_dir: Path) -> CompileResult | None:
@@ -57,6 +67,8 @@ def check_job_duration(job_dir: Path, threshold: float = 0.15) -> DurationReport
 
         video = result.video_duration_seconds
         target = result.target_duration_seconds
+        frame_count = result.frame_count
+        success = result.success
         drift_seconds: float | None = None
         drift_fraction: float | None = None
         if video is None or target is None:
@@ -73,6 +85,8 @@ def check_job_duration(job_dir: Path, threshold: float = 0.15) -> DurationReport
                 drift_seconds=drift_seconds,
                 drift_fraction=drift_fraction,
                 over_threshold=drift_fraction is not None and abs(drift_fraction) > threshold,
+                frame_count=frame_count,
+                success=success,
             )
         )
 
@@ -93,27 +107,33 @@ def _format_percent(value: float | None) -> str:
 
 def format_report(report: DurationReport) -> str:
     lines = [
-        f"{'':1} {'scene_id':<20} {'video_s':>9} {'target_s':>9} {'drift_s':>9} {'drift_%':>8}",
-        "-" * 61,
+        f"{'':1} {'scene_id':<20} {'video_s':>9} {'target_s':>9} {'drift_s':>9} "
+        f"{'drift_%':>8} {'broken':>6}",
+        "-" * 68,
     ]
     for scene in report.scenes:
-        marker = "!" if scene.over_threshold else " "
+        marker = "!" if scene.over_threshold or scene.is_broken_render else " "
         lines.append(
             f"{marker} {scene.scene_id:<20} "
             f"{_format_seconds(scene.video_duration_seconds):>9} "
             f"{_format_seconds(scene.target_duration_seconds):>9} "
             f"{_format_seconds(scene.drift_seconds):>9} "
-            f"{_format_percent(scene.drift_fraction):>8}"
+            f"{_format_percent(scene.drift_fraction):>8} "
+            f"{'YES' if scene.is_broken_render else '':>6}"
         )
 
     over_count = sum(1 for scene in report.scenes if scene.over_threshold)
+    broken_count = sum(1 for scene in report.scenes if scene.is_broken_render)
     missing_count = sum(
         1
         for scene in report.scenes
         if scene.video_duration_seconds is None or scene.target_duration_seconds is None
     )
-    lines.append(
+    summary = (
         f"{over_count}/{len(report.scenes)} scenes over {report.threshold * 100:g}% drift; "
         f"{missing_count} missing duration data."
     )
+    if broken_count > 0:
+        summary += f" {broken_count} broken renders."
+    lines.append(summary)
     return "\n".join(lines)
