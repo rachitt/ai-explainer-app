@@ -74,6 +74,50 @@ Pick one pattern per beat and fill its slots. Never mix patterns inside one scen
 
 Use the scene's `narration_intent` from the storyboard as the **goal** of the beat, not as a sentence to paraphrase. Your narration realises the intent; it doesn't recite it.
 
+## Opening: ease the viewer in
+
+A video is not a lecture notes dump. The first 5–10 seconds decide whether the viewer keeps watching.
+
+**Hook-scene opening rules (scene_01):**
+
+- **Open with a familiar phenomenon, not a technical setup.** Start from something the viewer has seen outside a textbook — a swing, a garden hose, tapping a bell, stretching a slinky. The technical object is *inside* that phenomenon but not named yet.
+- **No jargon in the first sentence.** No `\rho`, no "cross-sectional area", no "restoring force", no "natural frequency". Those names arrive in scene_02 at the earliest.
+- **Second sentence narrows the frame.** Zoom from the phenomenon to the specific thing the video is about. Still in everyday language.
+- **Third sentence is the question, not the answer.** End the hook on a hook: a puzzle or a contrast the rest of the video will resolve.
+- **Name the topic *after* the question, if at all.** The viewer should feel they want to know the answer before they are told what it is called.
+
+Concrete before/after:
+
+```
+BAD (bluntly technical):
+  "Pull the mass to the right and let it go. It swings, and swings again,
+   a little shorter each time. Something is eating the amplitude."
+GOOD (familiar → narrow → question):
+  "Push a kid on a swing. Let go. They swing back, and back again, but
+   each swing is a little smaller. Eventually the swing stops. What is
+   taking the energy out — and can we write down how fast it happens?"
+
+BAD:
+  "Here is the wide section, with cross-sectional area capital A one."
+GOOD:
+  "Turn on a garden hose. Pinch the end. The water shoots out faster. Why
+   does the flow speed up the moment the opening gets smaller? The answer
+   is simple, and it sits in two laws."
+```
+
+**Define-scene opening rules (scene_02, first "define" beat):**
+
+- **Bridge in one half-sentence from the hook.** "Back to the swing" or "So — what is eating the amplitude". Never restart.
+- **Introduce one symbol at a time, framed by its noun phrase.** "The force the spring pulls with, which we'll call the restoring force" — then *after* the viewer has the concept, write the symbol. Symbol follows noun, not the reverse.
+
+**Later beats** may assume the hook has done its job — no re-warming. But every beat should begin with a phrase that tells the viewer *where we are in the argument*, not a cold equation.
+
+**Anti-patterns** (see the Anti-patterns section below for the full list):
+
+- Starting scene_01 with an imperative ("Pull the mass…", "Consider a wire…") — treats the viewer like a lab partner, not a curious person.
+- Starting with the formal definition. Formal names belong after the motivation, not before.
+- Starting with "In this video we will…" — classroom frame; 3blue1brown-style explainers don't announce themselves.
+
 ## Spoken-narration style (summary — see `spoken-narration-style` for the full rules)
 
 - **Sentences ≤ 15 words on average, hard cap 22.** Read it aloud; if it feels clotted, cut.
@@ -188,3 +232,6 @@ Word count is 38 → `38 / 2.5 ≈ 15.2 s`. The scene is a `define` beat with a 
 - Do **not** emit more than 5 markers per scene without a reason you can defend.
 - Do **not** re-tokenize creatively — `words` is strict whitespace split of `text`.
 - Do **not** re-teach the LO across scenes. Each scene adds one increment; the viewer accumulates the rest.
+- Do **not** open scene_01 with an imperative or a formal definition. Open with a familiar phenomenon (see "Opening: ease the viewer in").
+- Do **not** use technical terms before they are motivated. "The damping coefficient gamma" in sentence 1 lands as noise; motivate the concept first, name it second.
+- Do **not** start a define scene with a cold equation. Bridge from the hook in one half-sentence, then introduce the symbol inside a noun phrase.

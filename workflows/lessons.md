@@ -128,3 +128,9 @@ Keep entries ≤ 8 lines. No silent fixes.
 - TTS mispronunciation or operator-name read-aloud → update `script/SKILL.md` AND extend the `--pronounce` preprocessor dict in `tts_preproc.py`
 - Script-scene tokenization drift → tighten the script agent's word-count pre-flight, not the individual script
 **Applies to:** every follow-up fix after a failed render or pronunciation miss. Ask: "what stops this from recurring on the next job?" If the answer is "nothing", the fix is incomplete. The artifact is the symptom; the SKILL / lint / tool is the cure.
+
+## 2026-04-23 — scripts jumped straight into the topic
+**Mistake:** both E2E runs (fluid-flow, damped-oscillator) opened scene_01 with an imperative or a technical setup — "Pull the mass to the right and let it go" / "Here is the wide section with cross-sectional area capital A one". Viewer gets no motivation, no familiar phenomenon, no curiosity hook. Reads like lecture notes.
+**Root cause:** script SKILL documented sentence-length + spoken-style rules but had no rule for *opening pacing*. Hook beat pattern in the table said "one-sentence motivate → one-sentence framing question" but didn't specify that the motivate sentence must be non-technical.
+**Fix:** added "Opening: ease the viewer in" section to `pedagogica/skills/agents/script/SKILL.md` with concrete hook-scene and define-scene rules: open with a familiar phenomenon, no jargon in the first sentence, technical names arrive after motivation. Includes before/after examples for both topics. Added three anti-pattern bullets (no imperative opening, no pre-motivation jargon, no cold-equation define-scene opening).
+**Applies to:** every new script, especially scene_01 and the first `define` beat. When drafting, read the first 10 seconds aloud — if it sounds like a problem set instruction or a textbook definition, rewrite from a familiar phenomenon instead.
