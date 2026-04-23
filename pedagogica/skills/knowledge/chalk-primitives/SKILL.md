@@ -48,7 +48,7 @@ If an example fails to render in CI, the skill ships broken.
 
 ```python
 from chalk import (
-    Scene, MathTex, Circle, Rectangle, Line, Arrow,
+    Scene, MathTex, Table, Circle, Rectangle, Line, Arrow,
     Dot, Polygon, RegularPolygon, ArcBetweenPoints,
     Axes, plot_function, NumberLine, NumberPlane,
     VGroup,
@@ -128,6 +128,28 @@ arc  = ArcBetweenPoints((-2.0,0.0),(2.0,0.0), angle=1.57, color=YELLOW, stroke_w
 **`shift(dx, dy)` vs `move_to(x, y)`:** use `shift` for relative displacement, `move_to` for absolute placement (both take 2D args in chalk, unlike Manim's 3D vectors).
 
 See `examples/example_03_shapes.py` and `examples/example_04_dot_polygon.py`.
+
+---
+
+## 3a. Table — compact comparison grids
+
+`Table(rows, ...)` renders a centered grid of `MathTex` cells. Use it for small,
+explicit comparisons where each row and column is intentionally authored.
+
+```python
+table = Table(
+    [
+        [r"\text{Regime}", r"\zeta", r"\text{Behavior}"],
+        [r"\text{Underdamped}", r"0 < \zeta < 1", r"\text{oscillates}"],
+        [r"\text{Critical}", r"\zeta = 1", r"\text{fast return}"],
+        [r"\text{Overdamped}", r"\zeta > 1", r"\text{slow return}"],
+    ],
+    header_row=True,
+    col_align=["left", "center", "left"],
+    scale=SCALE_LABEL,
+)
+place_in_zone(table, ZONE_CENTER)
+```
 
 ---
 

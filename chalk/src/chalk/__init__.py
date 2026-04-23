@@ -14,6 +14,7 @@ from chalk.animation import (
 from chalk.scene import Scene
 from chalk.vgroup import VGroup
 from chalk.tex import MathTex
+from chalk.tables import Table
 from chalk.text import Text
 from chalk.axes import Axes, plot_function
 from chalk.coord import NumberLine, NumberPlane
@@ -38,7 +39,7 @@ __all__ = [
     "Mobject", "VMobject",
     "Circle", "Square", "Rectangle", "Line", "Arrow",
     "Dot", "Polygon", "RegularPolygon", "ArcBetweenPoints", "ParametricFunction",
-    "VGroup", "MathTex", "Text",
+    "VGroup", "MathTex", "Table", "Text",
     "Axes", "plot_function",
     "NumberLine", "NumberPlane",
     # Animations
