@@ -187,6 +187,19 @@ class _Visitor(ast.NodeVisitor):
                         "so the frame changes (use self.clear(keep=[...]) to preserve anchors)",
                     )
                 )
+        for scene in scenes:
+            for lineno in _find_mathtex_variadic(scene.statements):
+                self.errors.append(
+                    LintError(
+                        self.path,
+                        lineno,
+                        0,
+                        "R8-mathtex-variadic",
+                        "MathTex takes a single tex_string; second positional arg "
+                        "binds to color and raises TypeError. Compose multiple "
+                        "MathTex with next_to() for sub-expression highlighting.",
+                    )
+                )
 
 
 class _SceneChunk:
@@ -414,6 +427,33 @@ def _find_hand_sized_boxes(
             if abs(rect_pos[0] - tex_pos[0]) < 0.05 and abs(rect_pos[1] - tex_pos[1]) < 0.05:
                 hits.append((rect_line, rect_name, tex_name))
                 break
+    return hits
+
+
+def _find_mathtex_variadic(
+    statements: list[ast.stmt],
+) -> list[int]:
+    """Return lineno for each `MathTex(str, str, ...)` call with ≥2 positional
+    string args — the manim variadic pattern that crashes chalk with
+    `TypeError: got multiple values for argument 'color'` because the second
+    positional arg binds to `color`.
+    """
+    hits: list[int] = []
+    for stmt in statements:
+        for node in ast.walk(stmt):
+            if not isinstance(node, ast.Call):
+                continue
+            if _name_of(node.func) != "MathTex":
+                continue
+            if len(node.args) < 2:
+                continue
+            # Require first two args to be strings (filter out e.g. MathTex(var, scale) cases)
+            if not all(
+                isinstance(a, ast.Constant) and isinstance(a.value, str)
+                for a in node.args[:2]
+            ):
+                continue
+            hits.append(node.lineno)
     return hits
 
 

@@ -142,7 +142,7 @@ chalk uses a **2D world-coord system**: origin at centre, x right, y up. Units a
 - Required layout helpers (use these — never hand-roll the equivalent):
   - `place_in_zone(mob, ZONE_TOP)` — centres mob in the top zone.
   - `next_to(mob_a, mob_b, direction="RIGHT", buff=0.25)` — positions mob_a beside mob_b.
-  - `labeled_box(label_tex, color=..., scale=..., pad_x=..., pad_y=...)` — auto-sized Rectangle around a MathTex. **MUST use this for any text-in-box.** Hand-sizing `Rectangle(width=..., height=...)` + a separate `MathTex.move_to(same_coord)` fails chalk-lint rule R5 (label will overflow if it's longer than the literal width you picked).
+  - `labeled_box(label_latex: str, color=..., scale=..., pad_x=..., pad_y=...) -> (box, label)` — auto-sized Rectangle around rendered LaTeX. **Returns a tuple `(box, label)`; unpack both.** First arg is a **raw LaTeX string**, not a MathTex object. **MUST use this for any text-in-box.** Hand-sizing `Rectangle(width=..., height=...)` + a separate `MathTex.move_to(same_coord)` fails chalk-lint rule R5 (label will overflow if it's longer than the literal width you picked).
   - `arrow_between(mob_a, mob_b, color=C)` — Arrow anchored to bbox edges. **MUST use this instead of hand-picked start/end coords** for any arrow between two shapes.
 
 For axes-anchored coordinates:
@@ -308,7 +308,7 @@ Self-check before emitting:
 1. `scene_class_name` matches `class <NAME>(Scene):` in `code`.
 2. Every element the `visual_intent` promises has a corresponding Python variable and is `self.add()`-ed or animated-in.
 3. Every `markers[*].ref` from `script.json` has a corresponding Python variable (so sync can anchor to it). Use the dotted ref verbatim as the variable name is not required — the ref is a logical identifier, not a Python identifier — but the element must exist in the code.
-4. Total estimated runtime (sum of animation `run_time=` + `self.wait(x)`) is within ±15% of the scene beat's `target_duration_seconds`.
+4. Total estimated runtime is within ±15% of the scene beat's `target_duration_seconds`. Compute as `sum(play_duration_i) + sum(self.wait_j)`, where `play_duration ≈ max(run_time) + (N−1) × lag_ratio × mean(run_time)` for an `AnimationGroup`. Do **not** use `sum(run_time)` — lag_ratio < 1 compresses the play, and a naive sum over-estimates, leaving the scene short of target.
 5. No raw hex colour literals — everything goes through palette constants.
 6. No `.stroke_color=` on shapes — chalk uses `color=` for stroke.
 7. No `.move_to()` on bare VMobject shapes (Circle, Rectangle, Line, Arrow, Dot) — use `.shift(dx, dy)`.
@@ -316,6 +316,9 @@ Self-check before emitting:
 9. `x_start=`/`x_end=` for `plot_function` — not `x_range=`.
 10. `code` and `code.py` are byte-identical.
 11. No `Rectangle(width=..., height=...)` centered at the same coord as a `MathTex` — use `labeled_box()`. Fails chalk-lint R5.
+12. `labeled_box(...)` return is unpacked as `box, label = labeled_box(...)` — the function returns a tuple, not a single mobject.
+13. No `MathTex(r"\a", r"\b", ...)` variadic call — chalk's `MathTex` takes a single `tex_string`. A second positional arg binds to `color` and raises `TypeError`. For sub-expression highlighting, compose multiple MathTex with `next_to` and animate the target piece.
+14. Zone collision: after `place_in_zone(A, ZONE_X)`, any second element in ZONE_X must be positioned with `next_to(B, A, direction=..., buff=...)`, **never** `move_to(x, y)` with a hand-picked y inside that zone's band. Same applies across zones — do not `move_to(0.0, 2.2)` when a title sits at ZONE_TOP (2.0, 3.5); the two will overlap.
 
 ## Example
 

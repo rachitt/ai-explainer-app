@@ -89,6 +89,58 @@ entries:
     patch_before: 'eq = MathTex("\\frac{d}{dx}", color=PRIMARY)'
     patch_after: 'eq = MathTex(r"\\frac{d}{dx}", color=PRIMARY)'
 
+  - id: mathtex-variadic-args
+    classification: api_error
+    fingerprint: "TypeError.*MathTex.*got multiple values for argument 'color'|MathTex.*__init__.*multiple values.*color"
+    symptom: >
+      TypeError from MathTex constructor, "got multiple values for argument 'color'",
+      when writing manim-style MathTex(r"\\a", r"\\b", r"\\c", color=X).
+    cause: >
+      chalk's MathTex takes a single tex_string, not variadic substrings. The
+      second positional argument binds to `color`, colliding with the explicit
+      color= kwarg. chalk also has no tex[i] substring accessor — MathTex
+      renders the whole LaTeX as one VGroup of glyphs.
+    fix: >
+      Use a single MathTex with the full LaTeX, or compose multiple MathTex
+      objects with next_to() and animate the piece you want to highlight.
+    patch_before: 'expr = MathTex(r"\\sin", r"(", r"x^2", r")", color=PRIMARY, scale=SCALE_BODY)'
+    patch_after: 'expr = MathTex(r"\\sin(x^2)", color=PRIMARY, scale=SCALE_BODY)'
+
+  - id: labeled-box-unpack-missing
+    classification: api_error
+    fingerprint: "TypeError.*cannot unpack|AttributeError.*'tuple' object has no attribute"
+    symptom: >
+      TypeError on unpack, or AttributeError later when calling .shift/.move_to
+      on what was assumed to be a single mobject returned by labeled_box.
+    cause: >
+      labeled_box returns a (box, label) tuple — caller must unpack both.
+      Single-variable assignment binds the whole tuple to the name, so
+      subsequent .shift()/.move_to()/.add() calls fail.
+    fix: "Unpack the return: `box, label = labeled_box(r\"...\", color=..., scale=...)`."
+    patch_before: 'group = labeled_box(r"\\mathrm{Agent}", color=GREY, scale=SCALE_LABEL)'
+    patch_after: 'box, label = labeled_box(r"\\mathrm{Agent}", color=GREY, scale=SCALE_LABEL)'
+
+  - id: bbox-nested-vgroup
+    classification: api_error
+    fingerprint: "AttributeError.*'(MathTex|Text|VGroup)' object has no attribute 'points'"
+    symptom: >
+      AttributeError when arrow_between, next_to, labeled_box, or any helper
+      that computes a bbox is called on a VGroup whose submobjects include
+      MathTex/Text or other nested VGroups.
+    cause: >
+      Before 2026-04-22, VGroup.bbox iterated self.submobjects one level deep
+      and called .points on each. MathTex and Text are themselves VGroups (of
+      glyphs) and have no .points, so the call crashed. Fixed in chalk by
+      recursing through nested VGroups. If you still hit this, chalk is
+      outdated — update; otherwise pass a leaf VMobject (Rectangle, Circle,
+      Dot) as the bbox source instead of the composite VGroup.
+    fix: >
+      Update chalk (VGroup.bbox now recurses). If locked to an older chalk,
+      pass the leaf shape (e.g. the Rectangle from labeled_box) to
+      arrow_between/next_to instead of the enclosing VGroup.
+    patch_before: "arrow_between(inner_group, outer_group, color=GREY)"
+    patch_after: "arrow_between(inner_box, outer_box, color=GREY)"
+
   - id: wildcard-import-chalk
     classification: import_error
     fingerprint: "NameError.*not defined|ImportError.*chalk"

@@ -315,3 +315,40 @@ class Demo(Scene):
     )
 
     assert [e.rule for e in lint_file(scene) if e.rule == "R5-hand-sized-box"] == []
+
+
+def test_mathtex_variadic_reports_r8(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import ChangeValue, MathTex, PRIMARY, SCALE_BODY, Scene, ValueTracker
+
+class Demo(Scene):
+    def construct(self):
+        expr = MathTex(r"\\sin", r"(", r"x^2", r")", color=PRIMARY, scale=SCALE_BODY)
+        self.add(expr)
+        t = ValueTracker(0.0)
+        self.play(ChangeValue(t, 1.0, run_time=0.5))
+""",
+    )
+
+    rules = [e.rule for e in lint_file(scene)]
+    assert "R8-mathtex-variadic" in rules
+
+
+def test_mathtex_single_string_passes_r8(tmp_path: Path):
+    scene = _write_scene(
+        tmp_path / "scene.py",
+        """\
+from chalk import ChangeValue, MathTex, PRIMARY, SCALE_BODY, Scene, ValueTracker
+
+class Demo(Scene):
+    def construct(self):
+        expr = MathTex(r"\\sin(x^2)", color=PRIMARY, scale=SCALE_BODY)
+        self.add(expr)
+        t = ValueTracker(0.0)
+        self.play(ChangeValue(t, 1.0, run_time=0.5))
+""",
+    )
+
+    assert [e.rule for e in lint_file(scene) if e.rule == "R8-mathtex-variadic"] == []
