@@ -319,6 +319,9 @@ Self-check before emitting:
 12. `labeled_box(...)` return is unpacked as `box, label = labeled_box(...)` — the function returns a tuple, not a single mobject.
 13. No `MathTex(r"\a", r"\b", ...)` variadic call — chalk's `MathTex` takes a single `tex_string`. A second positional arg binds to `color` and raises `TypeError`. For sub-expression highlighting, compose multiple MathTex with `next_to` and animate the target piece.
 14. Zone collision: after `place_in_zone(A, ZONE_X)`, any second element in ZONE_X must be positioned with `next_to(B, A, direction=..., buff=...)`, **never** `move_to(x, y)` with a hand-picked y inside that zone's band. Same applies across zones — do not `move_to(0.0, 2.2)` when a title sits at ZONE_TOP (2.0, 3.5); the two will overlap.
+15. **Bbox probe pre-emit.** Run `chalk.layout.check_bbox_overlap(self._mobjects, padding=0.05)` in a throwaway in-process instantiation before shipping. Ignore intentional co-location (Line-Line pipe joints, Rectangle+MathTex inside a `labeled_box`, Circle+Arrow at a FBD mass, Axes vs the `VMobject` plot curves it contains). Any remaining pair is a real overlap — tighten buffs or space elements further apart. See `chalk/src/chalk/layout.py:check_bbox_overlap` for signature.
+16. **Off-frame probe pre-emit.** For each mobject's `_bbox(mob)`, reject if `xmin < -7.1`, `xmax > 7.1`, `ymin < -4.0`, `ymax > 4.0` (frame 14.2 × 8.0). Common offender: a stack of equations via `next_to(eq_next, eq_prev, direction="DOWN")` where the final item's `ymin` drops below −4.0. Fix by reducing line count, shrinking `scale=`, or splitting across two beats with `self.clear()`.
+17. **Axes kwarg is `color=`, not `axis_color=`.** Manim uses `axis_color`. chalk's `Axes(..., color=GREY)` sets both axis line and tick colour. Enforced by `chalk-debugging` catalog entry `axes-axis-color-renamed`.
 
 ## Example
 

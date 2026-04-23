@@ -39,6 +39,17 @@ entries:
     patch_before: "plot_function(ax, f, x_range=(0.0, 3.0), color=BLUE)"
     patch_after: "plot_function(ax, f, x_start=0.0, x_end=3.0, color=BLUE)"
 
+  - id: axes-axis-color-renamed
+    classification: api_error
+    fingerprint: "TypeError.*Axes.*unexpected keyword argument 'axis_color'"
+    symptom: "TypeError on Axes(..., axis_color=GREY)."
+    cause: >
+      chalk's Axes takes a single `color=` kwarg (not `axis_color=`). The kwarg
+      sets both axis line colour and tick colour. Manim uses `axis_color`.
+    fix: "Replace axis_color= with color= in the Axes(...) call."
+    patch_before: "ax = Axes(x_range=(0,6), y_range=(-1,1), width=3.4, height=1.6, axis_color=GREY)"
+    patch_after: "ax = Axes(x_range=(0,6), y_range=(-1,1), width=3.4, height=1.6, color=GREY)"
+
   - id: axes-c2p-renamed
     classification: api_error
     fingerprint: "AttributeError.*'Axes'.*'c2p'|has no attribute 'c2p'"

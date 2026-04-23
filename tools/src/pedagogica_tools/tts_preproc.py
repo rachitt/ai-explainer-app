@@ -15,12 +15,31 @@ class PronunciationRule:
 
 
 DEFAULT_RULES: tuple[PronunciationRule, ...] = (
+    # Names
     PronunciationRule(r"\bBernoulli\b", "Bernooli", "Bernoulli phonetic"),
-    PronunciationRule(r"\brho\b", "roe", "rho Greek letter"),
-    PronunciationRule(r"\bincompressible\b", "incompressable", "common misread"),
-    PronunciationRule(r"\btheta\b", "thay-ta", "theta Greek letter"),
     PronunciationRule(r"\bEuler\b", "Oyler", "Euler phonetic"),
     PronunciationRule(r"\bLagrange\b", "La-grahnj", "Lagrange phonetic"),
+    PronunciationRule(r"\bCauchy\b", "Ko-shee", "Cauchy phonetic"),
+    PronunciationRule(r"\bLaplace\b", "La-plahss", "Laplace phonetic"),
+    PronunciationRule(r"\bGauss\b", "gowss", "Gauss phonetic"),
+    PronunciationRule(r"\bFourier\b", "For-yay", "Fourier phonetic"),
+    PronunciationRule(r"\bPoisson\b", "Pwah-sohn", "Poisson phonetic"),
+    PronunciationRule(r"\bNewtonian\b", "Nyoo-toh-nee-an", "Newtonian phonetic"),
+    # Greek letters
+    PronunciationRule(r"\brho\b", "roe", "rho Greek letter"),
+    PronunciationRule(r"\btheta\b", "thay-ta", "theta Greek letter"),
+    PronunciationRule(r"\bphi\b", "fye", "phi Greek letter"),
+    PronunciationRule(r"\bpsi\b", "sigh", "psi Greek letter"),
+    PronunciationRule(r"\bmu\b", "myoo", "mu Greek letter"),
+    PronunciationRule(r"\bnu\b", "noo", "nu Greek letter"),
+    PronunciationRule(r"\bxi\b", "ksigh", "xi Greek letter"),
+    PronunciationRule(r"\bchi\b", "kigh", "chi Greek letter"),
+    PronunciationRule(r"\beta\b", "ay-ta", "eta Greek letter"),
+    # Physics-specific common misreads
+    PronunciationRule(r"\bincompressible\b", "incompressable", "common misread"),
+    PronunciationRule(r"\beigenvalue\b", "eye-gen-value", "eigenvalue compound"),
+    PronunciationRule(r"\beigenvector\b", "eye-gen-vector", "eigenvector compound"),
+    # Math symbols / operators
     PronunciationRule(r"\bnabla\b", "nab-la", "nabla operator"),
 )
 

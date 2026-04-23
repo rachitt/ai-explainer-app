@@ -117,3 +117,14 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** widespread `AnimationGroup(*anims, lag_ratio=0.1)` usage made per-beat run-time roughly `max(run_time) + (N-1)*0.1*mean`, much less than `sum(run_time)`. Authors (LLM + human) kept budgeting sequentially.
 **Fix:** `ffmpeg-mux` already stretches video to audio length — the final output is correct. But the under-filled visuals mean long silence / frozen frames. Two options: (a) add explicit `self.wait()` padding at beat end to match target; (b) slow run_times. Easiest enforcement: reject `AnimationGroup` with `lag_ratio < 1.0` unless an explicit `self.wait(pad)` follows. Candidate R11 lint rule.
 **Applies to:** every chalk scene. `pedagogica-tools check-duration` with `--strict` will catch post-hoc; authoring-time R11 would catch before render.
+
+## 2026-04-23 — fix the system, not just the scene
+**Mistake:** during two E2E runs (fluid-flow, damped-oscillator) I kept patching scene `code.py` files in the job dir to fix overlaps, off-frame equations, wrong Axes kwargs (`axis_color=` instead of `color=`), and MathTex variadic args. Each fix went into the artifact-scoped scene, which is gitignored — so the underlying bug kept recurring in new jobs because nothing in chalk / SKILLs / lint prevented it.
+**Root cause:** quick-fix tunnel vision. When a scene mis-renders I edit the scene, see the video improve, and move on. The system-level fix (lint rule, SKILL doc, helper, catalog entry) is a second step I skip.
+**Fix:** every per-scene fix must be mirrored into a system change in the same commit block:
+- API mis-call (`axis_color=`, variadic `MathTex`) → add to `chalk-debugging/error_catalog.yaml` and consider a lint rule
+- Layout pattern (narrowing-pipe gauges, three stacked boxes, three mini-plots) → add a canonical example to the matching `chalk-<domain>-patterns` SKILL
+- Bbox overlap or off-frame → `check_bbox_overlap` / off-frame probe in the chalk-code self-check workflow; eventually a lint rule (R11-offscreen or R12-bbox-collision)
+- TTS mispronunciation or operator-name read-aloud → update `script/SKILL.md` AND extend the `--pronounce` preprocessor dict in `tts_preproc.py`
+- Script-scene tokenization drift → tighten the script agent's word-count pre-flight, not the individual script
+**Applies to:** every follow-up fix after a failed render or pronunciation miss. Ask: "what stops this from recurring on the next job?" If the answer is "nothing", the fix is incomplete. The artifact is the symptom; the SKILL / lint / tool is the cure.
