@@ -154,6 +154,12 @@ label.move_to(wx, wy)                   # place VGroup subclasses
 
 `ax.to_point()` is chalk's `c2p()` equivalent. Use it for everything graph-anchored — never raw numbers.
 
+### Component and label sizing (readability at video scale)
+
+- **Role/annotation labels on a circuit or diagram must be `next_to(label, component, direction=..., buff=0.3–0.4)`** — never `move_to(x, y)` with a hand-picked coordinate far from the component. The viewer reads "this tag belongs to that part" by proximity; a label six world units away reads as a disconnected caption.
+- **Use `SCALE_LABEL` for role annotations**, not `SCALE_ANNOT`. `SCALE_ANNOT` is the smallest tier and reads as noise on a 720p render — reserve it for tick labels and genuinely secondary captions. Component roles ("pushes", "throttles", "stores") are label-tier.
+- **Bind to the component's own label (the symbolic one, e.g. `MathTex("R")`) rather than to the component shape** when the shape has jagged geometry (resistor zigzag, capacitor plates). `next_to(role_res, r_lbl, direction="UP", buff=0.35)` gives a cleaner vertical alignment than next-to the resistor body.
+
 ### Axes bbox vs ZONE_BOTTOM / ZONE_TOP (axis-caption collision rule)
 
 An `Axes(width, height).shift(cx, cy)` has world bbox y ∈ `[cy - height/2, cy + height/2]` **plus** tick marks extending ~0.12 past each end. If the axes spill into `ZONE_BOTTOM` (y ≤ -2.0) and you also `place_in_zone(caption, ZONE_BOTTOM)`, the caption sits on top of the axis baseline and tick labels — that's a real overlap the preflight will flag and a visible bug even if it didn't.

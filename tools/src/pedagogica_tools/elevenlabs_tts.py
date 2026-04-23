@@ -30,6 +30,10 @@ class TtsOptions:
     similarity_boost: float = 0.75
     style: float = 0.0
     use_speaker_boost: bool = True
+    # Speech rate multiplier. 1.0 = default ElevenLabs pace. Lower = slower.
+    # Explainer-video default is 0.9: measurably calmer than 1.0, no artifacts.
+    # Acceptable range is roughly 0.7-1.2 per ElevenLabs.
+    speed: float = 0.9
     char_quota: int = DEFAULT_CHAR_QUOTA
     timeout_seconds: float = 90.0
     extra_voice_settings: dict = field(default_factory=dict)
@@ -99,6 +103,7 @@ def synthesize(
         "similarity_boost": opts.similarity_boost,
         "style": opts.style,
         "use_speaker_boost": opts.use_speaker_boost,
+        "speed": opts.speed,
         **opts.extra_voice_settings,
     }
 
