@@ -93,3 +93,15 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** `AnimationGroup(*anims, lag_ratio=r)` plays overlapping — `play_duration ≈ max(run_time) + (N-1)*r*mean(run_time)`, not `sum(run_time)`. Naive authoring budgets animation time as if sequential.
 **Fix:** budget per the lag_ratio formula (documented in chalk-primitives SKILL); add `self.wait(...)` tail to absorb slack. Orchestrator's chalk-code stage now invokes `pedagogica-tools check-duration` post-render to surface scenes >15 % off target. Phase 1 warn-only; fix in chalk-code SKILL, not per-scene.
 **Applies to:** any scene using AnimationGroup with `lag_ratio < 1.0`. Check chalk-primitives SKILL `AnimationGroup lag_ratio duration` section before writing.
+
+## 2026-04-22 — hardcoded y-literals inside ZONE_TOP/BOTTOM collide
+**Mistake:** after `place_in_zone(title, ZONE_TOP)`, a second element placed with `move_to(0.0, 2.2)` overlapped the title. `y = 2.2` falls inside ZONE_TOP's band `(2.0, 3.5)`.
+**Root cause:** authors bypassed the `place_in_zone` helper for a second top-zone element and picked a y-literal that landed in the same band.
+**Fix:** chalk-lint rule R9-zone-collision now flags any `.move_to(x, y)` where y-literal is in `(2.0, 3.5)` or `(-3.5, -2.0)`. Message nudges authors to `place_in_zone` or `next_to`. Shift is not flagged (delta-coord, ambiguous).
+**Applies to:** all chalk scene authoring. `chalk/CLAUDE.md` documents the semantic rule; R9 enforces it at lint time.
+
+## 2026-04-22 — SKILL roster trim left dangling `requires:` refs
+**Mistake:** 33 → 15 skills trim deleted `color-and-typography` and several `manim-*` skills but left dangling `requires:` entries in `chalk-calculus-patterns` and `latex-for-video`. Also frontmatter `category`/`triggers` in `latex-for-video` still referenced `manim`.
+**Root cause:** no automated check that every `requires:` entry resolves to a scanned SKILL name; trim was manual and per-file.
+**Fix:** `pedagogica-tools audit-skills` built — validates frontmatter `name` matches dir, `requires:` resolve, and scans body text for dangling `agents/X/SKILL.md` + `knowledge/X/SKILL.md` path refs. `--strict-body` promotes body-ref warnings to exit-1 errors. Caught 3 issues on first run; fixed same commit.
+**Applies to:** every SKILL roster change. Run `uv run pedagogica-tools audit-skills` before and after; both must be clean.
