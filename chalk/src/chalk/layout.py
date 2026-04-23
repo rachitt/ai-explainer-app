@@ -29,6 +29,14 @@ class LayoutOverlapError(ValueError):
     """Error raised when layout mobjects are closer than the requested gap."""
 
 
+class BboxOverlapWarning(UserWarning):
+    """Warning raised when two mobject bboxes intersect (with padding)."""
+
+
+class BboxOverlapError(ValueError):
+    """Error raised when two mobject bboxes intersect (with padding)."""
+
+
 def check_no_overlap(
     mobjects,
     min_sep: float,
@@ -65,6 +73,73 @@ def check_no_overlap(
         if raise_on_fail:
             raise LayoutOverlapError(msg)
         warnings.warn(msg, LayoutOverlapWarning, stacklevel=2)
+
+    return overlaps
+
+
+def check_bbox_overlap(
+    mobjects,
+    padding: float = 0.0,
+    raise_on_fail: bool = False,
+    ignore_types: tuple[type, ...] = (),
+) -> list[tuple[int, int, tuple[float, float, float, float]]]:
+    """Flag pairs whose inflated AABBs intersect.
+
+    Each pair's bboxes are inflated by `padding` on all sides before the
+    intersection test, so `padding=0.1` flags pairs closer than 0.1 units.
+    Returns list of (i, j, intersection_rect). Items of `ignore_types` are
+    skipped entirely — use to exclude decorative lines, tracks, zone frames.
+    """
+    boxes: list[tuple[int, tuple[float, float, float, float]]] = []
+    for i, mob in enumerate(mobjects):
+        if type(mob) in ignore_types:
+            continue
+        xmin, ymin, xmax, ymax = _bbox(mob)
+        if xmin == 0.0 and ymin == 0.0 and xmax == 0.0 and ymax == 0.0:
+            continue
+        boxes.append((
+            i,
+            (
+                xmin - padding,
+                ymin - padding,
+                xmax + padding,
+                ymax + padding,
+            ),
+        ))
+
+    overlaps: list[tuple[int, int, tuple[float, float, float, float]]] = []
+    for a_idx, a_bbox in boxes:
+        axmin, aymin, axmax, aymax = a_bbox
+        for b_idx, b_bbox in boxes:
+            if b_idx <= a_idx:
+                continue
+            bxmin, bymin, bxmax, bymax = b_bbox
+            if (
+                axmin <= bxmax
+                and bxmin <= axmax
+                and aymin <= bymax
+                and bymin <= aymax
+            ):
+                rect = (
+                    max(axmin, bxmin),
+                    max(aymin, bymin),
+                    min(axmax, bxmax),
+                    min(aymax, bymax),
+                )
+                if rect[2] - rect[0] > 0 and rect[3] - rect[1] > 0:
+                    overlaps.append((a_idx, b_idx, rect))
+
+    if overlaps:
+        msg = (
+            f"{len(overlaps)} bbox overlap(s): "
+            + ", ".join(
+                f"{i}-{j} intersects {rect}"
+                for i, j, rect in overlaps
+            )
+        )
+        if raise_on_fail:
+            raise BboxOverlapError(msg)
+        warnings.warn(msg, BboxOverlapWarning, stacklevel=2)
 
     return overlaps
 
