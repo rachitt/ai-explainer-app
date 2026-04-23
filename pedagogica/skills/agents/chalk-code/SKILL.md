@@ -154,6 +154,22 @@ label.move_to(wx, wy)                   # place VGroup subclasses
 
 `ax.to_point()` is chalk's `c2p()` equivalent. Use it for everything graph-anchored — never raw numbers.
 
+### Axes bbox vs ZONE_BOTTOM / ZONE_TOP (axis-caption collision rule)
+
+An `Axes(width, height).shift(cx, cy)` has world bbox y ∈ `[cy - height/2, cy + height/2]` **plus** tick marks extending ~0.12 past each end. If the axes spill into `ZONE_BOTTOM` (y ≤ -2.0) and you also `place_in_zone(caption, ZONE_BOTTOM)`, the caption sits on top of the axis baseline and tick labels — that's a real overlap the preflight will flag and a visible bug even if it didn't.
+
+Rule: when a beat uses ZONE_BOTTOM for a caption, the axes **must** leave ZONE_BOTTOM clear. Concretely:
+- `cy + height/2` ≤ `3.4` (stay below ZONE_TOP caption if any)
+- `cy - height/2 - 0.15` ≥ `-2.0` (leave ZONE_BOTTOM clear, 0.15 pad for ticks)
+
+Example that **fails**: `Axes(width=10.8, height=4.25).shift(0, -0.45)` — bottom at `-2.575`. Caption in `ZONE_BOTTOM` will collide with tick baseline.
+
+Example that **passes**: `Axes(width=10.8, height=3.3).shift(0, -0.2)` — bottom at `-1.85`, 0.15 pad above ZONE_BOTTOM.
+
+If the beat does **not** use ZONE_BOTTOM, the axes can extend down to `y ≈ -3.4` (leave 0.1 above SAFE_Y bottom `-3.5` for the tick overhang). Don't park a long caption there without running preflight.
+
+For multi-panel layouts use `multi_panel(n, ..., y=, height=)`; pick `y` and `height` so `y - height/2 - 0.15 ≥ -2.0` when a ZONE_BOTTOM caption is present.
+
 ## Animation mapping
 
 Pick the animation verb that matches the beat's intent (reveal, morph, highlight, pause, value-change). There is no `spec.op` enum on disk — the left column below is a mental model.

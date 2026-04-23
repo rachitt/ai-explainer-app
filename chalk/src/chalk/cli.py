@@ -19,11 +19,6 @@ from chalk.scene import Scene
 from chalk.shapes import Dot, Line
 from chalk.vgroup import VGroup
 
-# Markers (dots, ticks, small annotations) land semantically on top of other
-# objects by design. Overlaps where one partner's bbox area falls under this
-# threshold are treated as intentional and skipped by the preflight gate.
-_MARKER_AREA_THRESHOLD = 0.08  # ~0.28 × 0.28 world units
-
 app = typer.Typer(help="chalk — educational animation renderer")
 
 
@@ -51,11 +46,6 @@ def _mob_label(mob: object, idx: int) -> str:
     return f"{idx}:{repr(mob)}"
 
 
-def _bbox_area(mob: object) -> float:
-    xmin, ymin, xmax, ymax = _bbox(mob)
-    return max(0.0, xmax - xmin) * max(0.0, ymax - ymin)
-
-
 def _pair_ignored(
     a: object,
     b: object,
@@ -74,8 +64,6 @@ def _pair_ignored(
     if id(a) in plot_curve_ids and id(b) in plot_curve_ids:
         return True
     if isinstance(a, Dot) or isinstance(b, Dot):
-        return True
-    if min(_bbox_area(a), _bbox_area(b)) < _MARKER_AREA_THRESHOLD:
         return True
     aid = id(a)
     bid = id(b)
