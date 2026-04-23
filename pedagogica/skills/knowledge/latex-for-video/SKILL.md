@@ -1,14 +1,13 @@
 ---
 name: latex-for-video
 version: 0.1.0
-category: manim
+category: chalk
 triggers:
-  - stage:manim-code
-  - stage:manim-repair
+  - stage:chalk-code
+  - stage:chalk-repair
   - element_type:math
 requires:
-  - manim-primitives@^0.1.0
-  - color-and-typography@^0.1.0
+  - chalk-primitives@^0.1.0
 token_estimate: 3800
 tested_against_model: claude-opus-4-7
 owner: rachit

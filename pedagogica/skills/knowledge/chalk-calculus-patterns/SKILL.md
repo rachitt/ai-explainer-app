@@ -11,7 +11,6 @@ requires:
   - scene-spec-schema@^0.1.0
   - chalk-primitives@^0.1.0
   - latex-for-video@^0.1.0
-  - color-and-typography@^0.1.0
 token_estimate: 7200
 tested_against_model: claude-opus-4-7
 owner: rachit
