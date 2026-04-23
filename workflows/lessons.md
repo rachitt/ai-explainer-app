@@ -87,3 +87,9 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** chalk's `MathTex(tex_string, color=..., stroke_width=..., fill_opacity=..., scale=...)` takes a single `tex_string`, unlike manim's variadic `MathTex(*tex_strings)`. No indexed-substring access `mobj[2]` — the whole LaTeX renders to one VGroup.
 **Fix:** use a single MathTex and target the whole expression (Circumscribe/Indicate on the VGroup); or compose multiple MathTex objects with `next_to()` and anchor on the one you want to highlight.
 **Applies to:** any chalk scene wanting sub-expression emphasis. Document in chalk-primitives if recurring.
+
+## 2026-04-22 — AnimationGroup lag_ratio shortens play duration
+**Mistake:** scenes came in 5–6 s under their storyboard target even though `sum(run_time)` matched. Visual arc too rushed; trailing silence at end of narration.
+**Root cause:** `AnimationGroup(*anims, lag_ratio=r)` plays overlapping — `play_duration ≈ max(run_time) + (N-1)*r*mean(run_time)`, not `sum(run_time)`. Naive authoring budgets animation time as if sequential.
+**Fix:** budget per the lag_ratio formula (documented in chalk-primitives SKILL); add `self.wait(...)` tail to absorb slack. Orchestrator's chalk-code stage now invokes `pedagogica-tools check-duration` post-render to surface scenes >15 % off target. Phase 1 warn-only; fix in chalk-code SKILL, not per-scene.
+**Applies to:** any scene using AnimationGroup with `lag_ratio < 1.0`. Check chalk-primitives SKILL `AnimationGroup lag_ratio duration` section before writing.
