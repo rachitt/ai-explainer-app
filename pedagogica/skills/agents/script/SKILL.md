@@ -101,11 +101,13 @@ A video is not a lecture notes dump. The first 5–10 seconds decide whether the
 
 **Hook-scene opening rules (scene_01):**
 
-- **Open with a familiar phenomenon, not a technical setup.** Start from something the viewer has seen outside a textbook — a swing, a garden hose, tapping a bell, stretching a slinky. The technical object is *inside* that phenomenon but not named yet.
-- **No jargon in the first sentence.** No `\rho`, no "cross-sectional area", no "restoring force", no "natural frequency". Those names arrive in scene_02 at the earliest.
-- **Second sentence narrows the frame.** Zoom from the phenomenon to the specific thing the video is about. Still in everyday language.
-- **Third sentence is the question, not the answer.** End the hook on a hook: a puzzle or a contrast the rest of the video will resolve.
-- **Name the topic *after* the question, if at all.** The viewer should feel they want to know the answer before they are told what it is called.
+- **Open with a 2–5 word question or punchy phrase.** "Quick question." "Watch this." "Here's a puzzle." Read it aloud — if the first sentence takes more than ~2 seconds to say, shorten. Calibrated against Khan Academy's opening cadence.
+- **Then set up a concrete demo with specific objects.** Baseballs, garden hose, swing, rubber band — not "a mass" or "a particle." Name the objects the viewer can picture.
+- **Invite the viewer to predict.** "Which one hits the ground first? My intuition says…". Framing a prediction the viewer silently makes is the hook — they now have skin in the reveal.
+- **Run the demo with action cues.** "Ready? Here goes." / "Let's see." / "Watch." / "Boom." The narrator is *performing*, not *describing*. Never use passive constructions ("a ball arcs through the air") in the hook.
+- **Reveal the result, then create the mystery.** "Both hit at the same time. But why?" — the "but why?" carries the viewer into the define beat.
+- **No jargon in the first sentence.** No `\rho`, no "cross-sectional area", no "restoring force". Those names arrive in scene_02 at the earliest.
+- **Name the topic *after* the mystery.** Viewer should want the answer before hearing the formal name.
 
 Concrete before/after:
 
@@ -141,6 +143,14 @@ GOOD:
 
 ## Spoken-narration style (summary — see `spoken-narration-style` for the full rules)
 
+### Cadence quotas (calibrated against Khan Academy 2026-04-23 benchmark)
+
+Measured against a 686s Khan Academy AP Physics projectile lecture (Sal Khan's voice: 2.87 wps, 192 sentences, 86 first-person markers, 38 demo-action words, 53 questions). Hit these quotas to avoid sounding like textbook narration:
+
+- **Short-sentence quota:** ≥ **25% of sentences ≤ 6 words.** Short lines carry rhythm. "Quick question." "But why?" "Let's see." "Here goes." "Both balls hit."
+- **Rhetorical-question quota:** ≥ **1 question per 40 words.** Framed as "Why?" / "What does this mean?" / "Which one wins?" — drive the viewer forward.
+- **First-person-plural quota:** ≥ **8 uses of "we" / "let's" / "we've" per 100 words.** Invites the viewer into the investigation. "We have a…", "Let's see what happens.", "We've now got…" Replace "the system is…" with "we've got a system…"
+- **Demo-action vocabulary:** use "Ready?" / "Here goes." / "Boom." / "Watch." / "Notice." / "Look." — **at least 2 per scene**, one in the hook. These are the audible cues that the narrator is running an experiment, not describing one.
 - **Sentences ≤ 15 words on average, hard cap 22.** Read it aloud; if it feels clotted, cut.
 - **At most one subordinate clause per sentence.** Two is allowed only in short sentences (< 15 words). See `pedagogy-cognitive-load` Rule 3.
 - **Say, don't show.** Do not describe what's on screen ("as you can see, the curve…"). The visual tier shows; narration says the idea.
@@ -256,3 +266,5 @@ Word count is 38 → `38 / 2.5 ≈ 15.2 s`. The scene is a `define` beat with a 
 - Do **not** open scene_01 with an imperative or a formal definition. Open with a familiar phenomenon (see "Opening: ease the viewer in").
 - Do **not** use technical terms before they are motivated. "The damping coefficient gamma" in sentence 1 lands as noise; motivate the concept first, name it second.
 - Do **not** start a define scene with a cold equation. Bridge from the hook in one half-sentence, then introduce the symbol inside a noun phrase.
+- Do **not** describe a scenario passively ("A ball arcs through the air…", "The mass oscillates…"). Narrator must *perform* the demo, not narrate it from outside. Use "we", "let's", "here goes", "watch".
+- Do **not** ship a scene with zero short (≤6 word) sentences, zero questions, or zero first-person markers. Those three quotas are the KA benchmark floor (see Cadence quotas).
