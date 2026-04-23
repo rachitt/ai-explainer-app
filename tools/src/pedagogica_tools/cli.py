@@ -107,6 +107,97 @@ def audit_skills_cmd(
         raise typer.Exit(code=1)
 
 
+def format_audit_summary(
+    skill_report,
+    artifact_issues: list | None,
+    artifact_scanned_count: int | None,
+    artifact_skipped_count: int | None,
+) -> str:
+    from pedagogica_tools.audit_skills import format_report
+
+    lines = ["SKILL audit", format_report(skill_report), "", "artifact audit"]
+    if artifact_issues is None:
+        lines.append("skipped (no job_dir)")
+    else:
+        for issue in artifact_issues:
+            lines.append(str(issue.path))
+            lines.append(f"  [{issue.schema}] {issue.message}")
+        lines.append(
+            f"{artifact_scanned_count} artifacts scanned, "
+            f"{len(artifact_issues)} issues, skipped count={artifact_skipped_count}."
+        )
+
+    issue_count = sum(
+        1
+        for issue in skill_report.issues
+        if issue.severity in {"error", "warning"}
+    )
+    issue_count += len(artifact_issues or [])
+    lines.append("")
+    if issue_count:
+        lines.append(f"overall: {issue_count} issues")
+    else:
+        lines.append("overall: clean")
+    return "\n".join(lines)
+
+
+@app.command("audit")
+def audit_cmd(
+    job_dir: str | None = typer.Argument(None, help="Artifact job directory to audit."),
+    skills_root: str = typer.Option(
+        "pedagogica/skills",
+        "--skills-root",
+        help="Root directory containing agents/ and knowledge/ subdirs.",
+    ),
+    strict_body: bool = typer.Option(
+        True,
+        "--strict-body/--no-strict-body",
+        help="Promote body-ref warnings to errors.",
+    ),
+) -> None:
+    """Run the SKILL audit and, optionally, schema-validate job artifacts.
+
+    Exit codes: 0 = clean, 1 = audit issues, 2 = usage/IO error.
+    """
+    from pedagogica_tools.audit_artifacts import audit_artifacts, count_unknown_artifacts
+    from pedagogica_tools.audit_skills import audit_skills
+
+    root = Path(skills_root)
+    if not root.is_dir():
+        typer.echo(f"not a directory: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+    if not (root / "agents").is_dir() and not (root / "knowledge").is_dir():
+        typer.echo(f"missing agents/ and knowledge/ under: {skills_root}", err=True)
+        raise typer.Exit(code=2)
+
+    artifact_issues = None
+    artifact_scanned_count = None
+    artifact_skipped_count = None
+    if job_dir is not None:
+        artifact_root = Path(job_dir)
+        if not artifact_root.is_dir():
+            typer.echo(f"not a directory: {job_dir}", err=True)
+            raise typer.Exit(code=2)
+        artifact_issues, artifact_scanned_count = audit_artifacts(artifact_root)
+        artifact_skipped_count = count_unknown_artifacts(artifact_root)
+
+    skill_report = audit_skills(root)
+    typer.echo(
+        format_audit_summary(
+            skill_report,
+            artifact_issues,
+            artifact_scanned_count,
+            artifact_skipped_count,
+        )
+    )
+    if (
+        skill_report.has_errors
+        or (strict_body and skill_report.has_warnings)
+        or bool(artifact_issues)
+    ):
+        raise typer.Exit(code=1)
+
+
 @app.command("list-skills")
 def list_skills_cmd(
     skills_root: str = typer.Option(
