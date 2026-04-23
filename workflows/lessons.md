@@ -105,3 +105,15 @@ Keep entries ≤ 8 lines. No silent fixes.
 **Root cause:** no automated check that every `requires:` entry resolves to a scanned SKILL name; trim was manual and per-file.
 **Fix:** `pedagogica-tools audit-skills` built — validates frontmatter `name` matches dir, `requires:` resolve, and scans body text for dangling `agents/X/SKILL.md` + `knowledge/X/SKILL.md` path refs. `--strict-body` promotes body-ref warnings to exit-1 errors. Caught 3 issues on first run; fixed same commit.
 **Applies to:** every SKILL roster change. Run `uv run pedagogica-tools audit-skills` before and after; both must be clean.
+
+## 2026-04-23 — first E2E run: three tool-contract drifts surfaced
+**Mistake:** ran the full 9-stage pipeline on a "fluid flow" prompt for the first time. Three drifts broke the default path: (1) `chalk-render` CLI does not expose `--target-duration-seconds` even though `RenderOptions` accepts it — `target_duration_seconds` ends up `null` in every `CompileResult`, breaking `check-duration` drift computation; (2) `ffmpeg-mux` expects `scenes/<id>/audio/tts.mp3` but `elevenlabs-tts` writes `scenes/<id>/audio/clip.mp3` — filename convention drift between the two tools; (3) `chalk-render` leaves `frame_count: null` in CompileResult, so the broken-render detector in `check-duration` can't fire.
+**Root cause:** tools + orchestrator SKILL were updated in separate commits; contract drift was never exercised because no E2E run happened until today.
+**Fix:** three follow-ups — add `--target-duration-seconds` to `chalk-render` CLI; rename TTS output to `tts.mp3` OR teach `ffmpeg-mux` to accept `clip.mp3`; populate `frame_count` via ffprobe in `chalk-render` post-write. Until then, symlink `clip.mp3 -> tts.mp3` per scene as a stopgap.
+**Applies to:** every new cross-tool contract. Add an E2E smoke job (like `test_chalk_render_smoke.py` but full pipeline) to catch these before they hit production runs.
+
+## 2026-04-23 — AnimationGroup lag_ratio under-render magnified in real scenes
+**Mistake:** five fluid-flow scenes totaled 67s of video vs 180s of audio. Visuals ended ~20-30s before narration on every scene.
+**Root cause:** widespread `AnimationGroup(*anims, lag_ratio=0.1)` usage made per-beat run-time roughly `max(run_time) + (N-1)*0.1*mean`, much less than `sum(run_time)`. Authors (LLM + human) kept budgeting sequentially.
+**Fix:** `ffmpeg-mux` already stretches video to audio length — the final output is correct. But the under-filled visuals mean long silence / frozen frames. Two options: (a) add explicit `self.wait()` padding at beat end to match target; (b) slow run_times. Easiest enforcement: reject `AnimationGroup` with `lag_ratio < 1.0` unless an explicit `self.wait(pad)` follows. Candidate R11 lint rule.
+**Applies to:** every chalk scene. `pedagogica-tools check-duration` with `--strict` will catch post-hoc; authoring-time R11 would catch before render.
