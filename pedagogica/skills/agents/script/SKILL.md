@@ -86,6 +86,15 @@ Use the scene's `narration_intent` from the storyboard as the **goal** of the be
 - **Never bare a single Latin letter.** `"P is the static pressure"` → `"the static pressure term, capital P,"`. ElevenLabs reads a lone letter in mid-sentence as a noise or abbreviation and it clanks. Rule: every letter-variable ("v", "A", "P", "G", "h") must sit inside a noun phrase that introduces it ("the velocity v", "the area A one", "the gauge G two"). After the introduction, you may refer back using the same noun phrase, not the bare letter.
 - **Greek letters: spell them the way you'd speak them.** Write `"rho"`, `"theta"`, `"phi"`, `"omega"`, `"pi"`, `"mu"`, `"sigma"`, `"epsilon"`. The TTS preprocessor respells `"rho"` → `"roe"` and similar at `pedagogica-tools elevenlabs-tts --pronounce` (default on); don't do the respelling yourself.
 - **Subscripts and superscripts read by position.** `"v_1"` → `"v one"`, `"x^2"` → `"x squared"`, `"A^{(2)}"` → `"A to the two"`, `"f'"` → `"f prime"`. Never write `"v subscript one"` — too robotic.
+- **Never narrate derivative operator names.** TTS says `"x double dot"` and `"x dot"` literally, and they sound like gibberish. Use the SEMANTIC name of the quantity instead:
+  - `\ddot{x}` → `"the acceleration"` (or just `"acceleration"` after first mention)
+  - `\dot{x}` → `"the velocity"` (or `"the rate of change of x"` when x is abstract, not a position)
+  - `\frac{d}{dx}` → `"the derivative with respect to x"` or just `"the derivative"`
+  - `\frac{dA}{dt}` → `"the rate of change of A"`
+  - `f'(x)` → `"f prime of x"` (this one is conventional and fine)
+  - `x'(t)` → `"the velocity"` (if x is position)
+  - **Pair it with the visual.** When the EQUATION on screen shows `m\,\ddot{x} = -k\,x`, the narration says `"mass times acceleration equals minus k times x"`. The viewer sees the operator; the narrator names the concept.
+- **Never dictate the equation form.** Don't read the LaTeX out loud. Don't say `"x dot dot plus two gamma x dot plus omega nought squared x equals zero"`. Say `"acceleration plus damping term plus restoring term equals zero"` or `"the equation has three parts: inertia, damping, and spring"`. The visual carries the symbols; narration carries the meaning.
 - **Fractions spelled out.** `"1/2"` → `"one half"`, `"3/4"` → `"three quarters"`, `"1/n"` → `"one over n"`. Do not let digit-slash-digit through — TTS reads it as "one slash two".
 - **Proper names with tricky phonetics.** `"Bernoulli"`, `"Euler"`, `"Cauchy"`, `"Laplace"`, `"Eigen-"`. The pronunciation preprocessor handles the common ones; prefer writing the correct spelling and trust the preprocessor over respelling inline.
 - **Read the script aloud before emitting.** Listen for: back-to-back hard consonants, tongue-twister clusters, and any place where the audio would need to "spell" rather than "say". Rewrite those.
