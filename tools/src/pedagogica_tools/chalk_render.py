@@ -198,6 +198,66 @@ def _probe_video_duration(path: Path) -> float | None:
         return None
 
 
+def _probe_frame_count(path: Path) -> int | None:
+    """ffprobe the output mp4 for frame count. Returns None on any failure."""
+    ffprobe = shutil.which("ffprobe")
+    if ffprobe is None:
+        return None
+
+    fast_proc = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "quiet",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=nb_frames",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if fast_proc.returncode == 0:
+        raw = fast_proc.stdout.strip()
+        if raw and raw.upper() != "N/A":
+            try:
+                return int(raw)
+            except ValueError:
+                pass
+
+    count_proc = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "quiet",
+            "-count_frames",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=nb_read_frames",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if count_proc.returncode != 0:
+        return None
+    raw = count_proc.stdout.strip()
+    if not raw or raw.upper() == "N/A":
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
 def _write_result(result: CompileResult, json_path: Path | str | None) -> CompileResult:
     if json_path is not None:
         p = Path(json_path)
@@ -414,20 +474,45 @@ def render(
     video_path: str | None = None
     duration_seconds: float | None = None
     video_duration_seconds: float | None = None
+    frame_count: int | None = None
 
     if success:
         video_path = str(output_path)
         duration_seconds = elapsed
         video_duration_seconds = _probe_video_duration(output_path)
+        frame_count = _probe_frame_count(output_path)
+        if (
+            opts.target_duration_seconds is not None
+            and video_duration_seconds is not None
+            and video_duration_seconds < 0.85 * opts.target_duration_seconds
+        ):
+            success = False
+            target = opts.target_duration_seconds
+            under_duration_note = (
+                f"[under_duration: video {video_duration_seconds:.2f}s "
+                f"< 0.85 × target {target:.2f}s]"
+            )
+            stderr_tail = (
+                f"{stderr_tail}\n{under_duration_note}".strip()
+                if stderr_tail
+                else under_duration_note
+            )
     elif returncode == 0 and not output_path.is_file():
         success = False
         stderr_tail = (stderr_tail + "\n[exit 0 but no output file produced]").strip()
 
     classification: ErrorClassification | None = None
     if not success:
-        classification = classify_error(
-            (stderr_tail or "") + "\n" + (stdout_tail or ""), timed_out=timed_out
-        )
+        if (
+            opts.target_duration_seconds is not None
+            and video_duration_seconds is not None
+            and video_duration_seconds < 0.85 * opts.target_duration_seconds
+        ):
+            classification = "under_duration"
+        else:
+            classification = classify_error(
+                (stderr_tail or "") + "\n" + (stdout_tail or ""), timed_out=timed_out
+            )
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -437,6 +522,7 @@ def render(
             attempt_number=attempt_number,
             success=success,
             video_path=video_path,
+            frame_count=frame_count,
             duration_seconds=duration_seconds,
             video_duration_seconds=video_duration_seconds,
             target_duration_seconds=opts.target_duration_seconds,

@@ -256,6 +256,11 @@ def chalk_render(
     width: int = typer.Option(1280, help="Frame width in pixels."),
     height: int = typer.Option(720, help="Frame height in pixels."),
     fps: int = typer.Option(30, help="Frames per second."),
+    target_duration_seconds: float | None = typer.Option(
+        None,
+        "--target-duration-seconds",
+        help="Scene target duration in seconds for post-render quality gates.",
+    ),
     sandbox_profile: str | None = typer.Option(
         None, "--sandbox-profile", help="Override sandbox/chalk.sb path."
     ),
@@ -280,6 +285,7 @@ def chalk_render(
             width=width,
             height=height,
             fps=fps,
+            target_duration_seconds=target_duration_seconds,
             sandbox_profile=Path(sandbox_profile) if sandbox_profile else None,
         ),
         result_json_path=result_json,
