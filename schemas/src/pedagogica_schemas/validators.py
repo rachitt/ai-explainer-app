@@ -13,6 +13,36 @@ _FIRST_PERSON_RE = re.compile(r"\b(we|we'?ve|we'?re|let'?s|our|us)\b", re.IGNORE
 _DEMO_ACTION_RE = re.compile(
     r"\b(watch|notice|here|ready|boom|look|see|try|imagine)\b", re.IGNORECASE
 )
+
+# A "derived-quantity" claim — a numerical quantity that depends on other
+# quantities already established in the narration. The common failure mode:
+# narration asserts "three volts dropped" without ever mentioning the current
+# that produces it. Every derived-quantity mention below must be supported by
+# a plausible derivation cue earlier in the script (input values, Ohm's law,
+# current, etc.).
+_DERIVED_CLAIM_RE = re.compile(
+    r"\b(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten)\s+"
+    r"(?:volts?|amps?|amperes?|watts?|joules?|ohms?|newtons?|metres?|meters?|"
+    r"seconds?|degrees?)\s+"
+    r"(?:dropped|drop|gone|lost|spent|across|over|through|"
+    r"remaining|left|of\s+drop)",
+    re.IGNORECASE,
+)
+# A derivation cue — anything that signals the narration is actually doing
+# the math rather than asserting an answer. Covers Ohm's-law style
+# assertions ("current is", "I equals", "V/R", "times"), explicit mentions
+# of the input quantity, and general phrases like "so" or "which means".
+_DERIVATION_CUE_RE = re.compile(
+    r"\b(?:"
+    r"current|amp(?:ere)?s?|resistance|voltage|force|mass|acceleration|"
+    r"times|divided by|per|over|"
+    r"ohm's law|kirchhoff|newton's|"
+    r"so that|so we get|which gives|which means|therefore|"
+    r"equal[s]?|=|"
+    r"i\s*=|v\s*=|f\s*=|a\s*="
+    r")\b",
+    re.IGNORECASE,
+)
 STOPWORDS = {
     "the",
     "a",
@@ -207,6 +237,33 @@ def validate_script_cadence(
             )
         else:
             report.quotas_met += 1
+
+    # Derivation-chain check. If the script asserts derived quantities
+    # ("three volts dropped", "six more volts gone") without ever setting
+    # up the inputs that derive them (current, resistance, Ohm's law),
+    # flag as a hard error — the viewer has no way to connect the claim
+    # to the circuit. This is a teaching-correctness gate, not cadence.
+    unsupported_claims: list[str] = []
+    for match in _DERIVED_CLAIM_RE.finditer(script.text):
+        prefix = script.text[: match.start()]
+        if not _DERIVATION_CUE_RE.search(prefix):
+            unsupported_claims.append(match.group(0))
+    if unsupported_claims:
+        report.issues.append(
+            ScriptCadenceIssue(
+                rule="derivation_chain",
+                severity="error",
+                observed=len(unsupported_claims),
+                threshold=0,
+                message=(
+                    "Narration asserts derived quantities without prior derivation: "
+                    + ", ".join(f"{claim!r}" for claim in unsupported_claims)
+                    + ". Establish the inputs (current, resistance, Ohm's law) "
+                      "before stating the derived values."
+                ),
+            )
+        )
+        report.passed = False
 
     return report
 

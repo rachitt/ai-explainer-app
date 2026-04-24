@@ -80,6 +80,57 @@ inventing a new arrangement.
   `ValueError`; adjust the component or wire path.
 - Hand-splitting the wire into 4 stubs instead of using `breaks`.
 
+## KirchhoffDemo — always pass the numbers for physics scenes
+
+`chalk.circuits.KirchhoffDemo(...)` is the canonical series R1-R2 loop. For any scene that teaches Ohm's law or KVL, pass the numeric physics so the helper auto-fills the current label AND renders per-component voltage drops. A scene that shows `R_1` / `R_2` / `V` symbols but not the voltages across them fails the viewer — they have no way to cash "three volts dropped" against anything on screen.
+
+```python
+from chalk import Scene, FadeIn, GREEN, BLUE, YELLOW
+from chalk.circuits import KirchhoffDemo
+
+
+class KVLPhysics(Scene):
+    def construct(self):
+        circuit = KirchhoffDemo(
+            battery_emf=r"9\,\mathrm{V}",
+            r1_label=r"3\,\Omega",
+            r2_label=r"6\,\Omega",
+            battery_volts=9.0,
+            r1_ohms=3.0,
+            r2_ohms=6.0,
+            show_voltage_drops=True,
+            color_battery=GREEN,
+            color_resistor=BLUE,
+            color_current=YELLOW,
+        )
+        self.add(circuit)
+        self.play(FadeIn(circuit, run_time=1.2))
+```
+
+What the helper renders when you pass all three numbers:
+
+- Current label on the loop: `I = 1 A` (auto-computed from `V / (R1 + R2)`).
+- If `show_voltage_drops=True`: per-component signed voltage labels — `+9 V` across the battery, `-3 V` across R1, `-6 V` across R2 — the three numbers sum to zero by construction, which is the whole point of KVL made visible.
+
+**Do not hand-place voltage labels on the components.** The helper anchors them inside the loop so they never clash with the existing `r1_label` / `r2_label` / battery label. Hand-placed labels are a recurring source of preflight overlap failures — use the `show_voltage_drops=True` flag instead.
+
+Anti-pattern (what not to do):
+
+```python
+# ❌ Hand-placed labels routinely clash with KirchhoffDemo's built-in
+# resistor labels at the same anchor points.
+v_r1 = MathTex(r"-3\,\mathrm{V}", color=BLUE, scale=SCALE_LABEL)
+v_r1.move_to(0.0, 2.15)  # collides with r1_label from KirchhoffDemo
+```
+
+Correct:
+
+```python
+# ✓ Let the helper place signed voltage labels inside the loop, clear
+# of every other anchor. One source of truth for geometry.
+circuit = KirchhoffDemo(..., show_voltage_drops=True)
+```
+
 ## KVL loop-walker pattern (canonical)
 
 KVL scenes almost always benefit from the same visual trick: a traveler dot walks the loop once, and a running voltage tally in `ZONE_TOP` stamps each signed contribution as the walker crosses a component. This makes the abstract "directed sum around a loop" concrete.

@@ -535,10 +535,23 @@ def KirchhoffDemo(
     color_battery: str = GREEN,
     color_resistor: str = BLUE,
     color_current: str = YELLOW,
+    battery_volts: float | None = None,
+    r1_ohms: float | None = None,
+    r2_ohms: float | None = None,
+    show_voltage_drops: bool = False,
 ) -> VGroup:
     """Assemble a simple series R1-R2 loop with a battery and current arrow.
 
     Returns a VGroup centered at origin; shift/scale to place in scene.
+
+    Physics mode. Pass all three of ``battery_volts``, ``r1_ohms``,
+    ``r2_ohms`` (numeric) to auto-derive the circuit current via Ohm's
+    law on the series total. When those are set, the current label
+    defaults to ``I = X A`` (override by also passing ``current_label``).
+    Set ``show_voltage_drops=True`` to render per-component voltage
+    annotations (``+V`` across the battery, ``-I*R`` across each
+    resistor) — the three numbers always sum to zero, which is the
+    point of KVL.
     """
     from chalk.shapes import Arrow
     from chalk.tex import MathTex
@@ -567,12 +580,62 @@ def KirchhoffDemo(
     batt_lbl = MathTex(battery_emf, color=color_battery, scale=SCALE_LABEL)
     batt_lbl.move_to(-hw - 0.42, 0.0)
 
+    # Current label: auto-fill with computed value when the numeric inputs
+    # are given and the caller did not override ``current_label`` explicitly.
+    _physics = (
+        battery_volts is not None
+        and r1_ohms is not None
+        and r2_ohms is not None
+        and (r1_ohms + r2_ohms) > 0
+    )
+    if _physics and current_label == "I":
+        _i = battery_volts / (r1_ohms + r2_ohms)
+        # Format 1.0 as "1", otherwise one decimal place.
+        _i_str = f"{int(_i)}" if _i == int(_i) else f"{_i:.1f}"
+        current_label = rf"I \;=\; {_i_str}\,\mathrm{{A}}"
+
     i_arrow = Arrow((-0.6, hh + 0.75), (0.6, hh + 0.75), color=color_current)
     i_lbl = MathTex(current_label, color=color_current, scale=SCALE_LABEL)
     i_lbl.move_to(0.0, hh + 1.05)
+
+    extras: list = []
+    if show_voltage_drops and _physics:
+        _i = battery_volts / (r1_ohms + r2_ohms)
+
+        def _fmt(v: float) -> str:
+            # Signed, no trailing zeros unless needed.
+            sign = "+" if v >= 0 else "-"
+            mag = abs(v)
+            mag_s = f"{int(mag)}" if mag == int(mag) else f"{mag:.1f}"
+            return f"{sign}{mag_s}"
+
+        v_batt_s = _fmt(battery_volts)
+        v_r1_s = _fmt(-_i * r1_ohms)
+        v_r2_s = _fmt(-_i * r2_ohms)
+
+        v_batt_lbl = MathTex(
+            rf"{v_batt_s}\,\mathrm{{V}}", color=color_battery, scale=SCALE_LABEL,
+        )
+        # Below the battery glyph, inside the loop — stays clear of ``batt_lbl``.
+        v_batt_lbl.move_to(-hw + 0.45, -0.8)
+
+        v_r1_lbl = MathTex(
+            rf"{v_r1_s}\,\mathrm{{V}}", color=color_resistor, scale=SCALE_LABEL,
+        )
+        # Below the R1 body, inside the loop — clear of ``r1_lbl`` above R1.
+        v_r1_lbl.move_to(0.0, hh - 0.55)
+
+        v_r2_lbl = MathTex(
+            rf"{v_r2_s}\,\mathrm{{V}}", color=color_resistor, scale=SCALE_LABEL,
+        )
+        # Left of the R2 body, inside the loop — clear of ``r2_lbl`` to the right.
+        v_r2_lbl.move_to(hw - 0.55, 0.0)
+
+        extras.extend([v_batt_lbl, v_r1_lbl, v_r2_lbl])
 
     return VGroup(
         top_wire, right_wire, bottom_wire, battery, r1, r2,
         r1_lbl, r2_lbl, batt_lbl,
         i_arrow, i_lbl,
+        *extras,
     )
