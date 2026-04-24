@@ -104,7 +104,7 @@ def test_synthesize_writes_mp3_and_json(mock_client_cls: MagicMock, tmp_path: Pa
     mock_post = MagicMock(return_value=_fake_response(text))
     mock_client_cls.return_value.__enter__.return_value.post = mock_post
 
-    out_mp3  = tmp_path / "tts.mp3"
+    out_mp3  = tmp_path / "clip.mp3"
     out_json = tmp_path / "timing.json"
 
     clip = synthesize(

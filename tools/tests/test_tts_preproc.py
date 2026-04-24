@@ -75,7 +75,7 @@ def test_cli_pronounce_flag(mock_synthesize: MagicMock, tmp_path: Path) -> None:
             "elevenlabs-tts",
             str(text_path),
             "voice-abc",
-            str(tmp_path / "tts.mp3"),
+            str(tmp_path / "clip.mp3"),
             "--scene-id",
             "scene_01",
         ],

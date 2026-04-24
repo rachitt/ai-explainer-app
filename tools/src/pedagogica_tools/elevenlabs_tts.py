@@ -2,7 +2,7 @@
 
 POST to /v1/text-to-speech/{voice_id}/with-timestamps, decode the
 base64 audio, convert char-level alignment to WordTiming list,
-write tts.mp3 + AudioClip JSON.
+write clip.mp3 + AudioClip JSON.
 """
 
 from __future__ import annotations

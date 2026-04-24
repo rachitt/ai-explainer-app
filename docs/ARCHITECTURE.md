@@ -179,7 +179,7 @@ ai-blackboard/                          # repo root (project colloquially "Pedag
 │       │   │   ├── spec.json
 │       │   │   ├── code.py             # generated Manim
 │       │   │   ├── render.mp4
-│       │   │   ├── tts.mp3
+│       │   │   ├── clip.mp3
 │       │   │   └── timing.json
 │       │   └── …
 │       ├── final.mp4
@@ -502,7 +502,7 @@ for each scene (N = 6–12 in Phase 1):
             if fail: manim-repair → regenerate code.py, retry (≤3 attempts)
             if pass: scenes/scene_NN/render.mp4 exists
     T+110s  tts (bash → pedagogica-tools elevenlabs-tts)
-            scenes/scene_NN/tts.mp3 + scenes/scene_NN/timing.json
+            scenes/scene_NN/clip.mp3 + scenes/scene_NN/timing.json
     T+115s  sync agent → scenes/scene_NN/sync.json
     T+117s  [Phase 2] if sync.drift > 0.3s, regenerate code.py with new run_times
 

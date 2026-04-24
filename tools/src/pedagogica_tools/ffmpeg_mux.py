@@ -81,7 +81,7 @@ def _mux_scenes(
     for scene_dir in scene_dirs:
         scene_id = scene_dir.name
         sync_path = scene_dir / "sync.json"
-        audio_path = scene_dir / "audio" / "tts.mp3"
+        audio_path = scene_dir / "audio" / "clip.mp3"
         synced_path = scene_dir / "synced.mp4"
 
         if not sync_path.is_file():
