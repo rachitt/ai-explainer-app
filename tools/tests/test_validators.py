@@ -189,3 +189,159 @@ def test_check_script_cli_exits_1_on_word_budget(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert "word_budget" in result.stdout
 
+
+def test_storyboard_depth_passes_for_180s_with_one_in_depth_lo() -> None:
+    storyboard = _storyboard(
+        _beat("scene_01", beat_type="define", target_duration_seconds=90.0),
+        _beat("scene_02", beat_type="example", target_duration_seconds=90.0),
+    )
+
+    report = validate_storyboard_depth(storyboard)
+
+    assert report.passed is True
+    assert report.lo_count_in_depth == 1
+    assert all(issue.rule != "lo_cap" for issue in report.issues)
+
+
+def test_storyboard_depth_fails_for_180s_with_two_in_depth_los() -> None:
+    storyboard = _storyboard(
+        _beat(
+            "scene_01",
+            beat_type="define",
+            target_duration_seconds=45.0,
+            learning_objective_id="lo_1",
+        ),
+        _beat(
+            "scene_02",
+            beat_type="example",
+            target_duration_seconds=45.0,
+            learning_objective_id="lo_1",
+        ),
+        _beat(
+            "scene_03",
+            beat_type="define",
+            target_duration_seconds=45.0,
+            learning_objective_id="lo_2",
+        ),
+        _beat(
+            "scene_04",
+            beat_type="example",
+            target_duration_seconds=45.0,
+            learning_objective_id="lo_2",
+        ),
+    )
+
+    report = validate_storyboard_depth(storyboard)
+
+    assert report.passed is False
+    assert report.lo_count_in_depth == 2
+    assert any(
+        issue.rule == "lo_cap"
+        and issue.severity == "error"
+        and issue.observed == 2
+        and issue.threshold == 1
+        for issue in report.issues
+    )
+
+
+def test_storyboard_depth_passes_for_300s_with_two_in_depth_los() -> None:
+    storyboard = _storyboard(
+        _beat(
+            "scene_01",
+            beat_type="define",
+            target_duration_seconds=75.0,
+            learning_objective_id="lo_1",
+        ),
+        _beat(
+            "scene_02",
+            beat_type="example",
+            target_duration_seconds=75.0,
+            learning_objective_id="lo_1",
+        ),
+        _beat(
+            "scene_03",
+            beat_type="define",
+            target_duration_seconds=75.0,
+            learning_objective_id="lo_2",
+        ),
+        _beat(
+            "scene_04",
+            beat_type="example",
+            target_duration_seconds=75.0,
+            learning_objective_id="lo_2",
+        ),
+    )
+
+    report = validate_storyboard_depth(storyboard)
+
+    assert report.passed is True
+    assert report.lo_count_in_depth == 2
+    assert all(issue.rule != "lo_cap" for issue in report.issues)
+
+
+def test_storyboard_depth_warns_on_hook_with_learning_objective() -> None:
+    storyboard = _storyboard(
+        _beat(
+            "scene_01",
+            beat_type="hook",
+            target_duration_seconds=90.0,
+            learning_objective_id="lo_1",
+        ),
+        _beat(
+            "scene_02",
+            beat_type="define",
+            target_duration_seconds=90.0,
+            learning_objective_id="lo_1",
+        ),
+    )
+
+    report = validate_storyboard_depth(storyboard)
+
+    assert any(issue.rule == "hook_recap_no_lo" for issue in report.issues)
+
+
+def test_storyboard_depth_warns_when_example_precedes_define() -> None:
+    storyboard = _storyboard(
+        _beat(
+            "scene_01",
+            beat_type="example",
+            target_duration_seconds=90.0,
+            learning_objective_id="lo_1",
+        ),
+        _beat(
+            "scene_02",
+            beat_type="define",
+            target_duration_seconds=90.0,
+            learning_objective_id="lo_1",
+        ),
+    )
+
+    report = validate_storyboard_depth(storyboard)
+
+    assert any(issue.rule == "define_has_example" for issue in report.issues)
+
+
+def test_check_storyboard_cli_handles_warn_only_and_strict(tmp_path: Path) -> None:
+    storyboard = _storyboard(
+        _beat(
+            "scene_01",
+            beat_type="hook",
+            target_duration_seconds=90.0,
+            learning_objective_id="lo_1",
+        ),
+        _beat(
+            "scene_02",
+            beat_type="define",
+            target_duration_seconds=90.0,
+            learning_objective_id="lo_1",
+        ),
+    )
+    storyboard_path = tmp_path / "storyboard.json"
+    _write_model(storyboard_path, storyboard)
+
+    non_strict = runner.invoke(app, ["check-storyboard", str(storyboard_path)])
+    strict = runner.invoke(app, ["check-storyboard", str(storyboard_path), "--strict"])
+
+    assert non_strict.exit_code == 0, non_strict.stderr
+    assert "hook_recap_no_lo" in non_strict.stdout
+    assert strict.exit_code == 1

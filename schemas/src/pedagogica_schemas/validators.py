@@ -181,3 +181,92 @@ def validate_script(script: Script, storyboard: Storyboard) -> ScriptCadenceRepo
     )
 
 
+def validate_storyboard_depth(storyboard: Storyboard) -> DepthBudgetReport:
+    total_duration_seconds = sum(
+        beat.target_duration_seconds for beat in storyboard.scenes
+    )
+    beats_by_lo: dict[str, dict[str, list[int]]] = {}
+    report = DepthBudgetReport(
+        topic=storyboard.topic,
+        total_duration_seconds=total_duration_seconds,
+        lo_count_in_depth=0,
+    )
+
+    for index, beat in enumerate(storyboard.scenes):
+        if beat.learning_objective_id is None:
+            continue
+        lo_beats = beats_by_lo.setdefault(
+            beat.learning_objective_id,
+            {"define": [], "example": []},
+        )
+        if beat.beat_type in lo_beats:
+            lo_beats[beat.beat_type].append(index)
+
+    in_depth_los = {
+        lo_id: beat_indices
+        for lo_id, beat_indices in beats_by_lo.items()
+        if beat_indices["define"] and beat_indices["example"]
+    }
+    report.lo_count_in_depth = len(in_depth_los)
+
+    cap: int | None = None
+    if 60 <= total_duration_seconds < 240:
+        cap = 1
+    elif 240 <= total_duration_seconds < 360:
+        cap = 2
+    elif 360 <= total_duration_seconds <= 600:
+        cap = 3
+    else:
+        report.issues.append(
+            DepthBudgetIssue(
+                rule="duration_out_of_range",
+                severity="warn",
+                observed=total_duration_seconds,
+                threshold=60,
+                message="Storyboard duration is outside the 60s to 600s depth-budget range.",
+            )
+        )
+
+    if cap is not None and report.lo_count_in_depth > cap:
+        report.issues.append(
+            DepthBudgetIssue(
+                rule="lo_cap",
+                severity="error",
+                observed=report.lo_count_in_depth,
+                threshold=cap,
+                message=(
+                    f"In-depth learning objectives {report.lo_count_in_depth} exceed the cap of {cap}."
+                ),
+            )
+        )
+        report.passed = False
+
+    for lo_id, beat_indices in in_depth_los.items():
+        if beat_indices["example"][0] < beat_indices["define"][0]:
+            report.issues.append(
+                DepthBudgetIssue(
+                    rule="define_has_example",
+                    severity="warn",
+                    observed=beat_indices["example"][0],
+                    threshold=beat_indices["define"][0],
+                    message=(
+                        f"Learning objective {lo_id} has its first example beat before its first define beat."
+                    ),
+                )
+            )
+
+    for beat in storyboard.scenes:
+        if beat.beat_type in {"hook", "recap"} and beat.learning_objective_id is not None:
+            report.issues.append(
+                DepthBudgetIssue(
+                    rule="hook_recap_no_lo",
+                    severity="warn",
+                    observed=1,
+                    threshold=0,
+                    message=(
+                        f"{beat.beat_type} beat {beat.scene_id} should not set learning_objective_id."
+                    ),
+                )
+            )
+
+    return report
