@@ -2,13 +2,15 @@
 
 **First thing every session: read `workflows/lessons.md`.** Append-only log of past mistakes — don't repeat them.
 
+**Second: read `docs/CHALK_QUALITY_GAP.md`.** Honest accounting of where chalk output quality lags manim and the ordered P0–P6 backlog to close the gap. Every chalk PR must either close one of those items or explain why it doesn't. Single most important doc for raising video quality.
+
 ## What this is
 
 An AI pipeline that turns a learning objective ("explain derivatives to calc 1 students") into a narrated explainer video in the style of 3Blue1Brown / Khan Academy. Core bet: LLMs generate **chalk** code (this repo's own renderer, under `chalk/`) → render → overlay ElevenLabs TTS with word-level sync. No generative video models for pedagogical content.
 
 chalk replaced Manim Community Edition as the visual primitive on 2026-04-21. Rationale, kill criteria, and reversion plan live in `docs/adr/0001-chalk-replaces-manim.md`; phased primitive plan in `docs/CHALK_ROADMAP.md`. Scene authoring rules in `chalk/CLAUDE.md`.
 
-Full spec: `docs/ARCHITECTURE.md`, `docs/SKILLS.md`, `docs/ROADMAP.md`, `docs/RISKS.md`, `docs/NON_GOALS.md`, `docs/CHALK_ROADMAP.md`.
+Full spec: `docs/ARCHITECTURE.md`, `docs/SKILLS.md`, `docs/ROADMAP.md`, `docs/RISKS.md`, `docs/NON_GOALS.md`, `docs/CHALK_ROADMAP.md`, `docs/CHALK_QUALITY_GAP.md`.
 
 ## Phase 1 scope (now)
 
