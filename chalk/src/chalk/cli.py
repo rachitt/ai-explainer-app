@@ -63,7 +63,12 @@ def _pair_ignored(
     # trajectories on the same axes, a function vs its approximation).
     if id(a) in plot_curve_ids and id(b) in plot_curve_ids:
         return True
-    if isinstance(a, Dot) or isinstance(b, Dot):
+    # Dot markers on a curve or a line are intentional (axis ticks, plot
+    # highlights). But a Dot dropped on a MathTex / Text / Rectangle / other
+    # Dot IS overlap — the author likely placed it without checking bboxes.
+    if isinstance(a, Dot) and (isinstance(b, Line) or id(b) in plot_curve_ids):
+        return True
+    if isinstance(b, Dot) and (isinstance(a, Line) or id(a) in plot_curve_ids):
         return True
     aid = id(a)
     bid = id(b)
@@ -108,8 +113,45 @@ def _run_preflight(
                     table_child_sets.append(child_ids)
         original_add(*mobjects)
 
-    def play_noop(*animations, run_time=None):
-        return None
+    play_counter = {"n": 0}
+
+    def _run_anim_to_end(anim: object) -> None:
+        # Recursively drive an animation (or group/succession) to its final
+        # frame so preflight sees the resulting scene state. Each animation
+        # must expose begin / interpolate(alpha) / finish; groups expose the
+        # same surface by fanning out.
+        children = getattr(anim, "animations", None)
+        if children is not None:
+            for child in children:
+                _run_anim_to_end(child)
+            return
+        begin = getattr(anim, "begin", None)
+        interpolate = getattr(anim, "interpolate", None)
+        finish = getattr(anim, "finish", None)
+        if begin is None or interpolate is None or finish is None:
+            return
+        try:
+            begin()
+            interpolate(1.0)
+            finish()
+        except Exception:
+            # Animation failed mid-preflight; let the real render surface it.
+            # Preflight should not crash on a non-fatal interpolation issue.
+            return
+
+    def play_preflight(*animations, run_time=None):
+        # Drive every animation to its finished state so the scene reflects
+        # where mobjects actually end up, then snapshot.
+        for anim in animations:
+            _run_anim_to_end(anim)
+            # New mobjects spawned by animations (e.g. TransformMatchingTex
+            # unmatched target glyphs) live on anim._new_mobs; surface them.
+            new_mobs = getattr(anim, "_new_mobs", None) or []
+            for mob in new_mobs:
+                if mob not in instance._mobjects:
+                    instance._mobjects.append(mob)
+        play_counter["n"] += 1
+        snapshots.append(_snapshot(instance, f"play_{play_counter['n']:02d}"))
 
     def wait_noop(duration: float = 1.0, **kwargs):
         return None
@@ -131,7 +173,7 @@ def _run_preflight(
         instance._sections.append((name, instance._frame_index))
 
     instance.add = add_with_table_tracking  # type: ignore[method-assign]
-    instance.play = play_noop  # type: ignore[method-assign]
+    instance.play = play_preflight  # type: ignore[method-assign]
     instance.wait = wait_noop  # type: ignore[method-assign]
     instance.clear = clear_preflight  # type: ignore[method-assign]
     instance.section = section_preflight  # type: ignore[method-assign]
