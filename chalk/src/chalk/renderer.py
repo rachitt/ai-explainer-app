@@ -90,8 +90,10 @@ class CairoRenderer:
         subpaths = mob.subpaths if mob.subpaths else [mob.points]
 
         # Chalkboard: stable per-mobject seed so wobble does not shimmer
-        # across frames for a static element.
-        chalk = self._chalk_style
+        # across frames for a static element. Glyphs (MathTex / Text)
+        # opt out via `_no_chalk_jitter` — LaTeX letters lose readability
+        # under even sub-pixel perturbation.
+        chalk = self._chalk_style and not getattr(mob, "_no_chalk_jitter", False)
         mob_seed = (id(mob) & 0xFFFFFFFF) if chalk else 0
         amount_px = (
             camera.pixel_width / camera.frame_width * CHALK_JITTER_AMOUNT

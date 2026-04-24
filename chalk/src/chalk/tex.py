@@ -61,6 +61,11 @@ class MathTex(VGroup):
             fill_color=color,
             fill_opacity=fill_opacity,
         )
+        # Glyphs must not receive chalkboard-style jitter — LaTeX letters
+        # rely on precise control points and even 0.015 world-unit noise
+        # makes "V" read as "\" or gives characters ragged serifs.
+        for m in mobs:
+            m._no_chalk_jitter = True  # type: ignore[attr-defined]
         super().__init__(*mobs)
         if scale != 1.0:
             self.scale(scale)
