@@ -190,9 +190,17 @@ def _run_preflight(
     sections_report = []
     any_failure = False
     peak = 0
+    def _is_visible(mob: object) -> bool:
+        # Treat a mobject as invisible (and skip overlap / offframe checks)
+        # only when BOTH fill and stroke opacity are effectively zero. A
+        # faded-out target should not clutter the overlap report.
+        fill = getattr(mob, "fill_opacity", 1.0) or 0.0
+        stroke = getattr(mob, "stroke_opacity", 1.0) or 0.0
+        return fill > 0.01 or stroke > 0.01
+
     for snap in snapshots:
         name = snap["name"]
-        mobs = list(snap["mobjects"])
+        mobs = [m for m in snap["mobjects"] if _is_visible(m)]
         peak = max(peak, len(mobs))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
