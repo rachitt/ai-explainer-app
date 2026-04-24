@@ -60,6 +60,12 @@ For each stage `S` with `status != complete`:
    - Exit 0 → continue.
    - Exit 1 (validation) → re-prompt the agent once with the validator's stderr; second failure is a hard fail.
    - Exit 2 (usage/IO) → hard fail.
+   - After storyboard JSON is written and schema-validated, run:
+     ```
+     uv run pedagogica-tools check-storyboard artifacts/<job_id>/03_storyboard.json
+     ```
+     - Exit 1 on `lo_cap` → re-prompt the storyboard agent once with the failing report. Second failure halts the stage.
+     - Exit 2 (usage/IO) → hard fail.
 5. **Mark complete** — `stages[S].status = "complete"`, `completed_at`, `artifact_path = "<NN_stage>.json"`, advance `current_stage` to the next non-complete stage (or `null` at end of tier). Rewrite and re-validate `job_state.json`.
 6. **Trace** — `uv run pedagogica-tools trace <job_id> '<event-json>'` with a `stage_exit` event. (Trace CLI is stubbed in this worktree; the call is still made so the shape is fixed.)
 
@@ -74,6 +80,14 @@ For each stage `S` with `status != complete`:
   - `mkdir -p artifacts/<job_id>/scenes/<scene_id>/`.
   - Invoke the `script` agent for that `scene_id`. The agent writes only `scenes/<scene_id>/script.json`.
   - Validate: `uv run pedagogica-tools validate Script artifacts/<job_id>/scenes/<scene_id>/script.json`. Same retry/fail rules as scalar stages — one retry per scene, second failure halts the whole stage.
+  - Run:
+    ```
+    uv run pedagogica-tools check-script artifacts/<job_id>/scenes/<scene_id>/script.json artifacts/<job_id>/03_storyboard.json
+    ```
+    - Exit 0 → continue.
+    - Exit 1 on `word_budget` → re-prompt the script agent once with the failing report. Second failure halts the stage.
+    - Warn-only (`quotas_met < 5`) → log to trace, do **not** halt.
+    - Exit 2 (usage/IO) → hard fail.
 - Mark the stage `complete` only after every scene's script is validated. `artifact_path` for a fan-out stage is the **directory**: `"scenes/"`.
 
 **`chalk-code` fan-out (includes compile + repair loop):**

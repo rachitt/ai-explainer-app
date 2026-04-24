@@ -3,6 +3,9 @@ from pathlib import Path
 
 import typer
 from pedagogica_schemas.registry import SCHEMA_REGISTRY
+from pedagogica_schemas.script import Script
+from pedagogica_schemas.storyboard import Storyboard
+from pedagogica_schemas.validators import validate_script, validate_storyboard_depth
 from pydantic import ValidationError
 
 from pedagogica_tools._trace import append_event
@@ -12,6 +15,41 @@ app = typer.Typer(
     help="Pedagogica pipeline helpers — validate, render, TTS, mux, trace, view.",
     no_args_is_help=True,
 )
+
+
+def _load_json_model(path: str, schema_name: str, model_cls: type[Script] | type[Storyboard]):
+    p = Path(path)
+    if not p.is_file():
+        typer.echo(f"not a file: {path}", err=True)
+        raise typer.Exit(code=2)
+
+    try:
+        raw = p.read_text(encoding="utf-8")
+    except OSError as e:
+        typer.echo(f"failed to read {path}: {e}", err=True)
+        raise typer.Exit(code=2) from e
+
+    try:
+        registry_model = SCHEMA_REGISTRY.get(schema_name)
+        if registry_model is not None:
+            return registry_model.model_validate_json(raw)
+        return model_cls.model_validate(json.loads(raw))
+    except (OSError, json.JSONDecodeError, ValidationError) as e:
+        typer.echo(f"{schema_name} load failed for {path}: {e}", err=True)
+        raise typer.Exit(code=2) from e
+
+
+def _format_issue_table(issues: list[object]) -> str:
+    lines = ["rule | severity | observed | threshold | message"]
+    if not issues:
+        lines.append("ok | - | - | - | no issues")
+        return "\n".join(lines)
+
+    for issue in issues:
+        lines.append(
+            f"{issue.rule} | {issue.severity} | {issue.observed} | {issue.threshold} | {issue.message}"
+        )
+    return "\n".join(lines)
 
 
 @app.command()
@@ -61,6 +99,49 @@ def list_schemas() -> None:
     """List every schema name the validator knows about."""
     for name in sorted(SCHEMA_REGISTRY):
         typer.echo(name)
+
+
+@app.command("check-script")
+def check_script(
+    script_path: str,
+    storyboard_path: str,
+    strict: bool = typer.Option(False, "--strict", help="Exit 1 if any quota fails"),
+) -> None:
+    """Validate a script's cadence + word budget against its storyboard beat."""
+    script = _load_json_model(script_path, "Script", Script)
+    storyboard = _load_json_model(storyboard_path, "Storyboard", Storyboard)
+
+    try:
+        report = validate_script(script, storyboard)
+    except ValueError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=2) from e
+
+    typer.echo(_format_issue_table(report.issues))
+    typer.echo(
+        f"scene={report.scene_id} passed={report.passed} quotas_met={report.quotas_met}/5"
+    )
+    if not report.passed or (strict and report.issues):
+        raise typer.Exit(code=1)
+
+
+@app.command("check-storyboard")
+def check_storyboard(
+    storyboard_path: str,
+    strict: bool = typer.Option(False, "--strict"),
+) -> None:
+    """Validate storyboard depth budget."""
+    storyboard = _load_json_model(storyboard_path, "Storyboard", Storyboard)
+    report = validate_storyboard_depth(storyboard)
+
+    typer.echo(_format_issue_table(report.issues))
+    typer.echo(
+        "topic="
+        f"{report.topic} passed={report.passed} total_duration_seconds={report.total_duration_seconds} "
+        f"lo_count_in_depth={report.lo_count_in_depth}"
+    )
+    if not report.passed or (strict and report.issues):
+        raise typer.Exit(code=1)
 
 
 @app.command()

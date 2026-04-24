@@ -75,6 +75,8 @@ Every extra learning objective turns a video from an explanation into a firehose
 
 If you receive a `CurriculumPlan` with more LOs than this budget allows, **pick the subset** that best serves the hook question. Don't try to fit all of them. Cramming LOs at the budget limit will produce dense narration that reads like a textbook summary, not an explainer.
 
+> **Validator:** `pedagogica-tools check-storyboard <storyboard.json>` enforces this cap after generation. Exceeding the cap triggers a re-prompt; second failure halts the stage.
+
 Pick-rule in priority order:
 1. The LO that directly answers the hook's question.
 2. The LO whose prerequisites are already carried by the audience level.
