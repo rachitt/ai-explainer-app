@@ -572,13 +572,17 @@ def KirchhoffDemo(
     right_wire = Wire(tr, br, color=GREY, breaks=[r2])
     bottom_wire = Wire(br, bl, color=GREY)
 
+    # Layout:
+    #   - Component labels (R1, R2, V) sit INSIDE the loop, clear of wire.
+    #   - Current arrow + label live OUTSIDE the loop, above the top wire.
+    # This keeps the top-wire zone uncluttered for the viewer's eye.
     r1_lbl = MathTex(r1_label, color=color_resistor, scale=SCALE_LABEL)
-    r1_lbl.move_to(0.0, hh + 0.38)
+    r1_lbl.move_to(0.0, hh - 0.55)            # below R1, inside loop
     r2_lbl = MathTex(r2_label, color=color_resistor, scale=SCALE_LABEL)
-    r2_lbl.move_to(hw + 0.45, 0.0)
+    r2_lbl.move_to(hw - 0.55, 0.0)            # left of R2, inside loop
 
     batt_lbl = MathTex(battery_emf, color=color_battery, scale=SCALE_LABEL)
-    batt_lbl.move_to(-hw - 0.42, 0.0)
+    batt_lbl.move_to(-hw + 0.55, 0.0)         # right of battery, inside loop
 
     # Current label: auto-fill with computed value when the numeric inputs
     # are given and the caller did not override ``current_label`` explicitly.
@@ -613,23 +617,22 @@ def KirchhoffDemo(
         v_r1_s = _fmt(-_i * r1_ohms)
         v_r2_s = _fmt(-_i * r2_ohms)
 
+        # Voltage drops on the OUTSIDE of each component, clear of the
+        # inside-the-loop resistance / EMF labels.
         v_batt_lbl = MathTex(
             rf"{v_batt_s}\,\mathrm{{V}}", color=color_battery, scale=SCALE_LABEL,
         )
-        # Below the battery glyph, inside the loop — stays clear of ``batt_lbl``.
-        v_batt_lbl.move_to(-hw + 0.45, -0.8)
+        v_batt_lbl.move_to(-hw - 0.78, -0.75)     # below the battery label, outside
 
         v_r1_lbl = MathTex(
             rf"{v_r1_s}\,\mathrm{{V}}", color=color_resistor, scale=SCALE_LABEL,
         )
-        # Below the R1 body, inside the loop — clear of ``r1_lbl`` above R1.
-        v_r1_lbl.move_to(0.0, hh - 0.55)
+        v_r1_lbl.move_to(1.9, hh + 0.45)          # right-of-R1, above the top wire
 
         v_r2_lbl = MathTex(
             rf"{v_r2_s}\,\mathrm{{V}}", color=color_resistor, scale=SCALE_LABEL,
         )
-        # Left of the R2 body, inside the loop — clear of ``r2_lbl`` to the right.
-        v_r2_lbl.move_to(hw - 0.55, 0.0)
+        v_r2_lbl.move_to(hw + 0.78, -0.75)        # below R2, outside the loop
 
         extras.extend([v_batt_lbl, v_r1_lbl, v_r2_lbl])
 

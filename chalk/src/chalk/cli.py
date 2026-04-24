@@ -212,7 +212,12 @@ def _run_preflight(
         peak = max(peak, len(mobs))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            raw_overlaps = check_bbox_overlap(mobs, padding=0.05)
+            # Padding 0.0 so the check flags real overlaps rather than
+            # near-contact. Adjacent LaTeX glyphs in a single MathTex sit
+            # within ~0.05 world units of each other by typesetting design;
+            # a positive padding reports every multi-character expression
+            # as "overlap" and masks real bugs.
+            raw_overlaps = check_bbox_overlap(mobs, padding=0.0)
         overlaps = []
         for i, j, rect in raw_overlaps:
             if _pair_ignored(
