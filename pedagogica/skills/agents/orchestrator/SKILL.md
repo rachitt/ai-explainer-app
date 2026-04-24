@@ -60,6 +60,13 @@ For each stage `S` with `status != complete`:
    - Exit 0 → continue.
    - Exit 1 (validation) → re-prompt the agent once with the validator's stderr; second failure is a hard fail.
    - Exit 2 (usage/IO) → hard fail.
+   - After `storyboard` validates, also run:
+     ```
+     uv run pedagogica-tools check-hook-question \
+       artifacts/<job_id>/01_intake.json \
+       artifacts/<job_id>/03_storyboard.json
+     ```
+     Exit 1 (mismatch error) → re-prompt the storyboard agent once. Exit 0 → continue; warnings are logged to trace.
 5. **Mark complete** — `stages[S].status = "complete"`, `completed_at`, `artifact_path = "<NN_stage>.json"`, advance `current_stage` to the next non-complete stage (or `null` at end of tier). Rewrite and re-validate `job_state.json`.
 6. **Trace** — `uv run pedagogica-tools trace <job_id> '<event-json>'` with a `stage_exit` event. (Trace CLI is stubbed in this worktree; the call is still made so the shape is fixed.)
 

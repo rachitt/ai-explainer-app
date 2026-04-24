@@ -3,6 +3,8 @@ from pathlib import Path
 
 import typer
 from pedagogica_schemas.registry import SCHEMA_REGISTRY
+from pedagogica_schemas.storyboard import Storyboard
+from pedagogica_schemas.validators import validate_hook_question_propagation
 from pydantic import ValidationError
 
 from pedagogica_tools._trace import append_event
@@ -542,6 +544,49 @@ def check_duration(
     report = check_job_duration(job_path, threshold=threshold)
     typer.echo(format_report(report))
     if strict and (report.any_over_threshold or report.any_broken_render):
+        raise typer.Exit(code=1)
+
+
+@app.command("check-hook-question")
+def check_hook_question(
+    intake_json: str = typer.Argument(..., help="Path to 01_intake.json."),
+    storyboard_json: str = typer.Argument(..., help="Path to 03_storyboard.json."),
+) -> None:
+    """Check that hook_question is copied and anchored in the storyboard.
+
+    Exit codes: 0 = ok or warnings-only, 1 = error issue present, 2 = usage/IO error.
+    """
+    from pedagogica_schemas.intake import IntakeResult
+
+    intake_path = Path(intake_json)
+    storyboard_path = Path(storyboard_json)
+    if not intake_path.is_file():
+        typer.echo(f"not a file: {intake_json}", err=True)
+        raise typer.Exit(code=2)
+    if not storyboard_path.is_file():
+        typer.echo(f"not a file: {storyboard_json}", err=True)
+        raise typer.Exit(code=2)
+
+    try:
+        intake = IntakeResult.model_validate_json(intake_path.read_text(encoding="utf-8"))
+        storyboard = Storyboard.model_validate_json(
+            storyboard_path.read_text(encoding="utf-8")
+        )
+    except ValidationError as e:
+        typer.echo(e.json(indent=2), err=True)
+        raise typer.Exit(code=1) from e
+
+    report = validate_hook_question_propagation(intake, storyboard)
+    typer.echo(f"intake: {report.intake_hook_question}")
+    typer.echo(f"storyboard: {report.storyboard_hook_question}")
+    if not report.issues:
+        typer.echo("ok: hook_question propagated")
+        return
+
+    for issue in report.issues:
+        typer.echo(f"[{issue.severity}] {issue.rule}: {issue.message}")
+
+    if not report.passed:
         raise typer.Exit(code=1)
 
 
