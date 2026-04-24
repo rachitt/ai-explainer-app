@@ -101,6 +101,7 @@ A video is not a lecture notes dump. The first 5–10 seconds decide whether the
 
 **Hook-scene opening rules (scene_01):**
 
+- **The opening must pose the storyboard hook question.** `scene_01` — or the dedicated hook beat if the storyboard has one — must pose `03_storyboard.json.hook_question` in the narration, either exactly or as a one-breath paraphrase. The answer must land by the end of the video's `generalize` or `recap` beat.
 - **Open with a 2–5 word question or punchy phrase.** "Quick question." "Watch this." "Here's a puzzle." Read it aloud — if the first sentence takes more than ~2 seconds to say, shorten. Calibrated against Khan Academy's opening cadence.
 - **Then set up a concrete demo with specific objects.** Baseballs, garden hose, swing, rubber band — not "a mass" or "a particle." Name the objects the viewer can picture.
 - **Invite the viewer to predict.** "Which one hits the ground first? My intuition says…". Framing a prediction the viewer silently makes is the hook — they now have skin in the reveal.
@@ -127,6 +128,11 @@ GOOD:
    does the flow speed up the moment the opening gets smaller? The answer
    is simple, and it sits in two laws."
 ```
+
+Concrete hook-question example:
+
+- Intake `hook_question`: `"why does a phone charging from empty slow down near the end?"`
+- `scene_01` first three sentences: `"Plug in an empty phone. Watch the number climb — fast at first, then slower, then crawling the last 5%. Why?"`
 
 **Define-scene opening rules (scene_02, first "define" beat):**
 
