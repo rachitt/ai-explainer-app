@@ -573,16 +573,17 @@ def KirchhoffDemo(
     bottom_wire = Wire(br, bl, color=GREY)
 
     # Layout:
-    #   - Component labels (R1, R2, V) sit INSIDE the loop, clear of wire.
+    #   - Component labels (R1, R2, V) sit INSIDE the loop with generous
+    #     buffs so they never collide with resistor zigzag amplitude
+    #     (~0.12 world) or battery plate half-width (~0.2).
     #   - Current arrow + label live OUTSIDE the loop, above the top wire.
-    # This keeps the top-wire zone uncluttered for the viewer's eye.
     r1_lbl = MathTex(r1_label, color=color_resistor, scale=SCALE_LABEL)
-    r1_lbl.move_to(0.0, hh - 0.55)            # below R1, inside loop
+    r1_lbl.move_to(0.0, hh - 0.85)            # 0.85 below R1 centerline
     r2_lbl = MathTex(r2_label, color=color_resistor, scale=SCALE_LABEL)
-    r2_lbl.move_to(hw - 0.55, 0.0)            # left of R2, inside loop
+    r2_lbl.move_to(hw - 0.95, 0.0)            # 0.95 inside from R2 wire x
 
     batt_lbl = MathTex(battery_emf, color=color_battery, scale=SCALE_LABEL)
-    batt_lbl.move_to(-hw + 0.55, 0.0)         # right of battery, inside loop
+    batt_lbl.move_to(-hw + 0.95, 0.0)         # 0.95 inside from battery wire x
 
     # Current label: auto-fill with computed value when the numeric inputs
     # are given and the caller did not override ``current_label`` explicitly.

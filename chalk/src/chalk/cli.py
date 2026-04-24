@@ -53,6 +53,12 @@ def _pair_ignored(
     plot_curve_ids: set[int],
     table_child_sets: list[set[int]],
 ) -> bool:
+    # Same MathTex / Text expression: glyphs sit at typeset distances
+    # (sub-0.1 world units). Not a layout bug — it is how letters combine.
+    a_group = getattr(a, "_tex_group_id", None)
+    b_group = getattr(b, "_tex_group_id", None)
+    if a_group is not None and a_group == b_group:
+        return True
     if isinstance(a, Line) and isinstance(b, Line):
         return True
     if (isinstance(a, Line) and id(b) in plot_curve_ids) or (
@@ -212,12 +218,12 @@ def _run_preflight(
         peak = max(peak, len(mobs))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            # Padding 0.0 so the check flags real overlaps rather than
-            # near-contact. Adjacent LaTeX glyphs in a single MathTex sit
-            # within ~0.05 world units of each other by typesetting design;
-            # a positive padding reports every multi-character expression
-            # as "overlap" and masks real bugs.
-            raw_overlaps = check_bbox_overlap(mobs, padding=0.0)
+            # Padding 0.02 — flag real overlaps (bboxes that actually
+            # intersect) plus a thin safety margin without turning every
+            # adjacent LaTeX glyph pair into a false positive. Larger
+            # paddings (0.05+) reported every multi-character MathTex
+            # as near-contact and buried real bugs.
+            raw_overlaps = check_bbox_overlap(mobs, padding=0.02)
         overlaps = []
         for i, j, rect in raw_overlaps:
             if _pair_ignored(

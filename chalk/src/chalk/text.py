@@ -192,6 +192,12 @@ class Text(VGroup):
             m._no_chalk_jitter = True  # type: ignore[attr-defined]
             mobs.append(m)
 
+        # Tag every glyph with a shared group id so preflight's overlap
+        # check knows intra-expression adjacencies are typesetting, not bugs.
+        _group_id = id(self) & 0xFFFFFFFF + 1
+        for m in mobs:
+            m._tex_group_id = _group_id  # type: ignore[attr-defined]
+
         super().__init__(*mobs)
         self.string = string
         if scale != 1.0:

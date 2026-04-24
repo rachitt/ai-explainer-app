@@ -64,8 +64,13 @@ class MathTex(VGroup):
         # Glyphs must not receive chalkboard-style jitter — LaTeX letters
         # rely on precise control points and even 0.015 world-unit noise
         # makes "V" read as "\" or gives characters ragged serifs.
+        # Tag every glyph with a shared group id so preflight treats
+        # intra-expression bbox nudges as non-overlaps — LaTeX places
+        # adjacent letters within sub-pixel buffs by typesetting design.
+        _group_id = id(self) & 0xFFFFFFFF
         for m in mobs:
             m._no_chalk_jitter = True  # type: ignore[attr-defined]
+            m._tex_group_id = _group_id  # type: ignore[attr-defined]
         super().__init__(*mobs)
         if scale != 1.0:
             self.scale(scale)
