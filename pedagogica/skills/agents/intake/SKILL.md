@@ -35,6 +35,7 @@ Write `artifacts/<job_id>/01_intake.json`. Required fields:
 - `producer`: `"intake"`.
 - `schema_version`: `"0.1.0"` (matches `IntakeResult` default; stays in sync with the schema).
 - `topic`: normalized topic phrase. Examples: `"chain rule"`, `"riemann sums"`, `"derivative of a function"`.
+- `hook_question`: a specific curiosity question the viewer can hold in mind for the whole video.
 - `domain`: one of `calculus | linalg | prob | stats | discrete | algebra | physics | circuits | chemistry | coding`. **Phase 1: must be `calculus`.** Emit best guess if the prompt implies a non-calculus topic; the orchestrator will halt before chalk for any non-calculus domain.
 - `audience_level`: one of `elementary | highschool | undergrad | graduate`. Infer from signals ("for a calc 1 student" → `undergrad`; "AP calc" → `highschool`; "PhD" → `graduate`). Default `undergrad` if no signal.
 - `target_length_seconds`: integer in `[60, 600]`. Phase 1 sweet spot is `[120, 240]`. Infer if the prompt says "2 min" (= 120), "about 3 minutes" (= 180). Default `180` if unstated.
@@ -49,6 +50,26 @@ Write `artifacts/<job_id>/01_intake.json`. Required fields:
 - Collapse internal whitespace to single spaces; trim.
 - Do not invent specifics the user didn't imply. If they didn't say the audience level, pick the default, don't guess.
 - Do not paraphrase the prompt into something it isn't. "chain rule" in, "chain rule" out — not "calculus fundamentals".
+
+## Hook question: the curiosity anchor
+
+- Must be a **specific** question a viewer can hold in mind. Not `"what is the chain rule?"` — instead `"why does the derivative of sin(x^2) have that extra 2x out front?"`
+- Must be answerable by the learning objectives the video will teach.
+- Must be phrased in plain language, in the viewer's voice, with no jargon front-loaded.
+- Must end with `?`.
+
+Examples:
+
+- chain rule → `"why does the derivative of sin(x^2) have that extra 2x out front?"`
+- ohm's law → `"why does a phone charging from empty slow down near the end?"`
+- projectile motion → `"throw a ball from a cliff — how far does it land, and why doesn't leaning out help?"`
+
+Anti-patterns:
+
+- topic-as-question: `"what is X?"`
+- multi-part questions
+- meta-questions: `"why is calculus important?"`
+- yes/no questions
 
 ## Model
 
@@ -71,6 +92,7 @@ Input: `"explain the chain rule to a calc 1 student in ~2 min"`
 ```json
 {
   "topic": "chain rule",
+  "hook_question": "why does the derivative of sin(x^2) have that extra 2x out front?",
   "domain": "calculus",
   "audience_level": "undergrad",
   "target_length_seconds": 120,
@@ -85,6 +107,7 @@ Input: `"Riemann sums for AP calc, 3blue1brown style, dark background"`
 ```json
 {
   "topic": "riemann sums",
+  "hook_question": "why does adding up skinny rectangles get closer to the real area?",
   "domain": "calculus",
   "audience_level": "highschool",
   "target_length_seconds": 180,

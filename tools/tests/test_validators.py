@@ -3,14 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
+from pedagogica_schemas.intake import IntakeResult
 from pedagogica_schemas.script import Script
 from pedagogica_schemas.storyboard import SceneBeat, Storyboard
 from pedagogica_schemas.validators import (
+    validate_hook_question_propagation,
     validate_script,
     validate_script_cadence,
     validate_storyboard_depth,
 )
 from pedagogica_tools.cli import app
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 
@@ -23,6 +27,17 @@ def _base_message() -> dict:
         "span_id": uuid4(),
         "producer": "test",
     }
+
+
+def _intake(*, hook_question: str) -> IntakeResult:
+    return IntakeResult(
+        **_base_message(),
+        topic="chain rule",
+        hook_question=hook_question,
+        domain="calculus",
+        audience_level="undergrad",
+        target_length_seconds=180,
+    )
 
 
 def _script(scene_id: str, text: str) -> Script:
@@ -41,6 +56,7 @@ def _beat(
     beat_type: str = "hook",
     target_duration_seconds: float = 40.0,
     learning_objective_id: str | None = "lo_1",
+    narration_intent: str = "explain the idea",
 ) -> SceneBeat:
     return SceneBeat(
         scene_id=scene_id,
@@ -48,16 +64,23 @@ def _beat(
         target_duration_seconds=target_duration_seconds,
         learning_objective_id=learning_objective_id,
         visual_intent="show the idea",
-        narration_intent="explain the idea",
+        narration_intent=narration_intent,
+        required_skills=[],
     )
 
 
-def _storyboard(*beats: SceneBeat) -> Storyboard:
+def _storyboard(
+    *beats: SceneBeat,
+    topic: str = "test topic",
+    hook_question: str = "why does this pattern happen?",
+) -> Storyboard:
     return Storyboard(
         **_base_message(),
-        topic="test topic",
+        topic=topic,
+        hook_question=hook_question,
         total_duration_seconds=sum(beat.target_duration_seconds for beat in beats),
         scenes=list(beats),
+        palette={"bg": "#0b0f1a"},
         voice_id="voice_123",
     )
 
@@ -149,7 +172,9 @@ def test_demo_action_words_fail_and_recap_is_exempt() -> None:
 
 def test_validate_script_uses_storyboard_scene_match() -> None:
     script = _script("scene_01", "We watch this now. Ready? We try it here.")
-    storyboard = _storyboard(_beat("scene_01", beat_type="hook", target_duration_seconds=40.0))
+    storyboard = _storyboard(
+        _beat("scene_01", beat_type="hook", target_duration_seconds=40.0),
+    )
 
     report = validate_script(script, storyboard)
 
@@ -157,16 +182,16 @@ def test_validate_script_uses_storyboard_scene_match() -> None:
 
 
 def test_check_script_cli_handles_warn_only_and_strict(tmp_path: Path) -> None:
-    storyboard = _storyboard(_beat("scene_01", beat_type="hook", target_duration_seconds=40.0))
+    storyboard = _storyboard(
+        _beat("scene_01", beat_type="hook", target_duration_seconds=40.0),
+    )
     script = _script("scene_01", " ".join(["word"] * 100))
     script_path = tmp_path / "script.json"
     storyboard_path = tmp_path / "storyboard.json"
     _write_model(script_path, script)
     _write_model(storyboard_path, storyboard)
 
-    non_strict = runner.invoke(
-        app, ["check-script", str(script_path), str(storyboard_path)]
-    )
+    non_strict = runner.invoke(app, ["check-script", str(script_path), str(storyboard_path)])
     strict = runner.invoke(
         app, ["check-script", str(script_path), str(storyboard_path), "--strict"]
     )
@@ -177,7 +202,9 @@ def test_check_script_cli_handles_warn_only_and_strict(tmp_path: Path) -> None:
 
 
 def test_check_script_cli_exits_1_on_word_budget(tmp_path: Path) -> None:
-    storyboard = _storyboard(_beat("scene_01", beat_type="hook", target_duration_seconds=40.0))
+    storyboard = _storyboard(
+        _beat("scene_01", beat_type="hook", target_duration_seconds=40.0),
+    )
     script = _script("scene_01", " ".join(["word"] * 200))
     script_path = tmp_path / "script.json"
     storyboard_path = tmp_path / "storyboard.json"
@@ -345,3 +372,70 @@ def test_check_storyboard_cli_handles_warn_only_and_strict(tmp_path: Path) -> No
     assert non_strict.exit_code == 0, non_strict.stderr
     assert "hook_recap_no_lo" in non_strict.stdout
     assert strict.exit_code == 1
+
+
+def test_hook_question_mismatch_reports_error() -> None:
+    report = validate_hook_question_propagation(
+        _intake(hook_question="why does the derivative of sin(x^2) have that extra 2x out front?"),
+        _storyboard(
+            _beat(
+                "scene_01",
+                beat_type="hook",
+                target_duration_seconds=30.0,
+                learning_objective_id=None,
+                narration_intent="we set up why that extra 2x appears",
+            ),
+            topic="chain rule",
+            hook_question="why does the derivative of cos(x^2) have that extra 2x out front?",
+        ),
+    )
+
+    assert not report.passed
+    assert any(issue.rule == "hook_question_mismatch" for issue in report.issues)
+    assert any(issue.severity == "error" for issue in report.issues)
+
+
+def test_hook_question_match_with_salient_token_passes_cleanly() -> None:
+    report = validate_hook_question_propagation(
+        _intake(hook_question="why does the derivative of sin(x^2) have that extra 2x out front?"),
+        _storyboard(
+            _beat(
+                "scene_01",
+                beat_type="hook",
+                target_duration_seconds=30.0,
+                learning_objective_id=None,
+                narration_intent="we focus on where that extra factor comes from",
+            ),
+            topic="chain rule",
+            hook_question="why does the derivative of sin(x^2) have that extra 2x out front?",
+        ),
+    )
+
+    assert report.passed
+    assert report.issues == []
+
+
+def test_hook_question_match_without_salient_token_warns_only() -> None:
+    report = validate_hook_question_propagation(
+        _intake(hook_question="why does the derivative of sin(x^2) have that extra 2x out front?"),
+        _storyboard(
+            _beat(
+                "scene_01",
+                beat_type="hook",
+                target_duration_seconds=30.0,
+                learning_objective_id=None,
+                narration_intent="we start with a mystery and then unpack the answer step by step",
+            ),
+            topic="chain rule",
+            hook_question="why does the derivative of sin(x^2) have that extra 2x out front?",
+        ),
+    )
+
+    assert report.passed
+    assert [issue.rule for issue in report.issues] == ["hook_beat_not_anchored"]
+    assert report.issues[0].severity == "warn"
+
+
+def test_hook_question_without_question_mark_fails_schema_validation() -> None:
+    with pytest.raises(ValidationError):
+        _intake(hook_question="why does the derivative of sin(x^2) have that extra 2x out front")
