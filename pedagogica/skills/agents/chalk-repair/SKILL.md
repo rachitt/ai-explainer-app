@@ -190,6 +190,10 @@ m.subpaths = [0]
 
 This is a known scene.py bug **fixed in 2026-04-21** — if you see it, the chalk version is outdated. After the fix, unmatched target glyphs automatically persist. No code change needed; update chalk.
 
+### under_duration
+
+If a scene is rejected for running short, prefer `animated_wait_with_pulse(...)` over bare `self.wait(...)`. The pulse keeps the frame visually alive, satisfies duration accounting, and is the preferred repair recipe before you fall back to a static hold.
+
 ## Model
 
 **Sonnet 4.6 for attempts 1 and 2. Opus 4.7 for attempt 3.**
