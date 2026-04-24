@@ -151,6 +151,7 @@ Measured against a 686s Khan Academy AP Physics projectile lecture (Sal Khan's v
 - **Rhetorical-question quota:** ≥ **1 question per 40 words.** Framed as "Why?" / "What does this mean?" / "Which one wins?" — drive the viewer forward.
 - **First-person-plural quota:** ≥ **8 uses of "we" / "let's" / "we've" per 100 words.** Invites the viewer into the investigation. "We have a…", "Let's see what happens.", "We've now got…" Replace "the system is…" with "we've got a system…"
 - **Demo-action vocabulary:** use "Ready?" / "Here goes." / "Boom." / "Watch." / "Notice." / "Look." — **at least 2 per scene**, one in the hook. These are the audible cues that the narrator is running an experiment, not describing one.
+- **Validator:** `pedagogica-tools check-script <script.json> <storyboard.json>` enforces these quotas. Word-budget failure is a hard error (exit 1). The other four quotas are warn-only in Phase 1 — they do not block the pipeline but are logged to the trace event.
 - **Sentences ≤ 15 words on average, hard cap 22.** Read it aloud; if it feels clotted, cut.
 - **At most one subordinate clause per sentence.** Two is allowed only in short sentences (< 15 words). See `pedagogy-cognitive-load` Rule 3.
 - **Say, don't show.** Do not describe what's on screen ("as you can see, the curve…"). The visual tier shows; narration says the idea.

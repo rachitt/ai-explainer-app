@@ -74,6 +74,14 @@ For each stage `S` with `status != complete`:
   - `mkdir -p artifacts/<job_id>/scenes/<scene_id>/`.
   - Invoke the `script` agent for that `scene_id`. The agent writes only `scenes/<scene_id>/script.json`.
   - Validate: `uv run pedagogica-tools validate Script artifacts/<job_id>/scenes/<scene_id>/script.json`. Same retry/fail rules as scalar stages — one retry per scene, second failure halts the whole stage.
+  - Run:
+    ```
+    uv run pedagogica-tools check-script artifacts/<job_id>/scenes/<scene_id>/script.json artifacts/<job_id>/03_storyboard.json
+    ```
+    - Exit 0 → continue.
+    - Exit 1 on `word_budget` → re-prompt the script agent once with the failing report. Second failure halts the stage.
+    - Warn-only (`quotas_met < 5`) → log to trace, do **not** halt.
+    - Exit 2 (usage/IO) → hard fail.
 - Mark the stage `complete` only after every scene's script is validated. `artifact_path` for a fan-out stage is the **directory**: `"scenes/"`.
 
 **`chalk-code` fan-out (includes compile + repair loop):**
