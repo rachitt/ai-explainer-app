@@ -90,3 +90,61 @@ labels, and consistent arrow lengths.
 - Leaving labels behind when a mass moves; animate the mass and labels together
   or use redraw helpers.
 - Using `RED_FILL` for force text; reserve red for object contrast, not labels.
+
+## Pedagogy arc pairing — projectile scene (canonical)
+
+Physics scenes fit the storyboard pedagogy arc naturally: throw the object first (hook), predict where it lands (struggle), then decompose into x/y components (resolve). Use composites to keep beat timing predictable.
+
+```python
+from chalk import (
+    Scene, FadeIn, ParametricFunction, MathTex, YELLOW, BLUE, GREY, SCALE_BODY,
+    reveal_then_explain, highlight_and_hold, build_up_sequence,
+    ZONE_TOP, place_in_zone,
+)
+from chalk.physics import Mass, Vector
+
+
+class ProjectileStruggleReveal(Scene):
+    def construct(self):
+        # Hook: ball sits at launch, path is hidden.
+        ball = Mass((-4.0, -1.8), label="m")
+        v0 = Vector(ball, (-3.0, -0.9), label="v_0", color=YELLOW)
+        question = MathTex(r"\text{where does it land?}", color=GREY, scale=SCALE_BODY)
+        place_in_zone(question, ZONE_TOP)
+
+        self.play(reveal_then_explain(ball, question, run_time=1.8))
+        self.play(FadeIn(v0), run_time=0.5)
+
+        # Struggle: pause on the throw before revealing the arc.
+        self.play(highlight_and_hold(ball, color=YELLOW, hold_seconds=1.6))
+
+        # Resolve: trace the arc progressively with apex + landing annotations.
+        path = ParametricFunction(
+            lambda t: (-4.0 + 8.0 * t, -1.8 + 4.0 * t - 4.0 * t * t), color=YELLOW
+        )
+        apex_label = MathTex(r"h_{\max}", color=BLUE, scale=SCALE_BODY)
+        land_label = MathTex(r"R", color=BLUE, scale=SCALE_BODY)
+
+        self.play(
+            build_up_sequence(
+                [
+                    (path,),                      # curve draw (defaults to Write)
+                    (apex_label, FadeIn),
+                    (land_label, FadeIn),
+                ],
+                step_run_time=1.2,
+                inter_step_pause=0.3,
+            )
+        )
+```
+
+**Why it teaches.** Hook (throw pose + question), Struggle (hold on the unthrown ball), Resolve (progressive arc + annotations). The viewer predicts the landing before the arc draws — then checks their guess against the reveal.
+
+## Composite pairings for physics scenes
+
+| composite | physics use |
+|---|---|
+| `reveal_then_explain(object, caption)` | Introduce mass / pendulum / spring + the quantity being tracked. |
+| `highlight_and_hold(mass, hold_seconds=1.5)` | Before motion starts (prediction beat) and after it ends (result beat). |
+| `build_up_sequence` | FBD force arrows one-by-one, so the viewer tracks each contribution. |
+| `animated_wait_with_pulse(targets=[mass])` | Narration overruns the motion — pulse the mass instead of freezing. |

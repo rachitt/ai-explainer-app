@@ -76,6 +76,59 @@ Always use `ax.to_point(x, y)` to place anything on axes. Never hand-code world 
 | 09 | Product rule as a box | `pattern_09_product_rule_box.py` | `example` | Rectangle sides u, v; strip areas |
 | 10 | Related rates balloon | `pattern_10_related_rates.py` | `example` | always_redraw Circle(r), DecimalNumber |
 
+## Composite primitives in calculus scenes
+
+The five composites shipped in `chalk.composites` (see `chalk-primitives` SKILL for the full catalog) are high-leverage replacements for common hand-rolled calculus patterns. Prefer them before writing bespoke `AnimationGroup` / `Succession` chains — predictable timing, fewer bugs.
+
+Canonical pairings for calculus:
+
+| composite | when to reach for it |
+|---|---|
+| `reveal_then_explain(curve, label, explain_text=...)` | Introducing a new function. Beat 1 of almost every calculus scene. Replaces `self.play(Write(curve)); self.play(Write(label)); self.play(FadeIn(caption))`. |
+| `highlight_and_hold(derivative_readout, hold_seconds=2.0)` | After a `ChangeValue` sweep lands, to let the viewer register the final slope / area / limit. Replaces `Indicate(x); self.wait(2)`. |
+| `annotated_trace(ax, f, x_start=a, x_end=b, annotations=[(c, label)])` | Drawing a curve progressively with callouts at critical points (stationary points, inflections, bounds). |
+| `animated_wait_with_pulse(targets=[dot], pad_seconds=3.0)` | When a scene's animations finish before narration and you need to pad without a frozen frame. Preferred fix for the `under_duration` render gate. |
+| `build_up_sequence([(secant, Write), (slope_label, FadeIn), (arrow, Write)])` | Ordered reveals where each step is a distinct reading beat — think chain-rule flow (x → g(x) → f(g(x))). |
+
+Concrete calculus example — **Pattern 01 restated with composites**:
+
+```python
+from chalk import (
+    Scene, Axes, plot_function, MathTex, Dot, Line,
+    reveal_then_explain, highlight_and_hold, animated_wait_with_pulse,
+    ValueTracker, ChangeValue, always_redraw,
+    BLUE, YELLOW, PRIMARY, SCALE_BODY,
+)
+
+
+class DerivativeSlopeIntro(Scene):
+    def construct(self):
+        ax = Axes(x_range=(0, 4), y_range=(0, 6), width=8.0, height=5.0)
+        curve = plot_function(ax, lambda x: x**2, x_start=0, x_end=3.5, color=BLUE)
+        label = MathTex(r"f(x) = x^2", color=BLUE, scale=SCALE_BODY)
+        label.next_to(ax, direction="UP", buff=0.3)
+
+        # Beat 1: introduce the curve with staggered reveal.
+        self.play(reveal_then_explain(curve, label, run_time=2.5))
+
+        # Beat 2: secant → tangent driven by ValueTracker.
+        h = ValueTracker(1.5)
+        dot_a = always_redraw(lambda: Dot(point=ax.to_point(1.0, 1.0), color=YELLOW))
+        dot_b = always_redraw(
+            lambda: Dot(point=ax.to_point(1.0 + h.get_value(), (1.0 + h.get_value())**2), color=YELLOW)
+        )
+        self.add(dot_a, dot_b)
+        self.play(ChangeValue(h, 0.02, run_time=3.0))
+
+        # Beat 3: let the viewer register the final slope.
+        self.play(highlight_and_hold(dot_b, color=PRIMARY, hold_seconds=1.8))
+
+        # If narration overruns: pad with a subtle pulse, not a frozen frame.
+        # self.play(animated_wait_with_pulse(targets=[dot_a, dot_b], pad_seconds=2.5))
+```
+
+This is a 2/3 reduction in boilerplate vs. the hand-rolled version in `examples/pattern_01_derivative_slope.py` and every beat has predictable duration — the `under_duration` gate won't trip.
+
 ---
 
 ## Pattern 01 — Derivative as slope (secant → tangent)
