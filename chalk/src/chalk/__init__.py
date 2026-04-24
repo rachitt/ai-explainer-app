@@ -11,6 +11,13 @@ from chalk.animation import (
     Indicate, Flash, Circumscribe,
     CameraShift, CameraZoom,
 )
+from chalk.composites import (
+    reveal_then_explain,
+    highlight_and_hold,
+    annotated_trace,
+    animated_wait_with_pulse,
+    build_up_sequence,
+)
 from chalk.scene import Scene
 from chalk.vgroup import VGroup
 from chalk.tex import MathTex
@@ -48,6 +55,8 @@ __all__ = [
     "AnimationGroup", "Succession", "LaggedStart",
     "Indicate", "Flash", "Circumscribe",
     "CameraShift", "CameraZoom",
+    "reveal_then_explain", "highlight_and_hold", "annotated_trace",
+    "animated_wait_with_pulse", "build_up_sequence",
     # ValueTracker + redraw
     "ValueTracker",
     "always_redraw", "AlwaysRedraw", "DecimalNumber",

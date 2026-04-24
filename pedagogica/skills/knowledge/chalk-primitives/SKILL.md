@@ -276,6 +276,92 @@ self.play(ShiftAnim(ball, dx=5.0, dy=0.0, run_time=2.0))
 
 ---
 
+## Composite Primitives
+
+### `reveal_then_explain(target, label, *, explain_text=None, run_time=2.0)`
+
+Use this when a visual object should arrive first, then its label, then a short supporting caption. It packages the common "show the thing, name it, then explain it" rhythm into one staggered animation instead of hand-tuning multiple reveals.
+
+```python
+circle = Circle(radius=0.8, color=BLUE)
+label = MathTex(r"r", color=YELLOW, scale=SCALE_LABEL)
+caption = Text("radius from center", color=GREY, scale=SCALE_ANNOT)
+place_in_zone(circle, ZONE_CENTER)
+next_to(label, circle, direction="RIGHT", buff=0.25)
+next_to(caption, label, direction="DOWN", buff=0.2)
+self.add(circle, label, caption)
+self.play(reveal_then_explain(circle, label, explain_text=caption, run_time=2.2))
+```
+
+### `highlight_and_hold(target, *, color=None, hold_seconds=1.5, indicate_run_time=0.8)`
+
+Use this when narration lands on one already-visible object and needs a quick visual emphasis plus a readable hold. It is cleaner than `Indicate(...)` followed by a raw `self.wait(...)` because the hold is part of the same animation object and preserves timing accounting.
+
+```python
+eq = MathTex(r"f'(x)", color=PRIMARY, scale=SCALE_DISPLAY)
+place_in_zone(eq, ZONE_CENTER)
+self.add(eq)
+self.play(Write(eq, run_time=1.0))
+self.play(
+    highlight_and_hold(
+        eq,
+        color=YELLOW,
+        hold_seconds=1.2,
+        indicate_run_time=0.7,
+    )
+)
+```
+
+### `annotated_trace(axes, fn, *, x_start, x_end, samples=60, annotations=None, run_time=3.0)`
+
+Use this for a function graph that needs to arrive together with one or more point labels. It returns both the animation and the curve mobject, so later beats can still circumscribe or transform the plotted curve without recomputing it.
+
+```python
+ax = Axes(x_range=(0, 4), y_range=(0, 4), width=6.5, height=3.6, color=GREY)
+peak = MathTex(r"(2, 2)", color=YELLOW, scale=SCALE_LABEL)
+ax.shift(0.0, -0.1)
+self.add(ax)
+trace_anim, curve = annotated_trace(
+    ax, lambda x: x * (4 - x) / 2,
+    x_start=0.0, x_end=4.0, run_time=2.8,
+    annotations=[(2.0, peak)],
+)
+self.add(curve, peak)
+self.play(trace_anim)
+```
+
+### `animated_wait_with_pulse(targets, *, pad_seconds, pulse_every=0.8, pulse_scale=1.08)`
+
+Use this when a scene needs extra dwell time but the frame cannot feel dead. Prefer this over `self.wait(>5.0)` when the `under_duration` gate rejects a scene. Static frames longer than 5s read as dead air.
+
+```python
+result = MathTex(r"\int_0^1 x^2\,dx = \tfrac13", color=YELLOW, scale=SCALE_BODY)
+box, lbl = labeled_box(r"\text{Final answer}", color=GREY, scale=SCALE_LABEL)
+place_in_zone(result, ZONE_CENTER)
+next_to(lbl, result, direction="DOWN", buff=0.35)
+lx0, ly0, lx1, ly1 = lbl.bbox()
+box.shift((lx0 + lx1) / 2, (ly0 + ly1) / 2)
+self.add(result, box, lbl)
+self.play(animated_wait_with_pulse([result, box, lbl], pad_seconds=3.2))
+```
+
+### `build_up_sequence(steps, *, step_run_time=1.0, inter_step_pause=0.3)`
+
+Use this when a beat is a clean checklist or derivation ladder: step appears, short pause, next step appears. It avoids hand-building a long `Succession` and keeps total run time predictable from step count alone.
+
+```python
+step1 = MathTex(r"y = x^2", color=PRIMARY, scale=SCALE_BODY)
+step2 = MathTex(r"\frac{dy}{dx} = 2x", color=YELLOW, scale=SCALE_BODY)
+step3 = Text("slope doubles with x", color=GREY, scale=SCALE_ANNOT)
+place_in_zone(step1, ZONE_CENTER)
+next_to(step2, step1, direction="DOWN", buff=0.4)
+next_to(step3, step2, direction="DOWN", buff=0.3)
+self.add(step1, step2, step3)
+self.play(build_up_sequence([(step1,), (step2,), (step3,)], step_run_time=0.9))
+```
+
+---
+
 ## 8. Animation composition — AnimationGroup, LaggedStart, Succession
 
 **`AnimationGroup(*anims, lag_ratio)`** runs animations with a staggered offset. `lag_ratio=0` = fully parallel; `lag_ratio=1` = back-to-back (Succession); `lag_ratio=0.3` is the typical stagger.
