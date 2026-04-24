@@ -47,6 +47,7 @@ def write_valid_intake(job_dir: Path) -> None:
         "producer": "intake",
         "schema_version": "0.1.0",
         "topic": "derivatives",
+        "hook_question": "why does the slope change as the curve bends?",
         "domain": "calculus",
         "audience_level": "undergrad",
         "target_length_seconds": 120,

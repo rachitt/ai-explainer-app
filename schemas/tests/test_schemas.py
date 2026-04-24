@@ -31,6 +31,7 @@ def test_intake_result_round_trip() -> None:
     payload = {
         **_meta("intake"),
         "topic": "chain rule",
+        "hook_question": "why does the chain rule need an inner derivative?",
         "domain": "calculus",
         "audience_level": "undergrad",
         "target_length_seconds": 180,
@@ -49,6 +50,7 @@ def test_intake_rejects_out_of_range_length() -> None:
             {
                 **_meta("intake"),
                 "topic": "chain rule",
+                "hook_question": "why does the chain rule need an inner derivative?",
                 "domain": "calculus",
                 "audience_level": "undergrad",
                 "target_length_seconds": 10,
@@ -62,6 +64,7 @@ def test_intake_clarification_consistency() -> None:
             {
                 **_meta("intake"),
                 "topic": "chain rule",
+                "hook_question": "why does the chain rule need an inner derivative?",
                 "domain": "calculus",
                 "audience_level": "undergrad",
                 "target_length_seconds": 180,
@@ -121,6 +124,7 @@ def test_storyboard_happy_path() -> None:
         {
             **_meta("storyboard"),
             "topic": "chain rule",
+            "hook_question": "why does the chain rule need an inner derivative?",
             "total_duration_seconds": 180.0,
             "scenes": [
                 _scene(1, "hook", 15.0),
@@ -141,6 +145,7 @@ def test_storyboard_requires_consecutive_scene_ids() -> None:
             {
                 **_meta("storyboard"),
                 "topic": "chain rule",
+                "hook_question": "why does the chain rule need an inner derivative?",
                 "total_duration_seconds": 120.0,
                 "scenes": [
                     _scene(1, "define", 60.0),
@@ -158,6 +163,7 @@ def test_storyboard_rejects_duration_mismatch() -> None:
             {
                 **_meta("storyboard"),
                 "topic": "chain rule",
+                "hook_question": "why does the chain rule need an inner derivative?",
                 "total_duration_seconds": 180.0,
                 "scenes": [_scene(1, "define", 30.0)],
                 "palette": {"bg": "#000"},
@@ -172,6 +178,7 @@ def test_storyboard_hook_must_be_first() -> None:
             {
                 **_meta("storyboard"),
                 "topic": "chain rule",
+                "hook_question": "why does the chain rule need an inner derivative?",
                 "total_duration_seconds": 60.0,
                 "scenes": [
                     _scene(1, "define", 30.0),
@@ -221,6 +228,7 @@ def test_extra_fields_are_rejected() -> None:
             {
                 **_meta("intake"),
                 "topic": "chain rule",
+                "hook_question": "why does the chain rule need an inner derivative?",
                 "domain": "calculus",
                 "audience_level": "undergrad",
                 "target_length_seconds": 180,

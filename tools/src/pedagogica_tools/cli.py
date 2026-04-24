@@ -2,10 +2,15 @@ import json
 from pathlib import Path
 
 import typer
+from pedagogica_schemas.intake import IntakeResult
 from pedagogica_schemas.registry import SCHEMA_REGISTRY
 from pedagogica_schemas.script import Script
 from pedagogica_schemas.storyboard import Storyboard
-from pedagogica_schemas.validators import validate_script, validate_storyboard_depth
+from pedagogica_schemas.validators import (
+    validate_hook_question_propagation,
+    validate_script,
+    validate_storyboard_depth,
+)
 from pydantic import ValidationError
 
 from pedagogica_tools._trace import append_event
@@ -17,7 +22,11 @@ app = typer.Typer(
 )
 
 
-def _load_json_model(path: str, schema_name: str, model_cls: type[Script] | type[Storyboard]):
+def _load_json_model(
+    path: str,
+    schema_name: str,
+    model_cls: type[Script] | type[Storyboard] | type[IntakeResult],
+):
     p = Path(path)
     if not p.is_file():
         typer.echo(f"not a file: {path}", err=True)
@@ -99,6 +108,32 @@ def list_schemas() -> None:
     """List every schema name the validator knows about."""
     for name in sorted(SCHEMA_REGISTRY):
         typer.echo(name)
+
+
+@app.command("check-hook-question")
+def check_hook_question(
+    intake_json: str = typer.Argument(..., help="Path to 01_intake.json."),
+    storyboard_json: str = typer.Argument(..., help="Path to 03_storyboard.json."),
+) -> None:
+    """Check that hook_question is copied and anchored in the storyboard.
+
+    Exit codes: 0 = ok or warnings-only, 1 = error issue present, 2 = usage/IO error.
+    """
+    intake = _load_json_model(intake_json, "IntakeResult", IntakeResult)
+    storyboard = _load_json_model(storyboard_json, "Storyboard", Storyboard)
+
+    report = validate_hook_question_propagation(intake, storyboard)
+    typer.echo(f"intake: {report.intake_hook_question}")
+    typer.echo(f"storyboard: {report.storyboard_hook_question}")
+    if not report.issues:
+        typer.echo("ok: hook_question propagated")
+        return
+
+    for issue in report.issues:
+        typer.echo(f"[{issue.severity}] {issue.rule}: {issue.message}")
+
+    if not report.passed:
+        raise typer.Exit(code=1)
 
 
 @app.command("check-script")

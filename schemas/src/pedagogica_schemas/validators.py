@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Literal
 
+from pedagogica_schemas.intake import IntakeResult
 from pedagogica_schemas.script import Script
 from pedagogica_schemas.storyboard import Storyboard
 
@@ -12,6 +13,31 @@ _FIRST_PERSON_RE = re.compile(r"\b(we|we'?ve|we'?re|let'?s|our|us)\b", re.IGNORE
 _DEMO_ACTION_RE = re.compile(
     r"\b(watch|notice|here|ready|boom|look|see|try|imagine)\b", re.IGNORECASE
 )
+STOPWORDS = {
+    "the",
+    "a",
+    "an",
+    "why",
+    "how",
+    "what",
+    "when",
+    "where",
+    "does",
+    "do",
+    "is",
+    "are",
+    "it",
+    "of",
+    "to",
+    "from",
+    "in",
+    "on",
+    "that",
+    "this",
+    "at",
+    "for",
+    "with",
+}
 
 
 @dataclass
@@ -49,12 +75,36 @@ class DepthBudgetReport:
     passed: bool = True
 
 
+@dataclass
+class HookQuestionIssue:
+    rule: str
+    severity: Literal["error", "warn"]
+    message: str
+
+
+@dataclass
+class HookQuestionReport:
+    intake_hook_question: str
+    storyboard_hook_question: str
+    issues: list[HookQuestionIssue] = field(default_factory=list)
+    passed: bool = True
+
+
 def _tokenize_words(text: str) -> list[str]:
     return _WORD_RE.findall(text.lower())
 
 
 def _tokenize_sentences(text: str) -> list[str]:
     return [sentence.strip() for sentence in re.split(r"[.?!](?:\s|$)", text) if sentence.strip()]
+
+
+def _salient_tokens(text: str) -> set[str]:
+    normalized = re.sub(r"[^\w\s]", " ", text.lower())
+    return {
+        token
+        for token in normalized.split()
+        if len(token) >= 4 and token not in STOPWORDS
+    }
 
 
 def validate_script_cadence(
@@ -64,7 +114,6 @@ def validate_script_cadence(
     word_count = len(words)
     report = ScriptCadenceReport(scene_id=script.scene_id)
 
-    # Rule 1: word budget
     words_per_second = round(word_count / target_duration_seconds, 2)
     if word_count / target_duration_seconds > 2.75:
         report.issues.append(
@@ -80,7 +129,6 @@ def validate_script_cadence(
     else:
         report.quotas_met += 1
 
-    # Rule 2: short sentence ratio
     if word_count < 25:
         report.quotas_met += 1
     else:
@@ -107,7 +155,6 @@ def validate_script_cadence(
         else:
             report.quotas_met += 1
 
-    # Rule 3: question density
     if beat_type == "recap":
         report.quotas_met += 1
     else:
@@ -129,7 +176,6 @@ def validate_script_cadence(
         else:
             report.quotas_met += 1
 
-    # Rule 4: first-person density
     first_person_count = len(_FIRST_PERSON_RE.findall(script.text))
     first_person_threshold = round(8 * word_count / 100, 2)
     if first_person_count < first_person_threshold:
@@ -139,15 +185,12 @@ def validate_script_cadence(
                 severity="warn",
                 observed=first_person_count,
                 threshold=first_person_threshold,
-                message=(
-                    "First-person markers are below the 8-per-100-words floor."
-                ),
+                message="First-person markers are below the 8-per-100-words floor.",
             )
         )
     else:
         report.quotas_met += 1
 
-    # Rule 5: demo-action words
     if beat_type == "recap":
         report.quotas_met += 1
     else:
@@ -171,9 +214,7 @@ def validate_script_cadence(
 def validate_script(script: Script, storyboard: Storyboard) -> ScriptCadenceReport:
     beat = next((scene for scene in storyboard.scenes if scene.scene_id == script.scene_id), None)
     if beat is None:
-        raise ValueError(
-            f"scene_id {script.scene_id!r} not found in storyboard scenes"
-        )
+        raise ValueError(f"scene_id {script.scene_id!r} not found in storyboard scenes")
     return validate_script_cadence(
         script,
         beat.target_duration_seconds,
@@ -182,9 +223,7 @@ def validate_script(script: Script, storyboard: Storyboard) -> ScriptCadenceRepo
 
 
 def validate_storyboard_depth(storyboard: Storyboard) -> DepthBudgetReport:
-    total_duration_seconds = sum(
-        beat.target_duration_seconds for beat in storyboard.scenes
-    )
+    total_duration_seconds = sum(beat.target_duration_seconds for beat in storyboard.scenes)
     beats_by_lo: dict[str, dict[str, list[int]]] = {}
     report = DepthBudgetReport(
         topic=storyboard.topic,
@@ -269,4 +308,41 @@ def validate_storyboard_depth(storyboard: Storyboard) -> DepthBudgetReport:
                 )
             )
 
+    return report
+
+
+def validate_hook_question_propagation(
+    intake: IntakeResult, storyboard: Storyboard
+) -> HookQuestionReport:
+    report = HookQuestionReport(
+        intake_hook_question=intake.hook_question,
+        storyboard_hook_question=storyboard.hook_question,
+    )
+
+    if storyboard.hook_question.strip() != intake.hook_question.strip():
+        report.issues.append(
+            HookQuestionIssue(
+                rule="hook_question_mismatch",
+                severity="error",
+                message="storyboard.hook_question must match intake.hook_question exactly",
+            )
+        )
+
+    first_scene = storyboard.scenes[0] if storyboard.scenes else None
+    if first_scene is not None and first_scene.beat_type == "hook":
+        narration = first_scene.narration_intent.lower()
+        salient_tokens = _salient_tokens(intake.hook_question)
+        if salient_tokens and not any(token in narration for token in salient_tokens):
+            report.issues.append(
+                HookQuestionIssue(
+                    rule="hook_beat_not_anchored",
+                    severity="warn",
+                    message=(
+                        "hook beat narration_intent should reuse at least one salient token "
+                        "from the hook_question"
+                    ),
+                )
+            )
+
+    report.passed = not any(issue.severity == "error" for issue in report.issues)
     return report

@@ -44,6 +44,7 @@ def _intake() -> IntakeResult:
     return IntakeResult(
         **_base(),
         topic="chain rule",
+        hook_question="why does the chain rule need an inner derivative?",
         domain="calculus",
         audience_level="undergrad",
         target_length_seconds=180,
@@ -76,6 +77,7 @@ def _storyboard() -> Storyboard:
     return Storyboard(
         **_base(),
         topic="chain rule",
+        hook_question="why does the chain rule need an inner derivative?",
         total_duration_seconds=15.0,
         scenes=[
             SceneBeat(
