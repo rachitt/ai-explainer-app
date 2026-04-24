@@ -147,6 +147,31 @@ Concrete hook-question example:
 - Starting with the formal definition. Formal names belong after the motivation, not before.
 - Starting with "In this video we will…" — classroom frame; 3blue1brown-style explainers don't announce themselves.
 
+## Derivation chain — every quantitative claim must be earned
+
+If narration asserts a derived numerical quantity ("three volts dropped", "six volts gone", "two amps through it"), the inputs that derive it must appear earlier in the same scene's narration. Enforced by `pedagogica-tools check-script` as a hard error (`derivation_chain` rule) — the agent is re-prompted on violation.
+
+| Claim | What must have been said first |
+|---|---|
+| "three volts dropped across the resistor" | the current (`one amp`) AND/OR Ohm's law with the resistance value. |
+| "six volts gone" | current + resistance, or explicit subtraction from a known total. |
+| "accelerating at two m/s²" | the force AND the mass (`F = m·a`). |
+| "the kinetic energy is five joules" | mass + velocity (`½·m·v²`). |
+
+Derivation cues the validator recognises: `current`, `amp(ere)?`, `resistance`, `voltage`, `times`, `divided by`, `per`, `over`, `Ohm's law`, `Kirchhoff`, `Newton's`, `equals`, `=`, `so we get` / `which gives` / `which means`.
+
+**Rule of thumb.** Never write `"N volts dropped"` without narration earlier establishing the current. "One amp times three ohms, three volts dropped" passes. "Three volts dropped" alone does not.
+
+Anti-patterns caught by `derivation_chain`:
+
+- "Push through the first resistor. Three volts dropped." — no current mentioned. **Reject.**
+- "Across the six-ohm resistor, six volts gone." — `6 Ω` mentioned but no current. **Reject.**
+- "Nine volts rise, then six more volts gone." — pure accounting with no Ohm's-law tie-in. **Reject.**
+
+Fix by inserting the derivation step:
+
+> "Nine volts. Three ohms. Six ohms. Total nine ohms. Current is **one amp**. Across three ohms, **one amp times three, three volts dropped**. Across six, **one amp times six, six volts gone**."
+
 ## Spoken-narration style (summary — see `spoken-narration-style` for the full rules)
 
 ### Cadence quotas (calibrated against Khan Academy 2026-04-23 benchmark)
