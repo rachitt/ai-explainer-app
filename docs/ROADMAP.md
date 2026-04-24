@@ -104,13 +104,13 @@ Phases are strictly serial. No skipping; the inputs of Phase N require Phase N-1
 - Python tool: `pedagogica-tools elevenlabs-tts`:
   - HTTP POST to Speech-Synthesis-with-Timestamps endpoint
   - Parses char-level timings → `WordTiming` list
-  - Writes `tts.mp3` + `timing.json`
+  - Writes `clip.mp3` + `timing.json`
   - Cost-cap enforcement: per-job char quota (default 10 000 chars ≈ $2).
 - Knowledge skills: `tts-prompting-elevenlabs` (voice selection, model ID, settings), `audio-visual-sync`.
 - Agent skill: **sync**.
 - Integration: for one scene end-to-end, run visual + audio tiers, produce `sync.json`.
 
-**Output:** For a single scene, `scenes/scene_NN/{render.mp4, tts.mp3, timing.json, sync.json}` all produced; drift measurable via `pedagogica-tools measure-drift`.
+**Output:** For a single scene, `scenes/scene_NN/{render.mp4, clip.mp3, timing.json, sync.json}` all produced; drift measurable via `pedagogica-tools measure-drift`.
 
 **Success criterion:** Drift ≤ 0.15s on ≥ 80% of marker-anchored animations across 30 scenes. ElevenLabs call success rate ≥ 99%.
 

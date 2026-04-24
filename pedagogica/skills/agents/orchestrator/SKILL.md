@@ -89,13 +89,15 @@ For each stage `S` with `status != complete`:
        <scene_class_name> \
        artifacts/<job_id>/scenes/<scene_id>/<scene_id>.mp4 \
        --scene-id <scene_id> --attempt 1 \
+       --target-duration-seconds <scene.target_duration_seconds> \
        --result-json artifacts/<job_id>/scenes/<scene_id>/compile_attempt_1.json
      ```
+     where `<scene.target_duration_seconds>` comes from `03_storyboard.json.scenes[<scene_id>].target_duration_seconds`.
      - Exit 0 (render succeeded) → the scene's `.mp4` exists; go to the next scene.
      - Exit 1 (compile failed) → enter the repair loop.
   3. **Repair loop (up to 3 total compile attempts including the first).** For attempt `N` in `{2, 3}`:
      - Invoke the `chalk-repair` agent with the failing `code.py` and `compile_attempt_<N-1>.json`. Agent overwrites `code.py` and writes a new `code.json` (producer `chalk-repair`). Validate the new `code.json` as in step 1.
-     - Re-run `chalk-render` with `--attempt N` and `--result-json compile_attempt_<N>.json`. On exit 0 → scene done. On exit 1 at `N=3` → mark the whole stage `failed` and halt.
+     - Re-run `chalk-render` with `--attempt N`, `--target-duration-seconds <scene.target_duration_seconds>`, and `--result-json compile_attempt_<N>.json`. On exit 0 → scene done. On exit 1 at `N=3` → mark the whole stage `failed` and halt.
   4. Every `compile_attempt_<N>.json` must validate against `CompileResult` — the render helper writes it; don't hand-edit. No separate validation step is needed (the helper emits schema-conforming JSON).
 - Mark the stage `complete` only after every scene has a successful render.
 - `artifact_path = "scenes/"` (directory, same convention as `script`).

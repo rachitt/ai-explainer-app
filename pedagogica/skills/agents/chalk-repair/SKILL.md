@@ -61,8 +61,20 @@ Use the `error_classification` from `CompileResult`:
 | `latex_error` | Missing LaTeX package, unescaped symbols, raw string missing | Move colouring out of LaTeX to chalk's color=; escape raw chars; prefix string with `r`. |
 | `syntax_error` | Missing colon, bad indent, stray bracket | Locate via stderr line number; fix the minimal offending expression. |
 | `geometry_error` | Zero-size shapes, out-of-frame placement, mismatched shape types in Transform | Validate width/height > 0; use `ax.to_point()` for axes-anchored coords. |
+| `under_duration` | Animation finishes well before narration; `AnimationGroup(lag_ratio=r)` under-renders | Pad the beat to at least 95% of target, then increase motion duration or de-stagger the group. |
 | `timeout` | Render wall-clock exceeded 300 s | Shorten/simplify animations; reduce always_redraw factory expense. |
 | `other` | Read stderr literally; match against chalk-debugging catalog | Apply the catalog fix; if missing, make the minimum change the stderr implies. |
+
+### `under_duration`
+
+Cause: animation finishes well before narration, often because `AnimationGroup(lag_ratio=r)` compresses the real play time below the author's naive sum.
+
+Fix recipes, in order:
+1. Append `self.wait(pad_seconds)` at the beat end so total runtime is at least `0.95 × target_duration_seconds`.
+2. Raise per-animation `run_time` values on the motions that carry the narration.
+3. Break `AnimationGroup(lag_ratio < 1.0)` into sequential `self.play()` calls when the stagger is collapsing the beat too aggressively.
+
+Do not pad with static frames longer than 5 seconds. If more hold time is needed, split into sub-beats with subtle motion such as fading labels or ticking emphasis pulses.
 
 ## Attempt ladder
 

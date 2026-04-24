@@ -10,6 +10,7 @@ ErrorClassification = Literal[
     "api_error",
     "geometry_error",
     "layout_overlap",
+    "under_duration",
     "syntax_error",
     "timing_error",
     "memory_error",
