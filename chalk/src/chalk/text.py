@@ -188,6 +188,8 @@ class Text(VGroup):
                 m.points = np.concatenate(world_subs, axis=0)
                 m.subpaths = world_subs
                 m.fill_rule = "evenodd"
+            # Glyphs skip chalkboard jitter — letter shapes need precision.
+            m._no_chalk_jitter = True  # type: ignore[attr-defined]
             mobs.append(m)
 
         super().__init__(*mobs)
