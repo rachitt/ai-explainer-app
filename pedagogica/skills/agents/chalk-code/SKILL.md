@@ -330,20 +330,21 @@ Self-check before emitting:
 1. `scene_class_name` matches `class <NAME>(Scene):` in `code`.
 2. Every element the `visual_intent` promises has a corresponding Python variable and is `self.add()`-ed or animated-in.
 3. Every `markers[*].ref` from `script.json` has a corresponding Python variable (so sync can anchor to it). Use the dotted ref verbatim as the variable name is not required — the ref is a logical identifier, not a Python identifier — but the element must exist in the code.
-4. Total estimated runtime is within ±15% of the scene beat's `target_duration_seconds`. Compute as `sum(play_duration_i) + sum(self.wait_j)`, where `play_duration ≈ max(run_time) + (N−1) × lag_ratio × mean(run_time)` for an `AnimationGroup`. Do **not** use `sum(run_time)` — lag_ratio < 1 compresses the play, and a naive sum over-estimates, leaving the scene short of target.
-5. No raw hex colour literals — everything goes through palette constants.
-6. No `.stroke_color=` on shapes — chalk uses `color=` for stroke.
-7. No `.move_to()` on bare VMobject shapes (Circle, Rectangle, Line, Arrow, Dot) — use `.shift(dx, dy)`.
-8. `ax.to_point(data_x, data_y)` used for all axes-anchored coords — never raw numbers.
-9. `x_start=`/`x_end=` for `plot_function` — not `x_range=`.
-10. `code` and `code.py` are byte-identical.
-11. No `Rectangle(width=..., height=...)` centered at the same coord as a `MathTex` — use `labeled_box()`. Fails chalk-lint R5.
-12. `labeled_box(...)` return is unpacked as `box, label = labeled_box(...)` — the function returns a tuple, not a single mobject.
-13. No `MathTex(r"\a", r"\b", ...)` variadic call — chalk's `MathTex` takes a single `tex_string`. A second positional arg binds to `color` and raises `TypeError`. For sub-expression highlighting, compose multiple MathTex with `next_to` and animate the target piece.
-14. Zone collision: after `place_in_zone(A, ZONE_X)`, any second element in ZONE_X must be positioned with `next_to(B, A, direction=..., buff=...)`, **never** `move_to(x, y)` with a hand-picked y inside that zone's band. Same applies across zones — do not `move_to(0.0, 2.2)` when a title sits at ZONE_TOP (2.0, 3.5); the two will overlap.
-15. **Layout preflight is automatic.** `pedagogica-tools chalk-render` calls `chalk --preflight` before the real render. If it fails, the scene is rejected with `error_classification="layout_overlap"` and `chalk-repair` is invoked. You do not run the probe by hand — but you must still lay out scenes so the preflight passes on the first try. Common recipes: use `chalk.multi_panel(n, ...)` for any >=2-panel scene; never `move_to(x, y)` a label onto an `Axes` bbox — use `next_to(label, axes, direction="UP", buff=0.15)` or `place_in_zone(label, ZONE_TOP)`.
-16. **Multi-panel scenes use `multi_panel`.** Any scene with >=2 `Axes` objects must place them via `slots = multi_panel(n, ...)` and then `ax = Axes(width=slots[i][2], height=slots[i][3]); ax.shift(slots[i][0], slots[i][1])`. Hand-picked `shift(...)` math for multi-panel layouts is banned. See `chalk/src/chalk/layout.py:multi_panel`.
-17. **Axes kwarg is `color=`, not `axis_color=`.** Manim uses `axis_color`. chalk's `Axes(..., color=GREY)` sets both axis line and tick colour. Enforced by `chalk-debugging` catalog entry `axes-axis-color-renamed`.
+4. Total estimated runtime is within ±15% of the scene beat's `target_duration_seconds`. `pedagogica-tools chalk-render` now enforces an 85% under-duration floor: if the rendered video lands below `0.85 × target_duration_seconds`, the render is rejected with `error_classification="under_duration"` and `chalk-repair` is invoked. Compute runtime as `sum(play_duration_i) + sum(self.wait_j)`, where `play_duration ≈ max(run_time) + (N−1) × lag_ratio × mean(run_time)` for an `AnimationGroup`. Do **not** use `sum(run_time)` — lag_ratio < 1 compresses the play, and a naive sum over-estimates, leaving the scene short of target.
+5. Compute every `AnimationGroup` duration explicitly with the lag-ratio formula before shipping. If the compressed timing leaves the scene short, raise `run_time`, add a short end wait, or split the group into sequential plays before the render helper rejects it.
+6. No raw hex colour literals — everything goes through palette constants.
+7. No `.stroke_color=` on shapes — chalk uses `color=` for stroke.
+8. No `.move_to()` on bare VMobject shapes (Circle, Rectangle, Line, Arrow, Dot) — use `.shift(dx, dy)`.
+9. `ax.to_point(data_x, data_y)` used for all axes-anchored coords — never raw numbers.
+10. `x_start=`/`x_end=` for `plot_function` — not `x_range=`.
+11. `code` and `code.py` are byte-identical.
+12. No `Rectangle(width=..., height=...)` centered at the same coord as a `MathTex` — use `labeled_box()`. Fails chalk-lint R5.
+13. `labeled_box(...)` return is unpacked as `box, label = labeled_box(...)` — the function returns a tuple, not a single mobject.
+14. No `MathTex(r"\a", r"\b", ...)` variadic call — chalk's `MathTex` takes a single `tex_string`. A second positional arg binds to `color` and raises `TypeError`. For sub-expression highlighting, compose multiple MathTex with `next_to` and animate the target piece.
+15. Zone collision: after `place_in_zone(A, ZONE_X)`, any second element in ZONE_X must be positioned with `next_to(B, A, direction=..., buff=...)`, **never** `move_to(x, y)` with a hand-picked y inside that zone's band. Same applies across zones — do not `move_to(0.0, 2.2)` when a title sits at ZONE_TOP (2.0, 3.5); the two will overlap.
+16. **Layout preflight is automatic.** `pedagogica-tools chalk-render` calls `chalk --preflight` before the real render. If it fails, the scene is rejected with `error_classification="layout_overlap"` and `chalk-repair` is invoked. You do not run the probe by hand — but you must still lay out scenes so the preflight passes on the first try. Common recipes: use `chalk.multi_panel(n, ...)` for any >=2-panel scene; never `move_to(x, y)` a label onto an `Axes` bbox — use `next_to(label, axes, direction="UP", buff=0.15)` or `place_in_zone(label, ZONE_TOP)`.
+17. **Multi-panel scenes use `multi_panel`.** Any scene with >=2 `Axes` objects must place them via `slots = multi_panel(n, ...)` and then `ax = Axes(width=slots[i][2], height=slots[i][3]); ax.shift(slots[i][0], slots[i][1])`. Hand-picked `shift(...)` math for multi-panel layouts is banned. See `chalk/src/chalk/layout.py:multi_panel`.
+18. **Axes kwarg is `color=`, not `axis_color=`.** Manim uses `axis_color`. chalk's `Axes(..., color=GREY)` sets both axis line and tick colour. Enforced by `chalk-debugging` catalog entry `axes-axis-color-renamed`.
 
 Before/after for a 3-panel triptych:
 
