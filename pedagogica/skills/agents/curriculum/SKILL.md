@@ -47,6 +47,7 @@ Sonnet 4.6. Load all four `requires` skills. Budget ~10k input tokens once skill
 ## Decision heuristics
 
 - **Ratio of LOs to length:** ~1 LO per 60 seconds of video. 120s → 2 LOs; 180s → 2–3 LOs; 240s → 3–4 LOs.
+- **The hook question is the anchor.** `01_intake.json.hook_question` is your pedagogical anchor. The LO list you produce must collectively be capable of answering it. If the hook question demands content outside the domain, trim the topic back in intake instead of expanding curriculum to chase it.
 - **Concrete before abstract.** An intuitive / visual LO comes before a formal LO that rests on it. Prerequisites should reflect this ("LO2 depends on LO1" when LO2 formalizes what LO1 visualized).
 - **Single threaded example preferred.** Where possible, a single worked example should recur across LOs — reuse lowers cognitive load (`pedagogy-cognitive-load`).
 - **External prerequisites stay in `prerequisites`, not objectives.** If the viewer needs to know limits, say so under `prerequisites`; don't create an LO to re-teach limits inside a 180s video.

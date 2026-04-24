@@ -24,6 +24,7 @@ class SceneBeat(BaseModel):
 class Storyboard(BaseMessage):
     schema_version: str = "0.1.0"
     topic: str
+    hook_question: str = Field(min_length=6, max_length=160)
     total_duration_seconds: float = Field(gt=0)
     scenes: list[SceneBeat] = Field(min_length=1)
     palette: dict[str, str] = Field(default_factory=dict)
@@ -31,6 +32,11 @@ class Storyboard(BaseMessage):
 
     @model_validator(mode="after")
     def _scenes_consistent(self) -> Self:
+        if not self.hook_question.endswith("?"):
+            raise ValueError("hook_question must end with '?'")
+        if '"' in self.hook_question and "'" in self.hook_question:
+            raise ValueError("hook_question must not contain nested quotes")
+
         for idx, scene in enumerate(self.scenes, start=1):
             expected = f"scene_{idx:02d}"
             if scene.scene_id != expected:
