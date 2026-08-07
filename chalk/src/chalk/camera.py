@@ -1,6 +1,8 @@
 """Camera2D: maps world coordinates to pixel coordinates."""
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 
@@ -13,12 +15,21 @@ class Camera2D:
         frame_height: float = 8.0,
         pixel_width: int = 1920,
         pixel_height: int = 1080,
-        background_color: str = "#0E1116",
+        background_color: str | None = None,
     ) -> None:
         self.frame_width = frame_width
         self.frame_height = frame_height
         self.pixel_width = pixel_width
         self.pixel_height = pixel_height
+        # Chalkboard aesthetic: when CHALK_STYLE=chalkboard, swap in the
+        # slate chalkboard background unless the caller passed an explicit
+        # override. This is half of chalk's visual identity (the other
+        # half is seeded stroke jitter in the renderer).
+        if background_color is None:
+            if os.environ.get("CHALK_STYLE", "").lower() == "chalkboard":
+                background_color = "#2E3B36"  # BG_CHALKBOARD (slate)
+            else:
+                background_color = "#0E1116"
         self.background_color = background_color
         self.center_x: float = 0.0
         self.center_y: float = 0.0

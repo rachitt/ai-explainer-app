@@ -21,6 +21,35 @@ RED_FILL = "#EF5350"  # contrast / "not this" — FILL OR STROKE ONLY, never tex
 GREY     = "#9AA0A6"  # annotations, axis labels, secondary captions
 TRACK    = "#2A2F36"  # subtle reference lines (tracks, gridlines)
 
+# ── Chalkboard aesthetic layer ─────────────────────────────────
+# When STYLE_CHALKBOARD_ENABLED is true (env var CHALK_STYLE=chalkboard),
+# the renderer applies seeded jitter to every stroke path and swaps in the
+# matte chalkboard palette below. This is chalk's visual identity — the
+# thing manim explicitly does not do. Agents do not opt in or out; the
+# render pipeline decides via env var. See docs/CHALK_QUALITY_GAP.md
+# "Re-differentiate chalk" for why this is the right bet.
+
+# Slate-green chalkboard background — classic schoolroom blackboard.
+BG_CHALKBOARD = "#2E3B36"
+
+# Matte chalk-dust palette — lower saturation than the default,
+# slight warm tint so it reads as "drawn in chalk".
+PRIMARY_CHALK  = "#F3EAD1"  # warm off-white chalk
+YELLOW_CHALK   = "#FFE08A"  # dusty yellow
+BLUE_CHALK     = "#BFE7F2"  # pale cyan chalk
+GREEN_CHALK    = "#B3E8B3"  # pale chartreuse chalk
+RED_CHALK      = "#F5B1A8"  # coral chalk — still fill-only
+GREY_CHALK     = "#BDC3C7"  # muted slate annotation
+TRACK_CHALK    = "#445049"  # subtle board-texture line
+
+# Jitter magnitude in world units. ~1.2% of a SCALE_BODY glyph height.
+# Low enough to read as "hand-drawn", high enough to see.
+CHALK_JITTER_AMOUNT = 0.015
+
+# Stroke-width variation fraction. When chalkboard mode is on, every
+# stroke gets a seeded ±5% width wobble so lines have chalk-pressure feel.
+CHALK_STROKE_WIDTH_JITTER = 0.05
+
 # ── Type scales ─────────────────────────────────────────────────
 # chalk.MathTex scale values. Do not emit anything below SCALE_MIN.
 SCALE_DISPLAY = 0.9   # main equation of a beat
